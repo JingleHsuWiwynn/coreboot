@@ -48,7 +48,7 @@ THREADS=1
 
 # GCC toolchain version numbers
 GMP_VERSION=6.1.2
-MPFR_VERSION=4.0.1
+MPFR_VERSION=4.0.2
 MPC_VERSION=1.1.0
 GCC_VERSION=8.3.0
 GCC_AUTOCONF_VERSION=2.69
@@ -710,11 +710,11 @@ build_MPC() {
 }
 
 build_BINUTILS() {
-	if [ $TARGETARCH = "x86_64-elf" ]; then
-		ADDITIONALTARGET=",i386-elf"
+    if [ $TARGETARCH = "x86_64-elf" ]; then
+        ADDITIONALTARGET=",i386-elf"
     elif [ $TARGETARCH = "i386-elf" ]; then
-		ADDITIONALTARGET=",x86_64-elf"
-	fi
+        ADDITIONALTARGET=",x86_64-elf"
+    fi
 	CC="$(hostcc target)" CXX="$(hostcxx target)" \
 	../binutils-${BINUTILS_VERSION}/configure --prefix="$TARGETDIR" \
 		--target=${TARGETARCH} --enable-targets=${TARGETARCH}${ADDITIONALTARGET} \
@@ -765,33 +765,6 @@ build_cross_GCC() {
 		CLANGFLAGS="-fbracket-depth=1024"
 	[ -n "$CXX" ] && $CXX --version | grep clang >/dev/null 2>&1 && \
 		CLANGCXXFLAGS="-fbracket-depth=1024"
-
-    echo CC="$(hostcc target)" CXX="$(hostcxx target)" \
-        CFLAGS_FOR_TARGET="-O2 -Dinhibit_libc" \
-        CFLAGS="$HOSTCFLAGS $CLANGFLAGS" \
-        CFLAGS_FOR_BUILD="$HOSTCFLAGS $CLANGFLAGS" \
-        CXXFLAGS="$HOSTCFLAGS $CLANGCXXFLAGS" \
-        CXXFLAGS_FOR_BUILD="$HOSTCFLAGS $CLANGCXXFLAGS" \
-        ../gcc-${GCC_VERSION}/configure \
-        --prefix="$TARGETDIR" --libexecdir="$TARGETDIR/lib" \
-        --target=${TARGETARCH} --disable-werror --disable-shared \
-        --enable-lto --enable-plugins --enable-gold --enable-ld=default \
-        --disable-libssp --disable-bootstrap --disable-nls \
-        --disable-libquadmath --without-headers \
-        --disable-threads \
-        --enable-interwork --enable-multilib --enable-targets=all \
-        --disable-libatomic --disable-libcc1 --disable-decimal-float \
-        ${GCC_OPTIONS} --enable-languages="${LANGUAGES}" \
-        --with-system-zlib \
-        --with-gmp="$DESTDIR$TARGETDIR" --with-mpfr="$DESTDIR$TARGETDIR" \
-        --with-mpc="$DESTDIR$TARGETDIR" \
-        --with-gnu-as --with-gnu-ld \
-        --with-pkgversion="coreboot toolchain v$CROSSGCC_VERSION $CROSSGCC_DATE" \
-        && \
-    mkdir -p gcc/$TARGETARCH && \
-    ln -s "$DESTDIR$TARGETDIR/$TARGETARCH/bin" "gcc/$TARGETARCH/$GCC_VERSION" && \
-    $MAKE $JOBS CFLAGS_FOR_BUILD="$HOSTCFLAGS" all-gcc && \
-    $MAKE install-gcc DESTDIR="$DESTDIR"
 
 	# GCC does not honor HOSTCFLAGS at all. CFLAGS are used for
 	# both target and host object files.
