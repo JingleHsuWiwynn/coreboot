@@ -27,7 +27,7 @@
 
 const FSPT_UPD temp_ram_init_params = {
 	.FspUpdHeader = {
-			.Signature = 0x545F445055564E44ULL,
+			.Signature = FSPT_UPD_SIGNATURE,
 			.Revision = 1,
 			.Reserved = {0},
 	},
