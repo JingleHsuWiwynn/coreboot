@@ -1,0 +1,4 @@
+00000000:00000fff fd
+01000000:01ffffff bios
+00001000:00fdffff me
+00fe0000:00feffff res1

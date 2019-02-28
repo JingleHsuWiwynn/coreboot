@@ -54,6 +54,7 @@ config CPU_SPECIFIC_OPTIONS
 	select SOC_INTEL_COMMON_BLOCK_FAST_SPI
 	select SOC_INTEL_COMMON_BLOCK_GPIO
 	select SOC_INTEL_COMMON_BLOCK_PCR
+    select SUPPORT_CPU_UCODE_IN_CBFS
 	select TSC_CONSTANT_RATE
 	select TSC_MONOTONIC_TIMER
 	select TSC_SYNC_MFENCE
@@ -95,7 +96,7 @@ config FSP_T_ADDR
     hex "Intel FSP-T (temp ram init) binary location"
     depends on ADD_FSP_BINARIES && FSP_CAR
     #default 0xffef0000
-    default 0xff014b40
+    default 0xff014dc0
     help
       The memory location of the Intel FSP-T binary for this platform.
 
@@ -103,7 +104,7 @@ config FSP_M_ADDR
     hex "Intel FSP-M (memory init) binary location"
     depends on ADD_FSP_BINARIES
     #default 0xffc00000
-    default 0xff017b80
+    default 0xff017e00
     help
       The memory location of the Intel FSP-M binary for this platform.
 
@@ -111,7 +112,7 @@ config FSP_S_ADDR
     hex "Intel FSP-S (silicon init) binary location"
     depends on ADD_FSP_BINARIES
     #default 0xff900000
-    default 0xff307bc0
+    default 0xff307e40
     help
       The memory location of the Intel FSP-S binary for this platform.
 
@@ -138,13 +139,14 @@ config DCACHE_BSP_STACK_SIZE
 	hex
 	default 0x10000
 
-#config CPU_MICROCODE_CBFS_LOC
-#	hex
-#	default 0xfff20040
+config CPU_MICROCODE_CBFS_LOC
+	hex
+	default 0xfff0fdc0
 
-#config CPU_MICROCODE_CBFS_LEN
-#	hex
-#	default 0x0ff80
+config CPU_MICROCODE_CBFS_LEN
+	hex
+	#default 0x0ff80
+	default 0x8000
 
 config CPU_BCLK_MHZ
 	int
