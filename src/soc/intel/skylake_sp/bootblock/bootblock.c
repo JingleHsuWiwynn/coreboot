@@ -26,27 +26,27 @@
 #include <console/console.h>
 
 const FSPT_UPD temp_ram_init_params = {
-	.FspUpdHeader = {
-			.Signature = FSPT_UPD_SIGNATURE,
-			.Revision = 1,
-			.Reserved = {0},
-	},
-	.FsptCoreUpd = {
-			.MicrocodeRegionBase =
-				(UINT32)CONFIG_CPU_MICROCODE_CBFS_LOC,
-			.MicrocodeRegionLength =
-				(UINT32)CONFIG_CPU_MICROCODE_CBFS_LEN,
-			.CodeRegionBase =
-				(UINT32)(0x100000000ULL - CONFIG_CBFS_SIZE),
-			.CodeRegionLength = (UINT32)CONFIG_CBFS_SIZE,
-			.Reserved1 = {0},
-	},
-	.FsptConfig = {
-			.PcdFsptPort80RouteDisable = 0,
-			.ReservedTempRamInitUpd = {0},
-	},
-	.UnusedUpdSpace0 = {0},
-	.UpdTerminator = 0x55AA,
+  .FspUpdHeader = {
+      .Signature = FSPT_UPD_SIGNATURE,
+      .Revision = 1,
+      .Reserved = {0},
+  },
+  .FsptCoreUpd = {
+      .MicrocodeRegionBase =
+        (UINT32)CONFIG_CPU_MICROCODE_CBFS_LOC,
+      .MicrocodeRegionLength =
+        (UINT32)CONFIG_CPU_MICROCODE_CBFS_LEN,
+      .CodeRegionBase =
+        (UINT32)(0x100000000ULL - CONFIG_CBFS_SIZE),
+      .CodeRegionLength = (UINT32)CONFIG_CBFS_SIZE,
+      .Reserved1 = {0},
+  },
+  .FsptConfig = {
+      .PcdFsptPort80RouteDisable = 0,
+      .ReservedTempRamInitUpd = {0},
+  },
+  .UnusedUpdSpace0 = {0},
+  .UpdTerminator = 0x55AA,
 };
 
 asmlinkage void bootblock_c_entry(uint64_t base_timestamp)
@@ -57,7 +57,6 @@ asmlinkage void bootblock_c_entry(uint64_t base_timestamp)
 
 void bootblock_soc_early_init(void)
 {
-
 #if (IS_ENABLED(CONFIG_CONSOLE_SERIAL))
 	early_uart_init();
 #endif

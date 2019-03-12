@@ -89,8 +89,8 @@ CPPFLAGS_common += -I$(src)/vendorcode/intel/fsp/fsp2_0/skylake_sp
 
 ##Set FSP binary blobs memory location
 
-$(CONFIG_FSP_T_CBFS)-options := -b $(CONFIG_FSP_T_ADDR)
-$(CONFIG_FSP_M_CBFS)-options := -b $(CONFIG_FSP_M_ADDR)
-$(CONFIG_FSP_S_CBFS)-options := -b $(CONFIG_FSP_S_ADDR)
+#$(CONFIG_FSP_T_CBFS)-options := -b $(CONFIG_FSP_T_ADDR)
+#$(CONFIG_FSP_M_CBFS)-options := -b $(CONFIG_FSP_M_ADDR)
+#$(CONFIG_FSP_S_CBFS)-options := -b $(CONFIG_FSP_S_ADDR)
 
 endif ## CONFIG_SOC_INTEL_SKYLAKE_SP
