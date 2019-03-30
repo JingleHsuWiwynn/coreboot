@@ -48,7 +48,7 @@ romstage-$(CONFIG_DISPLAY_UPD_DATA) += upd_display.c
 romstage-$(CONFIG_DISPLAY_HOBS) += hob_display.c
 
 ramstage-y += memmap.c
-ramstage-y += systemagent.c
+#ramstage-y += systemagent.c
 ramstage-y += reset.c
 ramstage-y += chip.c
 ramstage-y += soc_util.c
@@ -85,7 +85,7 @@ verstage-y += tsc_freq.c
 verstage-$(CONFIG_DRIVERS_UART_8250MEM) += uart_debug.c
 
 CPPFLAGS_common += -I$(src)/soc/intel/skylake_sp/include
-CPPFLAGS_common += -I$(src)/vendorcode/intel/fsp/fsp2_0/skylake_sp
+CPPFLAGS_common += -I$(src)/3rdparty/fsp/SkylakeSPFspBinPkg/Include
 
 ##Set FSP binary blobs memory location
 

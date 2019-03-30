@@ -20,8 +20,9 @@ config BOARD_SPECIFIC_OPTIONS
 	select BOARD_ROMSIZE_KB_32768
 	select HAVE_ACPI_TABLES
 	select SOC_INTEL_SKYLAKE_SP
-    select SKYLAKE_SP_SOC_PCH_H
-    select MAINBOARD_USES_FSP2_0
+	select SKYLAKE_SP_SOC_PCH_H
+	select MAINBOARD_USES_FSP2_0
+#  select MAX_SOCKET
 
 config MAINBOARD_DIR
     string
@@ -38,5 +39,9 @@ config MAINBOARD_FAMILY
 config MAINBOARD_VENDOR
 	string
 	default "OCP"
+
+#config MAX_SOCKET
+#  int
+#  default 2
 
 endif # BOARD_OCP_TIOGAPASS

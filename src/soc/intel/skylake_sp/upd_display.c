@@ -29,52 +29,22 @@ void soc_display_fspm_upd_params(
 	old = &fspm_old_upd->FspmConfig;
 	new = &fspm_new_upd->FspmConfig;
 
-	printk(BIOS_SPEW, "UPD values for MemoryInit:\n");
+	printk(BIOS_DEBUG, "UPD values for MemoryInit:\n");
 
 	#define DISPLAY_UPD(field) \
 		fsp_display_upd_value(#field, sizeof(old->field), \
 			old->field, new->field)
 
-	DISPLAY_UPD(PcdSmmTsegSize);
-	DISPLAY_UPD(PcdFspDebugPrintErrorLevel);
-	DISPLAY_UPD(PcdSpdSmbusAddress_0_0);
-	DISPLAY_UPD(PcdSpdSmbusAddress_0_1);
-	DISPLAY_UPD(PcdSpdSmbusAddress_1_0);
-	DISPLAY_UPD(PcdSpdSmbusAddress_1_1);
-	DISPLAY_UPD(PcdMrcRmtSupport);
-	DISPLAY_UPD(PcdMrcRmtCpgcExpLoopCntValue);
-	DISPLAY_UPD(PcdMrcRmtCpgcNumBursts);
-	DISPLAY_UPD(PcdMemoryPreservation);
-	DISPLAY_UPD(PcdFastBoot);
-	DISPLAY_UPD(PcdEccSupport);
+	DISPLAY_UPD(PcdFspMrcDebugPrintErrorLevel);
+	DISPLAY_UPD(PcdFspKtiDebugPrintErrorLevel);
 	DISPLAY_UPD(PcdHsuartDevice);
-	DISPLAY_UPD(PcdMemoryDown);
-	DISPLAY_UPD(PcdEnableSATA0);
-	DISPLAY_UPD(PcdEnableSATA1);
-	DISPLAY_UPD(PcdEnableIQAT);
-	DISPLAY_UPD(PcdSmbusSpdWriteDisable);
-	DISPLAY_UPD(PcdEnableMeShutdown);
-	DISPLAY_UPD(PcdEnableXhci);
-	DISPLAY_UPD(PcdDdrFreq);
-	DISPLAY_UPD(PcdMmioSize);
-	DISPLAY_UPD(PcdMeHeciCommunication);
-	DISPLAY_UPD(PcdHsioLanesNumber);
-	DISPLAY_UPD(PcdFiaMuxConfigPtr);
-	DISPLAY_UPD(PcdHalfWidthEnable);
-	DISPLAY_UPD(PcdTclIdle);
-	DISPLAY_UPD(PcdInterleaveMode);
-	DISPLAY_UPD(PcdMemoryThermalThrottling);
-	DISPLAY_UPD(PcdSkipMemoryTest);
-	DISPLAY_UPD(PcdUsb2Port1Pin);
-	DISPLAY_UPD(PcdUsb2Port2Pin);
-	DISPLAY_UPD(PcdUsb2Port3Pin);
-	DISPLAY_UPD(PcdUsb2Port4Pin);
-	DISPLAY_UPD(PcdUsb3Port1Pin);
-	DISPLAY_UPD(PcdUsb3Port2Pin);
-	DISPLAY_UPD(PcdUsb3Port3Pin);
-	DISPLAY_UPD(PcdUsb3Port4Pin);
-	DISPLAY_UPD(PcdIOxAPIC0_199);
-	DISPLAY_UPD(PcdDmapX16);
+#if 0
+	DISPLAY_UPD(PcdCustomerRevision);
+	DISPLAY_UPD(GpioConfig);
+	DISPLAY_UPD(IioBifurcationConfig);
+	DISPLAY_UPD(IioSlotConfig);
+	DISPLAY_UPD(KtieParamConfig);
+#endif
 
 	#undef DISPLAY_UPD
 
@@ -86,13 +56,13 @@ void soc_display_fsps_upd_params(
 	const FSPS_UPD *fsps_old_upd,
 	const FSPS_UPD *fsps_new_upd)
 {
-	const FSP_S_CONFIG *new;
-	const FSP_S_CONFIG *old;
+	const FSPS_CONFIG *new;
+	const FSPS_CONFIG *old;
 
 	old = &fsps_old_upd->FspsConfig;
 	new = &fsps_new_upd->FspsConfig;
 
-	printk(BIOS_SPEW, "UPD values for SiliconInit:\n");
+	printk(BIOS_DEBUG, "UPD values for SiliconInit:\n");
 
 	#define DISPLAY_UPD(field) \
 		fsp_display_upd_value(#field, sizeof(old->field), \
@@ -117,22 +87,6 @@ void soc_display_fsps_upd_params(
 	DISPLAY_UPD(PcdPcieRootPort6DeEmphasis);
 	DISPLAY_UPD(PcdPcieRootPort7DeEmphasis);
 	DISPLAY_UPD(PcdEMMCDLLConfigPtr);
-	DISPLAY_UPD(PcdPcieRootPort0LinkSpeed);
-	DISPLAY_UPD(PcdPcieRootPort1LinkSpeed);
-	DISPLAY_UPD(PcdPcieRootPort2LinkSpeed);
-	DISPLAY_UPD(PcdPcieRootPort3LinkSpeed);
-	DISPLAY_UPD(PcdPcieRootPort4LinkSpeed);
-	DISPLAY_UPD(PcdPcieRootPort5LinkSpeed);
-	DISPLAY_UPD(PcdPcieRootPort6LinkSpeed);
-	DISPLAY_UPD(PcdPcieRootPort7LinkSpeed);
-	DISPLAY_UPD(PcdPcieRootPort0Aspm);
-	DISPLAY_UPD(PcdPcieRootPort1Aspm);
-	DISPLAY_UPD(PcdPcieRootPort2Aspm);
-	DISPLAY_UPD(PcdPcieRootPort3Aspm);
-	DISPLAY_UPD(PcdPcieRootPort4Aspm);
-	DISPLAY_UPD(PcdPcieRootPort5Aspm);
-	DISPLAY_UPD(PcdPcieRootPort6Aspm);
-	DISPLAY_UPD(PcdPcieRootPort7Aspm);
 
 	#undef DISPLAY_UPD
 

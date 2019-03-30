@@ -27,7 +27,6 @@
 #include <soc/smm.h>
 #include <soc/soc_util.h>
 
-void __weak mainboard_config_gpios(void) {}
 
 static void early_pmc_init(void)
 {
@@ -107,6 +106,8 @@ asmlinkage void car_stage_entry(void)
 
 	fsp_memory_init(false);
 
+	printk(BIOS_DEBUG, "coreboot fsp_memory_init finished...\n");
+
 	if (postcar_frame_init(&pcf, 1 * KiB))
 		die("Unable to initialize postcar frame.\n");
 
@@ -135,27 +136,32 @@ asmlinkage void car_stage_entry(void)
 	postcar_frame_add_mtrr(&pcf, tseg_base, smm_size, MTRR_TYPE_WRBACK);
 #endif
 
+	printk(BIOS_DEBUG, "coreboot run_postcar_phase begin\n");
 	run_postcar_phase(&pcf);
+	printk(BIOS_DEBUG, "coreboot run_postcar_phase complete\n");
 }
 
 static void soc_memory_init_params(FSP_M_CONFIG *m_cfg)
 {
-	/* FSPM_UPD *mupd = container_of(m_cfg, FSPM_UPD, FspmConfig); */
-
-	/* Set the parameters for MemoryInit */
-	m_cfg->PcdEnableIQAT = IS_ENABLED(CONFIG_IQAT_ENABLE);
-}
-
-__weak void mainboard_memory_init_params(FSPM_UPD *mupd)
-{
-	/* Do nothing */
 }
 
 void platform_fsp_memory_init_params_cb(FSPM_UPD *mupd, uint32_t version)
 {
 	FSP_M_CONFIG *m_cfg = &mupd->FspmConfig;
 
+	mupd->FspmUpdVersion = FSP_UPD_VERSION;
+
 	soc_memory_init_params(m_cfg);
 
 	mainboard_memory_init_params(mupd);
 }
+
+__weak void mainboard_config_gpios(void)
+{
+	/* Do nothing */
+}
+__weak void mainboard_memory_init_params(FSPM_UPD *mupd)
+{
+	/* Do nothing */
+}
+

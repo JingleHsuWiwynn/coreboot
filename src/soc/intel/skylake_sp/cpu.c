@@ -276,6 +276,6 @@ static const struct mp_ops mp_ops = {
 void skylake_sp_init_cpus(struct device *dev)
 {
 	/* Clear for take-off */
-	if (mp_init_with_smm(dev->link_list, &mp_ops) < 0)
+	if (0 && mp_init_with_smm(dev->link_list, &mp_ops) < 0)
 		printk(BIOS_ERR, "MP initialization failure.\n");
 }

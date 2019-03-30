@@ -63,6 +63,8 @@ config CPU_SPECIFIC_OPTIONS
 	select UDELAY_TSC
 	select UDK_2015_BINDING
 	select CPU_INTEL_FIRMWARE_INTERFACE_TABLE
+	# This option is not used anywhere!! Doesn't comprehend compression
+	# select MIRROR_PAYLOAD_TO_RAM_BEFORE_LOADING
 
 config MAINBOARD_USES_FSP2_0
     bool
@@ -92,7 +94,7 @@ config FSP_FD_PATH
 
 config MAX_CPUS
 	int
-	default 20
+	default 28
 
 config PCR_BASE_ADDRESS
 	hex
@@ -111,6 +113,10 @@ config DCACHE_RAM_SIZE
 config DCACHE_BSP_STACK_SIZE
   hex
   default 0x10000
+
+config MMCONF_BASE_ADDRESS
+	hex
+	default 0x80000000
 
 config CPU_MICROCODE_CBFS_LOC
   hex

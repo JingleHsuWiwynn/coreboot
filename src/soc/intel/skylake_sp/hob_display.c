@@ -68,7 +68,9 @@ const char *soc_get_guid_name(const uint8_t *guid)
 
 void soc_display_hob(const struct hob_header *hob)
 {
+	/*
 	hexdump(hob, hob->length);
+	*/
 }
 
 void soc_display_fsp_smbios_memory_info_hob(

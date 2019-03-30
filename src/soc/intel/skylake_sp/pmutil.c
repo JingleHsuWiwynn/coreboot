@@ -23,6 +23,70 @@
 #include <soc/soc_util.h>
 #include <soc/pm.h>
 
+const char *const *soc_smi_sts_array(size_t *smi_arr);
+const char *const *soc_tco_sts_array(size_t *tco_arr);
+
+/*
+ * SMI
+ */
+
+const char *const *soc_smi_sts_array(size_t *smi_arr)
+{
+	static const char *const smi_sts_bits[] = {
+		[2] = "BIOS",
+		[3] = "LEGACY_USB",
+		[4] = "SLP_SMI",
+		[5] = "APM",
+		[6] = "SWSMI_TMR",
+		[8] = "PM1",
+		[9] = "GPE0",
+		[10] = "GPI",
+		[11] = "MCSMI",
+		[12] = "DEVMON",
+		[13] = "TCO",
+		[14] = "PERIODIC",
+		[15] = "SERIRQ_SMI",
+		[16] = "SMBUS_SMI",
+		[17] = "LEGACY_USB2",
+		[18] = "INTEL_USB2",
+		[20] = "PCI_EXP_SMI",
+		[21] = "MONITOR",
+		[26] = "SPI",
+		[27] = "GPIO_UNLOCK",
+		[28] = "ESPI_SMI",
+	};
+
+	*smi_arr = ARRAY_SIZE(smi_sts_bits);
+	return smi_sts_bits;
+}
+
+/*
+ * TCO
+ */
+
+const char *const *soc_tco_sts_array(size_t *tco_arr)
+{
+	static const char *const tco_sts_bits[] = {
+		[0] = "NMI2SMI",
+		[1] = "SW_TCO",
+		[2] = "TCO_INT",
+		[3] = "TIMEOUT",
+		[7] = "NEWCENTURY",
+		[8] = "BIOSWR",
+		[9] = "DMISCI",
+		[10] = "DMISMI",
+		[12] = "DMISERR",
+		[13] = "SLVSEL",
+		[16] = "INTRD_DET",
+		[17] = "SECOND_TO",
+		[18] = "BOOT",
+		[20] = "SMLINK_SLV"
+	};
+
+	*tco_arr = ARRAY_SIZE(tco_sts_bits);
+	return tco_sts_bits;
+}
+
 static void print_num_status_bits(int num_bits, uint32_t status,
 				  const char *const bit_names[])
 {
