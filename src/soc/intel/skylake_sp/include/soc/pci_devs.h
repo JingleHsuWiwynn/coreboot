@@ -35,6 +35,23 @@
 #define _PCH_DEV(slot, func) PCI_DEV(0, PCH_DEV_SLOT_##slot, func)
 #endif
 
+/* Skylake SP devices, registers */
+#define SKXSP_MMAP_DEVID 0x2024
+#define SKXSP_VTD_DEV          5
+#define SKXSP_VTD_FUNC         0
+#define SKXSP_VTD_MMCFG_BASE_CSR 0x90
+#define SKXSP_VTD_MMCFG_LIMIT_CSR 0x98
+#define SKXSP_VTD_TSEG_BASE_CSR     0xa8
+#define SKXSP_VTD_TSEG_LIMIT_CSR     0xac
+#define SKXSP_VTD_TOLM_CSR     0xd0
+#define SKXSP_VTD_TOHM_CSR     0xd4 
+#define SKXSP_VTD_MMIOL_CSR    0xdc
+#define SKXSP_VTD_ME_BASE_CSR 0xf0
+#define SKXSP_VTD_ME_LIMIT_CSR 0xf8
+
+
+/* FIXME: Below devices need to be changed for SKX SP + LBG */
+
 /* SoC transaction router */
 #define SA_DEV 0x0
 #define SA_FUNC 0

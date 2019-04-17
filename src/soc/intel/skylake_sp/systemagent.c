@@ -44,6 +44,7 @@ static int get_pcie_bar(struct device *dev, unsigned int index, u32 *base,
 	*base = 0;
 	*len = 0;
 
+	printk(BIOS_DEBUG, "^^ ENTER %s:%s:%d\n", __FILE__, __func__, __LINE__);
 	pciexbar_reg = pci_read_config32(dev, index);
 
 	if (!(pciexbar_reg & (1 << 0)))
@@ -67,6 +68,7 @@ static int get_pcie_bar(struct device *dev, unsigned int index, u32 *base,
 		return 1;
 	}
 
+	printk(BIOS_DEBUG, "^^ EXIT %s:%s:%d\n", __FILE__, __func__, __LINE__);
 	return 0;
 }
 
@@ -74,6 +76,7 @@ static int get_bar(struct device *dev, unsigned int index, u32 *base, u32 *len)
 {
 	u32 bar;
 
+	printk(BIOS_DEBUG, "^^ ENTER %s:%s:%d\n", __FILE__, __func__, __LINE__);
 	bar = pci_read_config32(dev, index);
 
 	/* If not enabled don't report it. */
@@ -82,6 +85,7 @@ static int get_bar(struct device *dev, unsigned int index, u32 *base, u32 *len)
 
 	/* Knock down the enable bit. */
 	*base = bar & ~1;
+	printk(BIOS_DEBUG, "^^ EXIT %s:%s:%d\n", __FILE__, __func__, __LINE__);
 
 	return 1;
 }
@@ -99,6 +103,7 @@ struct fixed_mmio_descriptor mc_fixed_resources[] = {
 	{MCHBAR, MCH_BASE_SIZE, get_bar, "MCHBAR"},
 };
 
+#if 0
 /*
  * Add all known fixed MMIO ranges that hang off the host bridge/memory
  * controller device.
@@ -107,6 +112,7 @@ static void mc_add_fixed_mmio_resources(struct device *dev)
 {
 	int i;
 
+	printk(BIOS_DEBUG, "^^ ENTER %s:%s:%d\n", __FILE__, __func__, __LINE__);
 	for (i = 0; i < ARRAY_SIZE(mc_fixed_resources); i++) {
 		u32 base;
 		u32 size;
@@ -129,12 +135,15 @@ static void mc_add_fixed_mmio_resources(struct device *dev)
 		       __func__, mc_fixed_resources[i].description, index,
 		       (unsigned long)base, (unsigned long)(base + size - 1));
 	}
+	printk(BIOS_DEBUG, "^^ EXIT %s:%s:%d\n", __FILE__, __func__, __LINE__);
 }
+#endif
 
 struct map_entry {
 	int reg;
 	int is_64_bit;
 	int is_limit;
+	int mask_bits;
 	const char *description;
 };
 
@@ -144,8 +153,10 @@ static void read_map_entry(struct device *dev, struct map_entry *entry,
 	uint64_t value;
 	uint64_t mask;
 
+	printk(BIOS_DEBUG, "^^ ENTER %s:%s:%d\n", __FILE__, __func__, __LINE__);
 	/* All registers are on a 1MiB granularity. */
-	mask = ((1ULL << 20) - 1);
+	/*mask = ((1ULL << 20) - 1);*/
+	mask = ((1ULL << entry->mask_bits) - 1);
 	mask = ~mask;
 
 	value = 0;
@@ -162,56 +173,75 @@ static void read_map_entry(struct device *dev, struct map_entry *entry,
 		value |= ~mask;
 
 	*result = value;
+	printk(BIOS_DEBUG, "^^ EXIT %s:%s:%d\n", __FILE__, __func__, __LINE__);
 }
 
-#define MAP_ENTRY(reg_, is_64_, is_limit_, desc_)                        \
+#define MAP_ENTRY(reg_, is_64_, is_limit_, mask_bits_, desc_)                        \
 	{                                                                \
 		.reg = reg_, .is_64_bit = is_64_, .is_limit = is_limit_, \
-		.description = desc_,                                    \
+		.mask_bits = mask_bits_, .description = desc_,                                    \
 	}
 
-#define MAP_ENTRY_BASE_64(reg_, desc_) MAP_ENTRY(reg_, 1, 0, desc_)
-#define MAP_ENTRY_LIMIT_64(reg_, desc_) MAP_ENTRY(reg_, 1, 1, desc_)
-#define MAP_ENTRY_BASE_32(reg_, desc_) MAP_ENTRY(reg_, 0, 0, desc_)
+#define MAP_ENTRY_BASE_64(reg_, desc_) MAP_ENTRY(reg_, 1, 0, 0, desc_)
+#define MAP_ENTRY_LIMIT_64(reg_, mask_bits_, desc_) MAP_ENTRY(reg_, 1, 1, mask_bits_, desc_)
+#define MAP_ENTRY_BASE_32(reg_, desc_) MAP_ENTRY(reg_, 0, 0, 0, desc_)
+#define MAP_ENTRY_LIMIT_32(reg_, mask_bits_, desc_) MAP_ENTRY(reg_, 0, 1, mask_bits_, desc_)
 
 enum {
-	TOUUD_REG,
-	TOLUD_REG,
-	TSEG_REG,
+	TOHM_REG,
+	MMIOL_REG,
+	MMCFG_BASE_REG,
+	MMCFG_LIMIT_REG,
+	TOLM_REG,
+	ME_BASE_REG,
+	ME_LIMIT_REG,
+	TSEG_BASE_REG,
+	TSEG_LIMIT_REG,
 	/* Must be last. */
 	NUM_MAP_ENTRIES
 };
 
 static struct map_entry memory_map[NUM_MAP_ENTRIES] = {
-		[TOUUD_REG] = MAP_ENTRY_BASE_64(TOUUD, "TOUUD"),
-		[TOLUD_REG] = MAP_ENTRY_BASE_32(TOLUD, "TOLUD"),
-		[TSEG_REG] = MAP_ENTRY_BASE_32(TSEGMB, "TSEGMB"),
+		[TOHM_REG] = MAP_ENTRY_LIMIT_64(SKXSP_VTD_TOHM_CSR, 26, "TOHM"),
+		[MMIOL_REG] = MAP_ENTRY_BASE_32(SKXSP_VTD_MMIOL_CSR, "MMIOL"),
+		[MMCFG_BASE_REG] = MAP_ENTRY_BASE_64(SKXSP_VTD_MMCFG_BASE_CSR, "MMCFG_BASE"),
+		[MMCFG_LIMIT_REG] = MAP_ENTRY_LIMIT_64(SKXSP_VTD_MMCFG_LIMIT_CSR, 26, "MMCFG_LIMIT"),
+		[TOLM_REG] = MAP_ENTRY_LIMIT_32(SKXSP_VTD_TOLM_CSR, 26, "TOLM"),
+		[ME_BASE_REG] = MAP_ENTRY_BASE_64(SKXSP_VTD_ME_BASE_CSR, "ME_BASE"),
+		[ME_LIMIT_REG] = MAP_ENTRY_LIMIT_64(SKXSP_VTD_ME_LIMIT_CSR, 19, "ME_LIMIT"),
+		[TSEG_BASE_REG] = MAP_ENTRY_BASE_32(SKXSP_VTD_TSEG_BASE_CSR, "TSEGMB_BASE"),
+		[TSEG_LIMIT_REG] = MAP_ENTRY_LIMIT_32(SKXSP_VTD_TSEG_LIMIT_CSR, 20, "TSEGMB_LIMIT"),
 };
 
 static void mc_read_map_entries(struct device *dev, uint64_t *values)
 {
+	printk(BIOS_DEBUG, "^^ ENTER %s:%s:%d\n", __FILE__, __func__, __LINE__);
 	int i;
 	for (i = 0; i < NUM_MAP_ENTRIES; i++)
 		read_map_entry(dev, &memory_map[i], &values[i]);
+	printk(BIOS_DEBUG, "^^ EXIT %s:%s:%d\n", __FILE__, __func__, __LINE__);
 }
 
 static void mc_report_map_entries(struct device *dev, uint64_t *values)
 {
 	int i;
+	printk(BIOS_DEBUG, "^^ ENTER %s:%s:%d\n", __FILE__, __func__, __LINE__);
 	for (i = 0; i < NUM_MAP_ENTRIES; i++) {
 		printk(BIOS_DEBUG, "MC MAP: %s: 0x%llx\n",
 		       memory_map[i].description, values[i]);
 	}
+	printk(BIOS_DEBUG, "^^ EXIT %s:%s:%d\n", __FILE__, __func__, __LINE__);
 }
 
 static void mc_add_dram_resources(struct device *dev)
 {
 	unsigned long base_k, size_k;
-	unsigned long touud_k;
 	unsigned long index;
 	struct resource *resource;
 	uint64_t mc_values[NUM_MAP_ENTRIES];
+	u32 top_of_ram;
 
+	printk(BIOS_DEBUG, "^^ ENTER %s:%s:%d\n", __FILE__, __func__, __LINE__);
 	/* Read in the MAP registers and report their values. */
 	mc_read_map_entries(dev, &mc_values[0]);
 	mc_report_map_entries(dev, &mc_values[0]);
@@ -249,40 +279,47 @@ static void mc_add_dram_resources(struct device *dev)
 	 */
 	index = 0;
 
-	/* 0 - > 0xa0000 */
-	base_k = 0;
-	size_k = (0xa0000 >> 10) - base_k;
-	ram_resource(dev, index++, base_k, size_k);
+  /* 0 - > 0xa0000 */
+  base_k = 0;
+  size_k = (0xa0000 >> 10) - base_k;
+	printk(BIOS_DEBUG, "Adding ram resource for dev: %s (start: 0x%lx, size: 0x%lx)\n", dev_path(dev), base_k, size_k);
+  ram_resource(dev, index++, base_k, size_k);
 
-	/* 0x100000 -> top_of_ram */
-	base_k = 0x100000 >> 10;
-	size_k = (top_of_32bit_ram() >> 10) - base_k;
-	ram_resource(dev, index++, base_k, size_k);
+  /* 0xc0000 -> top_of_ram */
+	top_of_ram = (uintptr_t) top_of_32bit_ram();
+  base_k = (0xc0000 >> 10);
+  size_k = (top_of_ram >> 10) - base_k;
+	printk(BIOS_DEBUG, "Adding ram resource for dev: %s (start: 0x%lx, size: 0x%lx)\n", dev_path(dev), base_k, size_k);
+  ram_resource(dev, index++, base_k, size_k);
 
-	/* top_of_ram -> TSEG */
+	/* top_of_ram -> TSEG Limit */
+  resource = new_resource(dev, index++);
+  resource->base = mc_values[TSEG_BASE_REG];
+  resource->size = mc_values[TSEG_LIMIT_REG] - resource->base;
+  resource->flags = IORESOURCE_MEM | IORESOURCE_FIXED |
+        IORESOURCE_STORED | IORESOURCE_RESERVE |
+        IORESOURCE_ASSIGNED | IORESOURCE_CACHEABLE;
+  printk(BIOS_DEBUG,
+    "SMM memory location: 0x%llx  SMM memory size: 0x%llx\n",
+    resource->base, resource->size);
+
 	resource = new_resource(dev, index++);
-	resource->base = top_of_32bit_ram();
-	resource->size = mc_values[TSEG_REG] - resource->base;
-	resource->flags = IORESOURCE_MEM | IORESOURCE_FIXED |
-			  IORESOURCE_STORED | IORESOURCE_RESERVE |
-			  IORESOURCE_ASSIGNED;
+  resource->base = mc_values[ME_BASE_REG];
+  resource->size = mc_values[ME_LIMIT_REG] - resource->base;
+  resource->flags = IORESOURCE_MEM | IORESOURCE_FIXED |
+        IORESOURCE_STORED | IORESOURCE_RESERVE |
+        IORESOURCE_ASSIGNED;
+	printk(BIOS_DEBUG, "MESeg base: 0x%llx, size: 0x%llx\n", resource->base, resource->size);
 
-	/* TSEG -> TOLUD */
-	resource = new_resource(dev, index++);
-	resource->base = mc_values[TSEG_REG];
-	resource->size = mc_values[TOLUD_REG] - resource->base;
-	resource->flags = IORESOURCE_MEM | IORESOURCE_FIXED |
-			  IORESOURCE_STORED | IORESOURCE_RESERVE |
-			  IORESOURCE_ASSIGNED | IORESOURCE_CACHEABLE;
-	printk(BIOS_DEBUG,
-		"SMM memory location: 0x%llx  SMM memory size: 0x%llx\n",
-		resource->base, resource->size);
+	mmio_resource(dev, index++, (mc_values[MMCFG_BASE_REG] >> 10), 
+								(mc_values[MMCFG_LIMIT_REG] - mc_values[MMCFG_BASE_REG]) >> 10);
 
 	/* 4GiB -> TOUUD */
 	base_k = 4096 * 1024; /* 4GiB */
-	touud_k = mc_values[TOUUD_REG] >> 10;
-	size_k = touud_k - base_k;
-	if (touud_k > base_k)
+	size_k = (mc_values[TOHM_REG] >> 10) - base_k;
+	printk(BIOS_DEBUG, "Adding ram resource for dev: %s (start: 0x%lx, size: 0x%lx)\n", 
+				dev_path(dev), base_k, size_k);
+	if (mc_values[TOHM_REG] > base_k)
 		ram_resource(dev, index++, base_k, size_k);
 
 	/*
@@ -292,29 +329,38 @@ static void mc_add_dram_resources(struct device *dev)
 	 * 0xc0000 - 0xfffff: reserved RAM
 	 */
 	mmio_resource(dev, index++, (0xa0000 >> 10), (0xc0000 - 0xa0000) >> 10);
+	printk(BIOS_DEBUG, "legacy VGA start: 0x%lx, size: 0x%lx\n", (unsigned long) (0xa0000 >> 10), 
+				 (unsigned long) ((0xc0000 - 0xa0000) >> 10));
+#if 0
 	reserved_ram_resource(dev, index++, (0xc0000 >> 10),
 			      (0x100000 - 0xc0000) >> 10);
+#endif
+	printk(BIOS_DEBUG, "^^ EXIT %s:%s:%d\n", __FILE__, __func__, __LINE__);
 }
 
 static void systemagent_read_resources(struct device *dev)
 {
+	printk(BIOS_DEBUG, "^^ ENTER %s:%s:%d\n", __FILE__, __func__, __LINE__);
 	/* Read standard PCI resources. */
 	pci_dev_read_resources(dev);
 
 	/* Add all fixed MMIO resources. */
-	mc_add_fixed_mmio_resources(dev);
+	/* mc_add_fixed_mmio_resources(dev); */
 
 	/* Calculate and add DRAM resources. */
 	mc_add_dram_resources(dev);
+	printk(BIOS_DEBUG, "^^ EXIT %s:%s:%d\n", __FILE__, __func__, __LINE__);
 }
 
 static void systemagent_init(struct device *dev)
 {
+#if 0
 	struct stopwatch sw;
 	void *bios_reset_cpl =
 		(void *)(DEFAULT_MCHBAR + MCH_BAR_BIOS_RESET_CPL);
 	uint32_t reg = read32(bios_reset_cpl);
 
+	printk(BIOS_DEBUG, "^^ ENTER %s:%s:%d\n", __FILE__, __func__, __LINE__);
 	/* Stage0 BIOS Reset Complete (RST_CPL) */
 	reg |= RST_CPL_BIT;
 	write32(bios_reset_cpl, reg);
@@ -332,6 +378,8 @@ static void systemagent_init(struct device *dev)
 		udelay(WAITING_STEP);
 	}
 	printk(BIOS_DEBUG, "Set BIOS_RESET_CPL\n");
+	printk(BIOS_DEBUG, "^^ EXIT %s:%s:%d\n", __FILE__, __func__, __LINE__);
+#endif
 }
 
 static struct device_operations systemagent_ops = {
@@ -344,8 +392,7 @@ static struct device_operations systemagent_ops = {
 
 /* IDs for System Agent device of Intel Skylake SoC */
 static const unsigned short systemagent_ids[] = {
-	SA_DEVID, /* DVN System Agent */
-	SA_DEVID_DNVAD, /* DVN-AD System Agent */
+	SKXSP_MMAP_DEVID, /* Memory Map/Intel® VT-d Configuration Registers */
 	0
 };
 

@@ -48,14 +48,14 @@ romstage-$(CONFIG_DISPLAY_UPD_DATA) += upd_display.c
 romstage-$(CONFIG_DISPLAY_HOBS) += hob_display.c
 
 ramstage-y += memmap.c
-#ramstage-y += systemagent.c
+ramstage-y += systemagent.c
 ramstage-y += reset.c
 ramstage-y += chip.c
 ramstage-y += soc_util.c
 ramstage-y += uart.c
 ramstage-y += xhci.c
 ramstage-y += csme_ie_kt.c
-ramstage-y += lpc.c
+#ramstage-y += lpc.c
 ramstage-y += pmc.c
 ramstage-y += npk.c
 ramstage-y += sata.c

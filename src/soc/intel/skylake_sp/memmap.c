@@ -115,6 +115,7 @@ u32 read_csr32(u32 bus, u32 dev, u32 func, u32 reg)
 
 /*
  * Get Socket 0 CPUBUSNO(0), CPUBUSNO(1) PCI bus numbers UBOX (B0:D8:F2:Offset_CCh)
+ * TODO: D0h
  */
 void get_cpubusnos(u32 *bus0, u32 *bus1, u32 *bus2, u32 *bus3);
 void get_cpubusnos(u32 *bus0, u32 *bus1, u32 *bus2, u32 *bus3)
@@ -137,8 +138,8 @@ void get_cpubusnos(u32 *bus0, u32 *bus1, u32 *bus2, u32 *bus3)
 /*
  * Get MMCFG CSR B1:D29:F1:Offset_C0h
  */
-uintptr_t get_mmcfg_base(u32 bus);
-uintptr_t get_mmcfg_base(u32 bus)
+uintptr_t get_cha_mmcfg_base(u32 bus);
+uintptr_t get_cha_mmcfg_base(u32 bus)
 {
 	u32 wl = read_csr32(bus, CHA_UTIL_ALL_DEV, CHA_UTIL_ALL_FUNC, CHA_UTIL_ALL_MMCFG_CSR);
 	u32 wh = read_csr32(bus, CHA_UTIL_ALL_DEV, CHA_UTIL_ALL_FUNC, CHA_UTIL_ALL_MMCFG_CSR + 4);
@@ -147,28 +148,23 @@ uintptr_t get_mmcfg_base(u32 bus)
 	return addr;
 }
 
-#define VTD_DEV          5
-#define VTD_FUNC         0
-#define VTD_TOLM_CSR     0xd0
-#define VTD_TSEG_CSR     0xa8
-
 /*
  * Get TOLM CSR B0:D5:F0:Offset_d0h
  */
 uintptr_t get_tolm(u32 bus);
 uintptr_t get_tolm(u32 bus)
 {
-	u32 w = read_csr32(bus, VTD_DEV, VTD_FUNC, VTD_TOLM_CSR);
+	u32 w = read_csr32(bus, SKXSP_VTD_DEV, SKXSP_VTD_FUNC, SKXSP_VTD_TOLM_CSR);
 	uintptr_t addr =  w & 0xfc000000;
-	printk(BIOS_DEBUG, "VTD_TOLM_CSR 0x%x, addr: 0x%lx\n", w, addr);
+	printk(BIOS_DEBUG, "SKXSP_VTD_TOLM_CSR 0x%x, addr: 0x%lx\n", w, addr);
 	return addr;
 }
 
 void get_tseg_base_lim(u32 bus, u32 *base, u32 *limit);
 void get_tseg_base_lim(u32 bus, u32 *base, u32 *limit)
 {
-	u32 w1 = read_csr32(bus, VTD_DEV, VTD_FUNC, VTD_TSEG_CSR);
-	u32 wh = read_csr32(bus, VTD_DEV, VTD_FUNC, VTD_TSEG_CSR + 4);
+	u32 w1 = read_csr32(bus, SKXSP_VTD_DEV, SKXSP_VTD_FUNC, SKXSP_VTD_TSEG_BASE_CSR);
+	u32 wh = read_csr32(bus, SKXSP_VTD_DEV, SKXSP_VTD_FUNC, SKXSP_VTD_TSEG_LIMIT_CSR);
 	*base = w1 & 0xfff00000;
 	*limit = wh & 0xfff00000;
 }
@@ -178,12 +174,12 @@ u32 top_of_32bit_ram(void)
 	u32 bus0 = 0, bus1 = 0;
 	get_cpubusnos(&bus0, &bus1, NULL, NULL);
 
-	uintptr_t mmcfg = get_mmcfg_base(bus1);
+	uintptr_t mmcfg = get_cha_mmcfg_base(bus1);
 	uintptr_t tolm = get_tolm(bus0);
 	printk(BIOS_DEBUG, "bus0: 0x%x, bus1: 0x%x, mmcfg: 0x%lx, tolm: 0x%lx\n", bus0, bus1, mmcfg, tolm);
 	u32 base = 0, limit = 0;
 	get_tseg_base_lim(bus0, &base, &limit);
-	printk(BIOS_DEBUG, "base: 0x%x, limit: 0x%x\n", base, limit);
+	printk(BIOS_DEBUG, "tseg base: 0x%x, limit: 0x%x\n", base, limit);
 
 #if 0
   for (int b = 0; b < 256; ++b) {
