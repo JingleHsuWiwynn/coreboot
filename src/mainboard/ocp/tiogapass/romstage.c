@@ -35,23 +35,25 @@ void mainboard_memory_init_params(FSPM_UPD *mupd);
 */
 void mainboard_config_gpios(FSPM_UPD *mupd)
 {
+#if 0
 	mupd->FspmConfig.GpioConfig.GpioTable = (UPD_GPIO_INIT_CONFIG *) tp_gpio_table;
 	mupd->FspmConfig.GpioConfig.NumberOfEntries = sizeof(tp_gpio_table)/sizeof(UPD_GPIO_INIT_CONFIG);
+#endif
 }
 
 void mainboard_config_iio(FSPM_UPD *mupd)
 {
+#if 0
 	mupd->FspmConfig.IioBifurcationConfig.IIoBifurcationTable = (UPD_IIO_BIFURCATION_DATA_ENTRY *) tp_iio_bifur_table;
 	mupd->FspmConfig.IioBifurcationConfig.NumberOfEntries = sizeof(tp_iio_bifur_table)/sizeof(UPD_IIO_BIFURCATION_DATA_ENTRY);
 
 	mupd->FspmConfig.IioSlotConfig.IIoSlotConfigTable = (UPD_IIO_SLOT_CONFIG_DATA_ENTRY *) tp_iio_slot_table;
 	mupd->FspmConfig.IioSlotConfig.NumberOfEntries = sizeof(tp_iio_slot_table)/sizeof(UPD_IIO_SLOT_CONFIG_DATA_ENTRY);
+#endif
 }
 
 void mainboard_memory_init_params(FSPM_UPD *mupd)
 {
-	post_code(0xd1);
 	mainboard_config_gpios(mupd);
 	mainboard_config_iio(mupd);
-	post_code(0xd2);
 }

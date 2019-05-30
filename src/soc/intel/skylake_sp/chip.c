@@ -31,12 +31,27 @@
 #include <spi-generic.h>
 #include <soc/hob_mem.h>
 
+#define DRV_IS_PCI_VENDOR_ID_INTEL 0x8086
+#define VENDOR_ID_MSASK 0x0000FFFF
+#define DEVICE_ID_MASK 0xFFFF00000
+#define DEVICE_ID_BITSHIFT 16
+#define PCI_ENABLE 0x80000000
+#define FORM_PCI_ADDR(bus,dev,fun,off) (((PCI_ENABLE)) | \
+		((bus & 0xFF) << 16)| \
+		((dev & 0x1F) << 11)| \
+		((fun & 0x07) << 8) | \
+		((off & 0xFF) << 0))
+#define SKYLAKE_SERVER_SOCKETID_UBOX_DID 0x2014
+//the below LNID and GID applies to Skylake Server
+#define UNC_SOCKETID_UBOX_LNID_OFFSET 0xC0
+#define UNC_SOCKETID_UBOX_GID_OFFSET 0xD4
+
 static void pci_domain_set_resources(struct device *dev)
 {
 	printk(BIOS_DEBUG, "^^^ ENTER %s:%d:%s (dev: %s)\n", __FILE__, __LINE__, __func__, dev_path(dev));
-	#if 0
+#if 0
 	assign_resources(dev->link_list);
-	#endif
+#endif
 	printk(BIOS_DEBUG, "^^^ EXIT %s:%d:%s (dev: %s)\n", __FILE__, __LINE__, __func__, dev_path(dev));
 }
 
@@ -83,7 +98,7 @@ static void soc_final(void *data)
 	printk(BIOS_DEBUG, "^^^ ENTER %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	u32 b1 = pci_mmio_read_config32(PCI_DEV(0, 8, 2), 0xcc);
 	u32 b2 = pci_mmio_read_config32(PCI_DEV(0, 8, 2), 0xd0);
-	u32 bus0 = (b1 & 0xff);
+	//u32 bus0 = (b1 & 0xff);
 	u32 bus1 = ((b1 >> 8) & 0xff);
 	printk(BIOS_DEBUG, "[0xcc: 0x%x, 0xd0: 0x%x] bus0: 0x%x, bus1: 0x%x, bus2: 0x%x, bus3: 0x%x, bus4: 0x%x, bus5: 0x%x\n",
 				 b1, b2, (b1 & 0xff), (b1 >> 8) & 0xff, (b1 >> 16) & 0xff, (b1 >> 24) & 0xff,
@@ -92,6 +107,7 @@ static void soc_final(void *data)
 	u32 r = pci_mmio_read_config32(PCI_DEV(0, 8, 2), 0xd4);
 	printk(BIOS_DEBUG, "busno valid: 0x%x\n", ((r & 0x80000000) >> 31));
 
+#if 0
 	/* MMCFG Target List */
 	r = pci_mmio_read_config32(PCI_DEV(bus1, 29, 1), 0xec);
 	for (int i=0; i<8; ++i) {
@@ -113,6 +129,7 @@ static void soc_final(void *data)
 		else
 			printk(BIOS_DEBUG, "Send Root BUS with all Device IDs to the UBOX\n");
 	}
+#endif
 
 	/* MMCFG_LOCAL_RULE_ADDRESS_0 */
 	r = pci_mmio_read_config32(PCI_DEV(bus1, 29, 1), 0xc8);
@@ -128,6 +145,7 @@ static void soc_final(void *data)
 	for (int i=0; i<4; ++i) 
 		printk(BIOS_DEBUG, "IIO Stack %d Bus Limit 0x%x\n", i+3, (r >> (i * 8)) & 0xff);
 
+#if 0
 	/* MMCFG_RULE */
 	r = pci_mmio_read_config32(PCI_DEV(bus0, 8, 2), 0xdc);
 	printk(BIOS_DEBUG, "[0x%x] MMCFG Enabled? %d, ", r, r & 0x1);
@@ -258,6 +276,81 @@ static void soc_final(void *data)
 		printk(BIOS_DEBUG, "Target is local IIO Stack 0x%x\n", (target & 0x7));
 	else
 		printk(BIOS_DEBUG, "Target is remote socket with NodeID 0x%x\n", (target & 0x7));
+
+	for (int bus_no = 0; bus_no < 256; bus_no++) {
+		for (int device_no = 0; device_no < 32; device_no++) {
+			for (int function_no = 0; function_no < 8; function_no++) {
+				/* find bus, device, and function number for socket ID UBOX device */
+				u16 vendor_id = pci_mmio_read_config16(PCI_DEV(bus_no, device_no, function_no), 0);
+				u16 device_id = pci_mmio_read_config16(PCI_DEV(bus_no, device_no, function_no), 2);
+				if (vendor_id != 0xffff && device_id != 0xffff && vendor_id != 0 && device_id != 0) {
+					printk(BIOS_DEBUG, "bus_no: 0x%x, device_no: 0x%x, function_no: 0x%x, vendor_id: 0x%x, device_id: 0x%x",
+								 bus_no, device_no, function_no, vendor_id, device_id);
+					for (int b=0; b < 6; ++b) {
+						u32 bar = pci_mmio_read_config32(PCI_DEV(bus_no, device_no, function_no), (0x10 + (b * 4)));
+						printk(BIOS_DEBUG, ", bar%d: 0x%x", b, bar);
+					}
+					printk(BIOS_DEBUG, "\n");
+				}
+				if (vendor_id != DRV_IS_PCI_VENDOR_ID_INTEL) {
+					continue;
+				}
+				if (device_id == SKYLAKE_SERVER_SOCKETID_UBOX_DID) {
+					/* first get node id for the local socket */
+					r = pci_mmio_read_config32(PCI_DEV(bus_no, device_no, function_no), UNC_SOCKETID_UBOX_LNID_OFFSET);
+					u32 nodeid = r & 0x00000007;
+					/*
+					 * Every 3b of the Node ID mapping register maps to a specific node
+					 * Read the Node ID Mapping Register and find the node that matches
+					 * the gid read from the Node ID configuration register (above).
+					 * e.g. Bits 2:0 map to node 0, bits 5:3 maps to package 1, etc.
+					 */
+					u32 mapping = pci_mmio_read_config32(PCI_DEV(bus_no, device_no, function_no), UNC_SOCKETID_UBOX_GID_OFFSET);
+					u32 gid = 0;
+					for (int i = 0; i < 8; i++){
+						if (nodeid == ((mapping >> (3 * i)) & 0x7)) {
+							gid = i;
+							break;
+						}
+					}
+					printk(BIOS_DEBUG, "Found UBOX bus_no: 0x%x, device_no: 0x%x, function_no: 0x%x, gid: 0x%x\n", bus_no, device_no,
+								 function_no, gid);
+					/*
+					 * scan all devices 256, get bus for Ubox
+					 *		nodeid from (B: <above bus>, D:8, F:0, 0:0xc0)
+					 *    cpubusnos from (B: <above bus>, D:8, F:2, O:0xcc, 0xd0)
+					 *    get this nodeid stack limits [0-5] (B:<CPUBUSNO1 above>, D:29, F:1, 0:0xc8, 0xcc)
+					 * 
+					 */
+					b1 = pci_mmio_read_config32(PCI_DEV(bus_no, 8, 2), 0xcc);
+					b2 = pci_mmio_read_config32(PCI_DEV(bus_no, 8, 2), 0xd0);
+					bus1 = ((b1 >> 8) & 0xff);
+
+					/* MMCFG_LOCAL_RULE_ADDRESS_0 */
+					r = pci_mmio_read_config32(PCI_DEV(bus1, 29, 1), 0xc8);
+					for (int i=0; i<4; ++i) {
+						if (i == 0) continue;
+						u32 stack_id = i-1;
+						u32 start_busno = ((b1 >> (stack_id * 8)) & 0xff);
+						printk(BIOS_DEBUG, "IIO Stack %d Bus [0x%x : 0x%x]\n", stack_id, start_busno, (r >> (i * 8)) & 0xff);
+					}
+
+					/* MMCFG_LOCAL_RULE_ADDRESS_1 */
+					r = pci_mmio_read_config32(PCI_DEV(bus1, 29, 1), 0xcc);
+					for (int i=0; i<4; ++i) {
+						u32 stack_id = i+3;
+						u32 start_busno;
+						if (i == 0) 
+							start_busno = ((b1 >> (stack_id * 8)) & 0xff);	
+						else
+							start_busno = ((b2 >> ((i-1) * 8)) & 0xff);
+						printk(BIOS_DEBUG, "IIO Stack %d Bus [0x%x : 0x%x]\n", stack_id, start_busno, (r >> (i * 8)) & 0xff);
+					}
+				}
+			}
+		}
+	}
+#endif
 
 	printk(BIOS_DEBUG, "^^^ EXIT %s:%d:%s\n", __FILE__, __LINE__, __func__);
 }

@@ -27,6 +27,7 @@
 #define MAX_DIMM      2   /* Maximum Number of DIMMs PER Memory Channel */
 #define MAX_SPD_BYTES 512 /* Maximum Number of SPD bytes */
 
+#if 0
 /*
  * Memory Down structures.
  */
@@ -43,6 +44,7 @@ typedef struct {
 	UINT8 *SpdDataPtr[MAX_CH][MAX_DIMM]; /* Pointer to SPD Data for each
 						DIMM in each Channel */
 } MEMORY_DOWN_CONFIG;
+#endif
 
 /*
 * SMBIOS Memory Info structures.

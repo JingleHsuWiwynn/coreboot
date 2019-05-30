@@ -150,6 +150,9 @@ void platform_fsp_memory_init_params_cb(FSPM_UPD *mupd, uint32_t version)
 	FSP_M_CONFIG *m_cfg = &mupd->FspmConfig;
 
 	mupd->FspmUpdVersion = FSP_UPD_VERSION;
+	m_cfg->BoardId = AndersonLakeRvp48G;
+	//m_cfg->BoardId = UnknownBoardType;
+	m_cfg->PcdFspMrcDebugPrintErrorLevel = 2;
 
 	soc_memory_init_params(m_cfg);
 
