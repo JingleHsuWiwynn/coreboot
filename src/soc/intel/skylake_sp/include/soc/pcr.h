@@ -14,15 +14,15 @@
  *
  */
 
-#ifndef _SKYLAKESP_NS_PCR_H_
-#define _SKYLAKESP_NS_PCR_H_
+#ifndef _SKYLAKESP_PCR_H_
+#define _SKYLAKESP_PCR_H_
 
 /* PCR BASE */
 #include <soc/iomap.h>
 
 /* PCR address */
 #define PCH_PCR_ADDRESS(Pid, Offset) \
-	(DEFAULT_PCR_BASE | ((uint8_t)(Pid) << 16) | (uint16_t)(Offset))
+	(P2SB_BAR | ((uint8_t)(Pid) << 16) | (uint16_t)(Offset))
 
 /* PID for PCR and SBI */
 typedef enum {
@@ -32,4 +32,4 @@ typedef enum {
 	PID_GPIOCOM1 = 0xC5,
 } PCH_SBI_PID;
 
-#endif /* _SKYLAKESP_NS_PCR_H_ */
+#endif /* _SKYLAKESP_PCR_H_ */

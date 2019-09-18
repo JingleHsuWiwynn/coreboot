@@ -23,6 +23,7 @@
 #include <string.h>
 #include <cbmem.h>
 #include <smbios.h>
+#include <lib.h>
 
 static unsigned long write_pirq_table(unsigned long rom_table_end)
 {
@@ -105,6 +106,8 @@ static unsigned long write_acpi_table(unsigned long rom_table_end)
 	 * coreboot table. This leaves us with 47KB for all of ACPI. Let's see
 	 * how far we get.
 	 */
+	printk(BIOS_DEBUG, "%s:%s rom_table_end: 0x%lx\n", __FILE__, __func__, rom_table_end);
+
 	high_table_pointer = (unsigned long)cbmem_add(CBMEM_ID_ACPI,
 		MAX_ACPI_SIZE);
 	if (high_table_pointer) {
@@ -138,15 +141,21 @@ static unsigned long write_acpi_table(unsigned long rom_table_end)
 
 			/* Technically rsdp length varies but coreboot always
 			   writes longest size available.  */
+			printk(BIOS_DEBUG, "%s:%s copying from high_rsdp: 0x%p to low_rsdp: 0x%p\n", __FILE__, __func__, high_rsdp, low_rsdp);
 			memcpy(low_rsdp, high_rsdp, sizeof(acpi_rsdp_t));
+			printk(BIOS_DEBUG, "%s:%s dump of low_rsdp: %p, size: 0x%lx\n", __FILE__, __func__, low_rsdp, sizeof(acpi_rsdp_t));
+			hexdump(low_rsdp, sizeof(acpi_rsdp_t));
 		} else {
 			printk(BIOS_ERR,
 				"ERROR: Didn't find RSDP in high table.\n");
 		}
 		rom_table_end = ALIGN_UP(rom_table_end + sizeof(acpi_rsdp_t), 16);
 	} else {
+	  printk(BIOS_DEBUG, "%s:%s calling write_acpi_tables rom_table_end: 0x%lx\n", __FILE__, __func__, rom_table_end);
 		rom_table_end = write_acpi_tables(rom_table_end);
+		printk(BIOS_DEBUG, "%s:%s got rom_table_end: 0x%lx\n", __FILE__, __func__, rom_table_end);
 		rom_table_end = ALIGN_UP(rom_table_end, 1024);
+		printk(BIOS_DEBUG, "%s:%s aligned rom_table_end: 0x%lx\n", __FILE__, __func__, rom_table_end);
 	}
 
 	return rom_table_end;

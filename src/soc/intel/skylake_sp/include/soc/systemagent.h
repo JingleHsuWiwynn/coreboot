@@ -16,8 +16,8 @@
  *
  */
 
-#ifndef _SKYLAKESP_NS_SYSTEMAGENT_H_
-#define _SKYLAKESP_NS_SYSTEMAGENT_H_
+#ifndef _SKYLAKESP_SYSTEMAGENT_H_
+#define _SKYLAKESP_SYSTEMAGENT_H_
 
 #include <soc/iomap.h>
 
@@ -39,7 +39,7 @@
 #define MASK_TOUUD_LO 0xFFF00000
 #define TOUUD_HI 0xac /* Top of Upper Usable DRAM - High */
 #define MASK_TOUUD_HI 0x0000007F
-#define TOUUD TOUUD_LO /* Top of Upper Usable DRAM */
+//#define TOUUD TOUUD_LO /* Top of Upper Usable DRAM */
 #define MASK_TOUUD 0x7FFFF00000
 
 #define TSEGMB 0xb8 /* TSEG base */
@@ -83,7 +83,4 @@
 
 /* Device 0:5.0 PCI configuration space (RCEC) */
 
-/* Top of 32bit usable memory */
-u32 top_of_32bit_ram(void);
-
-#endif //_SKYLAKESP_NS_SYSTEMAGENT_H_
+#endif //_SKYLAKESP_SYSTEMAGENT_H_

@@ -79,6 +79,7 @@ void p2sb_configure_hpet(void)
 	 * the High Performance Timer memory address range
 	 * selected by bits 1:0
 	 */
+	printk(BIOS_DEBUG, "configuring hpet for \n");
 	pci_write_config8(P2SB_GET_DEV, HPTC_OFFSET, HPTC_ADDR_ENABLE_BIT);
 }
 
@@ -152,6 +153,7 @@ void p2sb_disable_sideband_access(void)
 
 static void read_resources(struct device *dev)
 {
+	printk(BIOS_DEBUG, "Adding MMIO resource for P2SB_BAR: 0x%x, P2SB_SIZE: 0x%x\n", P2SB_BAR, P2SB_SIZE);
 	/*
 	 * There's only one resource on the P2SB device. It's also already
 	 * manually set to a fixed address in earlier boot stages.
@@ -179,6 +181,7 @@ static const unsigned short pci_device_ids[] = {
 	PCI_DEVICE_ID_INTEL_CNP_H_P2SB,
 	PCI_DEVICE_ID_INTEL_ICL_P2SB,
 	PCI_DEVICE_ID_INTEL_CMP_P2SB,
+  PCI_DEVICE_ID_INTEL_C620_P2SB,
 	0,
 };
 

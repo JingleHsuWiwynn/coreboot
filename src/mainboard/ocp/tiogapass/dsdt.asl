@@ -42,11 +42,7 @@ DefinitionBlock(
 	#include <cpu/intel/common/acpi/cpu.asl>
 
 	Scope (\_SB) {
-		Device (PCI0)
-		{
-			#include <soc/intel/skylake_sp/acpi/northcluster.asl>
-			#include <soc/intel/skylake_sp/acpi/southcluster.asl>
-		}
+		#include <soc/intel/skylake_sp/acpi/iiostack.asl>
 	}
 
 	/* Chipset specific sleep states */

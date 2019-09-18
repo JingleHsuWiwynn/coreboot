@@ -16,8 +16,8 @@
  *
  */
 
-#ifndef _SKYLAKESP_NS_NVS_H_
-#define _SKYLAKESP_NS_NVS_H_
+#ifndef _SKYLAKESP_NVS_H_
+#define _SKYLAKESP_NVS_H_
 
 typedef struct global_nvs_t {
 	/* Miscellaneous */
@@ -38,7 +38,8 @@ typedef struct global_nvs_t {
 	u8 tpmp;  /* 0x12 - TPM Present and Enabled */
 	u8 tlvl;  /* 0x13 - Throttle Level */
 	u8 ppcm;  /* 0x14 - Maximum P-state usable by OS */
-	u8 rsvd1[11];
+	u8	uior; /* 0x15 - UART debug controller init on S3 resume */
+	u8 rsvd1[10];
 
 	/* Device Config */
 	u8 s5u0; /* 0x20 - Enable USB0 in S5 */
@@ -52,17 +53,8 @@ typedef struct global_nvs_t {
 	u8 rsvd2[8];
 
 	/* Base Addresses */
-	u32 obsolete_cmem; /* 0x30 - CBMEM TOC */
-	u32 tolm;	  /* 0x34 - Top of Low Memory */
-	u32 cbmc;	  /* 0x38 - coreboot memconsole */
-	u32 mmiob;	 /* 0x3c - MMIO Base Low */
-	u32 mmiol;	 /* 0x40 - MMIO Base Limit */
-	u64 mmiohb;	/* 0x44 - MMIO Base High */
-	u64 mmiohl;	/* 0x4c - MMIO Base Limit */
-	u32 tsegb;	 /* 0x54 - TSEG Base Low */
-	u32 tsegl;	 /* 0x58 - TSEG Length/Size */
-	u8 rsvd3[164];
-
+	u32 cbmc;	  /* 0x30 - coreboot memconsole */
+	u8 rsvd3[204];
 } __packed global_nvs_t;
 
 #ifdef __SMM__
@@ -70,4 +62,4 @@ typedef struct global_nvs_t {
 global_nvs_t *smm_get_gnvs(void);
 #endif
 
-#endif /* _SKYLAKESP_NS_NVS_H_ */
+#endif /* _SKYLAKESP_NVS_H_ */

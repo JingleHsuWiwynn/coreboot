@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef _SOC_SKYLAKESP_NS_ROMSTAGE_H_
-#define _SOC_SKYLAKESP_NS_ROMSTAGE_H_
+#ifndef _SOC_SKYLAKESP_ROMSTAGE_H_
+#define _SOC_SKYLAKESP_ROMSTAGE_H_
 
 #include <fsp/api.h>
 
@@ -24,4 +24,4 @@
 void mainboard_memory_init_params(FSPM_UPD *mupd);
 void mainboard_config_gpios(void);
 
-#endif /* _SOC_SKYLAKESP_NS_ROMSTAGE_H_ */
+#endif /* _SOC_SKYLAKESP_ROMSTAGE_H_ */

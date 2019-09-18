@@ -37,6 +37,7 @@
 void cpu_set_max_ratio(void)
 {
 	/* Check for configurable TDP option */
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	if (get_turbo_state() == TURBO_ENABLED)
 		cpu_set_p_state_to_turbo_ratio();
 }
@@ -49,6 +50,7 @@ u8 cpu_get_tdp_nominal_ratio(void)
 	u8 nominal_ratio;
 	msr_t msr;
 
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	msr = rdmsr(MSR_CONFIG_TDP_NOMINAL);
 	nominal_ratio = msr.lo & 0xff;
 	return nominal_ratio;
@@ -68,6 +70,7 @@ int cpu_config_tdp_levels(void)
 {
 	msr_t platform_info;
 
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	/* Bits 34:33 indicate how many levels supported */
 	platform_info = rdmsr(MSR_PLATFORM_INFO);
 	return (platform_info.hi >> 1) & 3;
@@ -96,6 +99,7 @@ void cpu_set_p_state_to_turbo_ratio(void)
 {
 	msr_t msr, perf_ctl;
 
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	msr = rdmsr(MSR_TURBO_RATIO_LIMIT);
 	perf_ctl.lo = (msr.lo & 0xff) << 8;
 	perf_ctl.hi = 0;
@@ -114,6 +118,7 @@ void cpu_set_p_state_to_nominal_tdp_ratio(void)
 {
 	msr_t msr, perf_ctl;
 
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	msr = rdmsr(MSR_CONFIG_TDP_NOMINAL);
 	perf_ctl.lo = (msr.lo & 0xff) << 8;
 	perf_ctl.hi = 0;
@@ -131,6 +136,7 @@ void cpu_set_p_state_to_max_non_turbo_ratio(void)
 {
 	msr_t msr, perf_ctl;
 
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	/* Platform Info bits 15:8 give max ratio */
 	msr = rdmsr(MSR_PLATFORM_INFO);
 	perf_ctl.lo = msr.lo & 0xff00;
@@ -149,6 +155,7 @@ void cpu_set_p_state_to_min_clock_ratio(void)
 	uint32_t min_ratio;
 	msr_t perf_ctl;
 
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	/* Read the minimum ratio for the best efficiency. */
 	min_ratio = cpu_get_min_ratio();
 	perf_ctl.lo = (min_ratio << 8) & 0xff00;
@@ -169,6 +176,7 @@ int cpu_get_burst_mode_state(void)
 	unsigned int eax;
 	int burst_en, burst_cap, burst_state = BURST_MODE_UNKNOWN;
 
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	eax = cpuid_eax(0x6);
 	burst_cap = eax & 0x2;
 	msr = rdmsr(IA32_MISC_ENABLE);
@@ -193,6 +201,7 @@ void cpu_burst_mode(bool burst_mode_status)
 {
 	msr_t msr;
 
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	msr = rdmsr(IA32_MISC_ENABLE);
 	if (burst_mode_status)
 		msr.hi &= ~BURST_MODE_DISABLE;
@@ -210,6 +219,7 @@ void cpu_set_eist(bool eist_status)
 {
 	msr_t msr;
 
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	msr = rdmsr(IA32_MISC_ENABLE);
 	if (eist_status)
 		msr.lo |= (1 << 16);
@@ -226,6 +236,7 @@ void cpu_enable_untrusted_mode(void *unused)
 {
 	msr_t msr;
 
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	msr = rdmsr(MSR_POWER_MISC);
 	msr.lo |= ENABLE_IA_UNTRUSTED;
 	wrmsr(MSR_POWER_MISC, msr);
@@ -238,6 +249,7 @@ void cpu_enable_untrusted_mode(void *unused)
  */
 int cpu_read_topology(unsigned int *num_phys, unsigned int *num_virt)
 {
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	msr_t msr;
 	msr = rdmsr(MSR_CORE_THREAD_COUNT);
 	*num_virt = (msr.lo >> 0) & 0xffff;
@@ -253,6 +265,7 @@ int cpu_get_coord_type(void)
 uint32_t cpu_get_min_ratio(void)
 {
 	msr_t msr;
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	/* Get bus ratio limits and calculate clock speeds */
 	msr = rdmsr(MSR_PLATFORM_INFO);
 	return ((msr.hi >> 8) & 0xff);	/* Max Efficiency Ratio */
@@ -262,6 +275,7 @@ uint32_t cpu_get_max_ratio(void)
 {
 	msr_t msr;
 	uint32_t ratio_max;
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	if (cpu_config_tdp_levels()) {
 		/* Set max ratio to nominal TDP ratio */
 		msr = rdmsr(MSR_CONFIG_TDP_NOMINAL);
@@ -295,6 +309,7 @@ uint32_t cpu_get_power_max(void)
 
 uint32_t cpu_get_max_turbo_ratio(void)
 {
+	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	msr_t msr;
 	msr = rdmsr(MSR_TURBO_RATIO_LIMIT);
 	return msr.lo & 0xff;

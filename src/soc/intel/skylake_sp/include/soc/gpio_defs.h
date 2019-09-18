@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef _SKYLAKESP_NS_GPIO_DEFS_H_
-#define _SKYLAKESP_NS_GPIO_DEFS_H_
+#ifndef _SKYLAKESP_GPIO_DEFS_H_
+#define _SKYLAKESP_GPIO_DEFS_H_
 
 #include <soc/pcr.h>
 
@@ -497,4 +497,4 @@
 #define GPIO_GET_PAD_NUMBER(Pad) (Pad & 0xFFFF)
 #define GPIO_GET_CHIPSET_ID(Pad) (Pad >> 24)
 
-#endif /* _SKYLAKESP_NS_GPIO_DEFS_H_ */
+#endif /* _SKYLAKESP_GPIO_DEFS_H_ */

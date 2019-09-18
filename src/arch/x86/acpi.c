@@ -1257,6 +1257,8 @@ unsigned long write_acpi_tables(unsigned long start)
 	size_t slic_size, dsdt_size;
 	char oem_id[6], oem_table_id[8];
 
+	printk(BIOS_DEBUG, "^^^ write_acpi_tables at start: 0x%lx\n", start);
+
 	current = start;
 
 	/* Align ACPI tables to 16byte */

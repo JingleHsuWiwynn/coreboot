@@ -76,6 +76,9 @@ static void do_fsp_post_memory_init(bool s3wake, uint32_t fsp_version)
 	if (fsp_find_reserved_memory(&fsp_mem))
 		die("Failed to find FSP_RESERVED_MEMORY_RESOURCE_HOB!\n");
 
+	printk(BIOS_DEBUG, "FSP Reserved Memory base: 0x%llx, end: 0x%llx, size: 0x%llx\n", range_entry_base(&fsp_mem),
+				 range_entry_end(&fsp_mem),
+				 range_entry_size(&fsp_mem));
 	/* initialize cbmem by adding FSP reserved memory first thing */
 	if (!s3wake) {
 		cbmem_initialize_empty_id_size(CBMEM_ID_FSP_RESERVED_MEMORY,
@@ -310,11 +313,16 @@ static void do_fsp_memory_init(struct fsp_header *hdr, bool s3wake,
 	fsp_raminit = (void *)(hdr->image_base + hdr->memory_init_entry_offset);
 	fsp_debug_before_memory_init(fsp_raminit, upd, &fspm_upd);
 
+	printk(BIOS_CRIT, "^^ calling FSPRamInit %p from coreboot\n", fsp_raminit);
 	post_code(POST_FSP_MEMORY_INIT);
 	timestamp_add_now(TS_FSP_MEMORY_INIT_START);
 	status = fsp_raminit(&fspm_upd, fsp_get_hob_list_ptr());
+	printk(BIOS_CRIT, "^^ FSPRamInit returned status: 0x%x\n", status);
 	post_code(POST_FSP_MEMORY_EXIT);
 	timestamp_add_now(TS_FSP_MEMORY_INIT_END);
+
+	printk(BIOS_DEBUG, "BootLoaderTolumSize: 0x%x\n", arch_upd->BootLoaderTolumSize);
+	fsp_debug_after_memory_init(status);
 
 	/* Handle any errors returned by FspMemoryInit */
 	fsp_handle_reset(status);
@@ -324,6 +332,8 @@ static void do_fsp_memory_init(struct fsp_header *hdr, bool s3wake,
 			"FspMemoryInit returned an error!\n");
 	}
 
+  outb(0xa, 0x70);
+  printk(BIOS_DEBUG, "^^^ %s:%s CMOS read: 0x%x\n", __FILE__, __func__, inb(0x71));
 	do_fsp_post_memory_init(s3wake, fsp_version);
 
 	/*
@@ -332,6 +342,8 @@ static void do_fsp_memory_init(struct fsp_header *hdr, bool s3wake,
 	 * after cbmem has been initialised in do_fsp_post_memory_init().
 	 */
 	fsp_debug_after_memory_init(status);
+  outb(0xa, 0x70);
+  printk(BIOS_DEBUG, "^^^ %s:%s CMOS read: 0x%x\n", __FILE__, __func__, inb(0x71));
 }
 
 /* Load the binary into the memory specified by the info header. */

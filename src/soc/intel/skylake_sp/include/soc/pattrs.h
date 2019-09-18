@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef _SKYLAKESP_NS_PATTRS_H_
-#define _SKYLAKESP_NS_PATTRS_H_
+#ifndef _SKYLAKESP_PATTRS_H_
+#define _SKYLAKESP_PATTRS_H_
 
 #include <stdint.h>
 #include <cpu/x86/msr.h>
@@ -52,4 +52,4 @@ static inline const struct pattrs *pattrs_get(void)
 	return &PATTRS_GLOB_NAME;
 }
 
-#endif /* _SKYLAKESP_NS_PATTRS_H_ */
+#endif /* _SKYLAKESP_PATTRS_H_ */

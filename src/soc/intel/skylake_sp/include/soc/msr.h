@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef _SKYLAKESP_NS_MSR_H_
-#define _SKYLAKESP_NS_MSR_H_
+#ifndef _SKYLAKESP_MSR_H_
+#define _SKYLAKESP_MSR_H_
 
 #define MSR_PIC_MSG_CONTROL 0x2e
 #define MSR_CORE_THREAD_COUNT 0x35
@@ -103,4 +103,4 @@
 /* Read BCLK from MSR */
 unsigned int bus_freq_khz(void);
 
-#endif /* _SKYLAKESP_NS_MSR_H_ */
+#endif /* _SKYLAKESP_MSR_H_ */

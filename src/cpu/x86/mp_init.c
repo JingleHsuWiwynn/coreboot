@@ -1035,6 +1035,7 @@ int mp_init_with_smm(struct bus *cpu_bus, const struct mp_ops *mp_ops)
 	void *default_smm_area;
 	struct mp_params mp_params;
 
+	printk(BIOS_DEBUG, "^^^ ENTER %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	if (mp_ops->pre_mp_init != NULL)
 		mp_ops->pre_mp_init();
 
@@ -1047,6 +1048,7 @@ int mp_init_with_smm(struct bus *cpu_bus, const struct mp_ops *mp_ops)
 		return -1;
 	}
 
+	printk(BIOS_DEBUG, "^^^ ENTER %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	/* Sanity check SMM state. */
 	if (mp_state.perm_smsize != 0 && mp_state.smm_save_state_size != 0 &&
 		mp_state.ops.relocation_handler != NULL)
@@ -1066,13 +1068,16 @@ int mp_init_with_smm(struct bus *cpu_bus, const struct mp_ops *mp_ops)
 	/* Perform backup of default SMM area. */
 	default_smm_area = backup_default_smm_area();
 
+	printk(BIOS_DEBUG, "^^^ ENTER %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	ret = mp_init(cpu_bus, &mp_params);
 
+	printk(BIOS_DEBUG, "^^^ ENTER %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	restore_default_smm_area(default_smm_area);
 
 	/* Signal callback on success if it's provided. */
 	if (ret == 0 && mp_state.ops.post_mp_init != NULL)
 		mp_state.ops.post_mp_init();
 
+	printk(BIOS_DEBUG, "^^^ ENTER %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	return ret;
 }

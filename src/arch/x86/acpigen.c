@@ -339,11 +339,17 @@ void acpigen_write_processor(u8 cpuindex, u32 pblock_addr, u8 pblock_len)
 	{
 */
 	char pscope[16];
+
+	printk(BIOS_DEBUG, "^^^ acpigen_write_processor cpuindex: 0x%x, pblock_addr 0x%x, block_len 0x%x\n",
+				 cpuindex, pblock_addr, pblock_len);
+
+	printk(BIOS_DEBUG, "^^^ emit PROCESSOR_OP %d\n", PROCESSOR_OP);
 	acpigen_emit_ext_op(PROCESSOR_OP);
 	acpigen_write_len_f();
 
 	snprintf(pscope, sizeof(pscope),
 		 CONFIG_ACPI_CPU_STRING, (unsigned int) cpuindex);
+	printk(BIOS_DEBUG, "^^^ emit pscope %s\n", pscope);
 	acpigen_emit_namestring(pscope);
 	acpigen_emit_byte(cpuindex);
 	acpigen_emit_dword(pblock_addr);

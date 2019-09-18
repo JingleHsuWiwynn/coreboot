@@ -18,6 +18,7 @@
 #include <cpu/x86/mtrr.h>
 #include <device/pci.h>
 #include <FsptUpd.h>
+#include <intelblocks/rtc.h>
 #include <intelblocks/fast_spi.h>
 #include <soc/bootblock.h>
 #include <soc/iomap.h>
@@ -53,17 +54,15 @@ asmlinkage void bootblock_c_entry(uint64_t base_timestamp)
 {
 	/* Call lib/bootblock.c main */
 	bootblock_main_with_timestamp(base_timestamp, NULL, 0);
-};
+}
 
 void bootblock_soc_early_init(void)
 {
-#if (IS_ENABLED(CONFIG_CONSOLE_SERIAL))
-	early_uart_init();
-#endif
-};
+	fast_spi_early_init(SPI_BASE_ADDRESS);
+}
 
 void bootblock_soc_init(void)
 {
 	if (IS_ENABLED(CONFIG_BOOTBLOCK_CONSOLE))
 		printk(BIOS_DEBUG, "FSP TempRamInit successful...\n");
-};
+}

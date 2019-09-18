@@ -85,38 +85,38 @@ static void bootmem_init(void)
 	 * add cacheable resources as RAM then add the reserved resources.
 	 */
 	printk(BIOS_DEBUG, "bootmem_init cacheable: 0x%lx, reserved: 0x%lx\n", cacheable, reserved);
-	printk(BIOS_DEBUG, "bootmem_init dumping tables 0\n");
-	bootmem_dump_ranges();
+	//printk(BIOS_DEBUG, "bootmem_init dumping tables 0\n");
+	//bootmem_dump_ranges();
 	memranges_init(bm, cacheable, cacheable, BM_MEM_RAM);
-	printk(BIOS_DEBUG, "bootmem_init dumping tables 1\n");
-	bootmem_dump_ranges();
+	//printk(BIOS_DEBUG, "bootmem_init dumping tables 1\n");
+	//bootmem_dump_ranges();
 	memranges_add_resources(bm, reserved, reserved, BM_MEM_RESERVED);
-	printk(BIOS_DEBUG, "bootmem_init dumping tables 2\n");
-	bootmem_dump_ranges();
+	//printk(BIOS_DEBUG, "bootmem_init dumping tables 2\n");
+	//bootmem_dump_ranges();
 	memranges_clone(&bootmem_os, bm);
-	printk(BIOS_DEBUG, "bootmem_init dumping tables 3\n");
-	bootmem_dump_ranges();
+	//printk(BIOS_DEBUG, "bootmem_init dumping tables 3\n");
+	//bootmem_dump_ranges();
 
 	/* Add memory used by CBMEM. */
 	cbmem_add_bootmem();
-	printk(BIOS_DEBUG, "bootmem_init dumping tables 4\n");
-	bootmem_dump_ranges();
+	//printk(BIOS_DEBUG, "bootmem_init dumping tables 4\n");
+	//bootmem_dump_ranges();
 
 	bootmem_add_range((uintptr_t)_stack, REGION_SIZE(stack),
 			  BM_MEM_RAMSTAGE);
-	printk(BIOS_DEBUG, "bootmem_init dumping tables 5\n");
-	bootmem_dump_ranges();
+	//printk(BIOS_DEBUG, "bootmem_init dumping tables 5\n");
+	//bootmem_dump_ranges();
 	bootmem_add_range((uintptr_t)_program, REGION_SIZE(program),
 			  BM_MEM_RAMSTAGE);
-	printk(BIOS_DEBUG, "bootmem_init dumping tables 6\n");
-	bootmem_dump_ranges();
+	//printk(BIOS_DEBUG, "bootmem_init dumping tables 6\n");
+	//bootmem_dump_ranges();
 
 	bootmem_arch_add_ranges();
-	printk(BIOS_DEBUG, "bootmem_init dumping tables 7\n");
-	bootmem_dump_ranges();
+	//printk(BIOS_DEBUG, "bootmem_init dumping tables 7\n");
+	//bootmem_dump_ranges();
 	bootmem_platform_add_ranges();
-	printk(BIOS_DEBUG, "bootmem_init dumping tables 8\n");
-	bootmem_dump_ranges();
+	//printk(BIOS_DEBUG, "bootmem_init dumping tables 8\n");
+	//bootmem_dump_ranges();
 }
 
 void bootmem_add_range(uint64_t start, uint64_t size,
@@ -133,8 +133,7 @@ void bootmem_add_range(uint64_t start, uint64_t size,
 	};
   printk(BIOS_DEBUG, "bootmem_add_range: start: 0x%llx, size: 0x%llx, tag: %d (is MEM %d): \n",
 				 start, size, tag, (tag == BM_MEM_RAM));
-  bootmem_dump_ranges();
-
+  //bootmem_dump_ranges();
 }
 
 void bootmem_write_memory_table(struct lb_memory *mem)
@@ -144,13 +143,13 @@ void bootmem_write_memory_table(struct lb_memory *mem)
 
 	lb_r = &mem->map[0];
 
-  printk(BIOS_DEBUG, "bootmem_write_memory_table dumping before bootmem_init tables\n");
-	bootmem_dump_ranges();
+  //printk(BIOS_DEBUG, "bootmem_write_memory_table dumping before bootmem_init tables\n");
+	//bootmem_dump_ranges();
 
 	bootmem_init();
 
-  printk(BIOS_DEBUG, "bootmem_write_memory_table dumping after bootmem_init tables\n");
-	bootmem_dump_ranges();
+  //printk(BIOS_DEBUG, "bootmem_write_memory_table dumping after bootmem_init tables\n");
+	//bootmem_dump_ranges();
 
 	memranges_each_entry(r, &bootmem_os) {
 		lb_r->start = pack_lb64(range_entry_base(r));
@@ -162,8 +161,8 @@ void bootmem_write_memory_table(struct lb_memory *mem)
 	}
 
 	table_written = 1;
-  printk(BIOS_DEBUG, "bootmem_write_memory_table before return dumping tables\n");
-  bootmem_dump_ranges();
+  //printk(BIOS_DEBUG, "bootmem_write_memory_table before return dumping tables\n");
+  //bootmem_dump_ranges();
 }
 
 struct range_strings {
@@ -267,8 +266,8 @@ void *bootmem_allocate_buffer(size_t size)
 	resource_t begin;
 	resource_t end;
 
-	printk(BIOS_DEBUG, "bootmem_allocate_buffer: 0x%lx\n", size);
-	bootmem_dump_ranges();
+	//printk(BIOS_DEBUG, "bootmem_allocate_buffer: 0x%lx\n", size);
+	//bootmem_dump_ranges();
 
 	if (!bootmem_is_initialized()) {
 		printk(BIOS_ERR, "%s: lib unitialized!\n", __func__);

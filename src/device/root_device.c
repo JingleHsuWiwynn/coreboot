@@ -110,8 +110,10 @@ void scan_static_bus(struct device *bus)
 
 	enable_static_devices(bus);
 
-	for (link = bus->link_list; link; link = link->next)
+	for (link = bus->link_list; link; link = link->next) {
+		printk(BIOS_DEBUG, "root_dev_scan_bus => calling scan_bridges for link on bus %s\n", bus_path(link));
 		scan_bridges(link);
+	}
 
 	printk(BIOS_SPEW, "%s for %s done\n", __func__, dev_path(bus));
 }

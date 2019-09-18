@@ -16,8 +16,8 @@
  */
 
 
-#ifndef _SKYLAKESP_NS_HOB_MEM_H
-#define _SKYLAKESP_NS_HOB_MEM_H
+#ifndef _SKYLAKESP_HOB_MEM_H
+#define _SKYLAKESP_HOB_MEM_H
 
 #include <fsp/util.h>
 
@@ -114,4 +114,4 @@ soc_get_fsp_smbios_memory_info_hob(void)
 	return memory_info_hob;
 }
 
-#endif // _SKYLAKESP_NS_HOB_MEM_H
+#endif // _SKYLAKESP_HOB_MEM_H

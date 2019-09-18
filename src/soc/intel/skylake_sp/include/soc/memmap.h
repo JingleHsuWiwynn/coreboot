@@ -1,7 +1,8 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2013 Google Inc.
+ * Copyright (C) 2007 - 2008 coresystems GmbH
+ * Copyright (C) 2014 Google Inc.
  * Copyright (C) 2014 - 2017 Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -15,16 +16,12 @@
  *
  */
 
-#include <cpu/x86/msr.h>
-#include <cpu/x86/tsc.h>
+#ifndef _SKYLAKESP_MEMMAP_H_
+#define _SKYLAKESP_NEMMAP_H_
 
-#include <soc/cpu.h>
-#include <soc/msr.h>
+#include <soc/iomap.h>
 
-unsigned long tsc_freq_mhz(void)
-{
-	msr_t platform_info;
+/* Top of 32bit usable memory */
+u32 top_of_32bit_ram(void);
 
-	platform_info = rdmsr(MSR_PLATFORM_INFO);
-	return CPU_BCLK * ((platform_info.lo >> 8) & 0xff);
-}
+#endif //_SKYLAKESP_MEMMAP_H_

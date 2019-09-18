@@ -13,8 +13,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _SKYLAKESP_NS_SOC_RAMSTAGE_H_
-#define _SKYLAKESP_NS_SOC_RAMSTAGE_H_
+#ifndef _SKYLAKESP_SOC_RAMSTAGE_H_
+#define _SKYLAKESP_SOC_RAMSTAGE_H_
 
 #include <device/device.h>
 #include <fsp/api.h>

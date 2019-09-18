@@ -27,8 +27,8 @@ Device (PMC0)
 
 		Name(PMCR,ResourceTemplate()
 		{
-			IO (Decode16, DEFAULT_PMBASE, DEFAULT_PMBASE, 0x1, 0x80)	// ACPI Base
-			Memory32Fixed(ReadOnly, DEFAULT_PWRM_BASE, 0x1000) // PMC memory range
+			IO (Decode16, ACPI_BASE_ADDRESS, ACPI_BASE_ADDRESS, 0x1, 0x80)	// ACPI Base
+			Memory32Fixed(ReadOnly, PCH_PWRM_BASE_ADDRESS, 0x1000) // PMC memory range
 		})
 
 		Method(_CRS, 0)

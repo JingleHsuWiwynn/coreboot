@@ -81,8 +81,8 @@ static struct device_operations sata_ops = {
 };
 
 static const unsigned short pci_device_ids[] = {
-	AHCI_DEVID,  /* DVN SATA AHCI */
-	AHCI2_DEVID, /* DVN SATA2 AHCI */
+	AHCI_DEVID,  /* C620 SATA AHCI */
+	AHCI2_DEVID, /* C620 SATA2 AHCI */
 	0
 };
 

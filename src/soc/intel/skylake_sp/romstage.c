@@ -16,6 +16,7 @@
 
 #include <cbmem.h>
 #include <cf9_reset.h>
+#include <intelblocks/rtc.h>
 #include <console/console.h>
 #include <cpu/x86/mtrr.h>
 #include <soc/iomap.h>
@@ -26,8 +27,11 @@
 #include <soc/smbus.h>
 #include <soc/smm.h>
 #include <soc/soc_util.h>
+#include <soc/skxsp_util.h>
 
+int rtc_failure(void);
 
+#if 0
 static void early_pmc_init(void)
 {
 	/* PMC (B0:D31:F2). */
@@ -83,6 +87,12 @@ static void early_tco_init(void)
 	reg16 |= TCO2_STS_SECOND_TO;
 	outw(reg16, tco_base + TCO2_STS);
 }
+#endif
+
+int rtc_failure(void)
+{
+	return 0;
+}
 
 asmlinkage void car_stage_entry(void)
 {
@@ -101,12 +111,19 @@ asmlinkage void car_stage_entry(void)
 	printk(BIOS_DEBUG, "FSP TempRamInit was successful...\n");
 
 	mainboard_config_gpios();
+
+  rtc_init();
+
+#if 0
 	early_tco_init();
 	early_pmc_init();
+#endif
 
 	fsp_memory_init(false);
 
 	printk(BIOS_DEBUG, "coreboot fsp_memory_init finished...\n");
+
+	unlock_pam_regions();
 
 	if (postcar_frame_init(&pcf, 1 * KiB))
 		die("Unable to initialize postcar frame.\n");
@@ -117,6 +134,7 @@ asmlinkage void car_stage_entry(void)
 	 * 16 megs under cbmem top which is a safe bet to cover ramstage.
 	 */
 	top_of_ram = (uintptr_t)cbmem_top();
+	printk(BIOS_DEBUG, "top_of_ram: 0x%lx\n", top_of_ram);
 	postcar_frame_add_mtrr(&pcf, top_of_ram - 16 * MiB, 16 * MiB,
 			       MTRR_TYPE_WRBACK);
 
@@ -139,20 +157,27 @@ asmlinkage void car_stage_entry(void)
 	printk(BIOS_DEBUG, "coreboot run_postcar_phase begin\n");
 	run_postcar_phase(&pcf);
 	printk(BIOS_DEBUG, "coreboot run_postcar_phase complete\n");
+
+  outb(0xa, 0x70);
+  printk(BIOS_DEBUG, "^^^ %s:%s CMOS read: 0x%x\n", __FILE__, __func__, inb(0x71));
 }
 
-static void soc_memory_init_params(FSP_M_CONFIG *m_cfg)
+static void soc_memory_init_params(FSPM_CONFIG *m_cfg)
 {
 }
 
 void platform_fsp_memory_init_params_cb(FSPM_UPD *mupd, uint32_t version)
 {
-	FSP_M_CONFIG *m_cfg = &mupd->FspmConfig;
+	FSPM_CONFIG *m_cfg = &mupd->FspmConfig;
 
 	mupd->FspmUpdVersion = FSP_UPD_VERSION;
+	m_cfg->SafetyConfig.disable_SNI_BIOS_flc = 1;
 	m_cfg->BoardId = AndersonLakeRvp48G;
 	//m_cfg->BoardId = UnknownBoardType;
-	m_cfg->PcdFspMrcDebugPrintErrorLevel = 2;
+	//m_cfg->PcdFspMrcDebugPrintErrorLevel = 2;
+	//m_cfg->PcdFspKtiDebugPrintErrorLevel = 8;
+	m_cfg->PcdFspMrcDebugPrintErrorLevel = 0;
+	m_cfg->PcdFspKtiDebugPrintErrorLevel = 0;
 
 	soc_memory_init_params(m_cfg);
 

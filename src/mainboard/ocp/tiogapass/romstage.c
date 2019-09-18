@@ -35,10 +35,8 @@ void mainboard_memory_init_params(FSPM_UPD *mupd);
 */
 void mainboard_config_gpios(FSPM_UPD *mupd)
 {
-#if 0
 	mupd->FspmConfig.GpioConfig.GpioTable = (UPD_GPIO_INIT_CONFIG *) tp_gpio_table;
 	mupd->FspmConfig.GpioConfig.NumberOfEntries = sizeof(tp_gpio_table)/sizeof(UPD_GPIO_INIT_CONFIG);
-#endif
 }
 
 void mainboard_config_iio(FSPM_UPD *mupd)

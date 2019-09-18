@@ -21,6 +21,7 @@
 #include <intelblocks/lpc_lib.h>
 #include <soc/pm.h>
 
+
 /* SoC overrides */
 
 /* Common weak definition, needs to be implemented in each soc LPC driver. */
@@ -47,6 +48,7 @@ void pch_lpc_add_new_resource(struct device *dev, uint8_t offset,
 
 static void pch_lpc_add_io_resources(struct device *dev)
 {
+	//printk(BIOS_DEBUG, "^^^^ pch_lpc_add_io_resources for device %s\n", dev_path(dev));
 	/* Add the default claimed legacy IO range for the LPC device. */
 	pch_lpc_add_new_resource(dev, 0, 0, 0x1000, IORESOURCE_IO |
 			IORESOURCE_ASSIGNED | IORESOURCE_FIXED);
@@ -190,6 +192,14 @@ static const unsigned short pci_device_ids[] = {
 	PCI_DEVICE_ID_INTEL_CMP_PREMIUM_U_LPC,
 	PCI_DEVICE_ID_INTEL_CMP_BASE_U_LPC,
 	PCI_DEVICE_ID_INTEL_CMP_SUPER_Y_LPC,
+	PCI_DEVICE_ID_INTEL_ICL_BASE_U_LPC,
+	PCI_DEVICE_ID_INTEL_ICL_BASE_Y_LPC,
+	PCI_DEVICE_ID_INTEL_ICL_U_PREMIUM_LPC,
+	PCI_DEVICE_ID_INTEL_ICL_U_SUPER_U_LPC,
+	PCI_DEVICE_ID_INTEL_ICL_U_SUPER_U_LPC_REV0,
+	PCI_DEVICE_ID_INTEL_ICL_SUPER_Y_LPC,
+	PCI_DEVICE_ID_INTEL_ICL_Y_PREMIUM_LPC,
+  PCI_DEVICE_ID_INTEL_C620_LPC,
 	0
 };
 

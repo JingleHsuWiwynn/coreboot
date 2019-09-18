@@ -14,8 +14,8 @@
  *
  */
 
-#ifndef _SOC_SKYLAKESP_NS_GPIO_H_
-#define _SOC_SKYLAKESP_NS_GPIO_H_
+#ifndef _SOC_SKYLAKESP_GPIO_H_
+#define _SOC_SKYLAKESP_GPIO_H_
 
 #include <soc/gpio_defs.h>
 
@@ -49,4 +49,4 @@
 #include <intelblocks/gpio.h>/* intelblocks/gpio.h depends on definitions in
 				lines above and soc/gpio_defs.h */
 
-#endif /* _SOC_SKYLAKESP_NS_GPIO_H_ */
+#endif /* _SOC_SKYLAKESP_GPIO_H_ */

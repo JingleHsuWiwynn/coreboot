@@ -525,7 +525,7 @@ void report_resource_stored(struct device *dev, struct resource *resource,
 		snprintf(buf, sizeof(buf),
 			 "bus %02x ", dev->link_list->secondary);
 	}
-	printk(BIOS_DEBUG, "%s %02lx <- [0x%010llx - 0x%010llx] size 0x%08llx "
+	printk(BIOS_DEBUG, "%s %02lx <- [0x%llx - 0x%llx] size 0x%llx "
 	       "gran 0x%02x %s%s%s\n", dev_path(dev), resource->index,
 		base, end, resource->size, resource->gran, buf,
 		resource_type(resource), comment);
@@ -714,10 +714,10 @@ static void resource_tree(const struct device *root, int debug_level, int depth)
 
 	for (res = root->resource_list; res; res = res->next) {
 		do_printk(debug_level, "%s%s resource base %llx size %llx "
-			  "align %d gran %d limit %llx flags %lx index %lx\n",
+			  "align %d gran %d limit %llx flags %lx index %lx %s\n",
 			  indent, dev_path(root), res->base, res->size,
 			  res->align, res->gran, res->limit, res->flags,
-			  res->index);
+			  res->index, resource_type(res));
 	}
 
 	for (link = root->link_list; link; link = link->next) {
@@ -920,6 +920,11 @@ int dev_count_cpu(void)
 		if (!cpu->enabled)
 			continue;
 		count++;
+#if 0
+		printk(BIOS_DEBUG, "dev_count_cpu dev: %s, type: %s, bus_dev: %s, type: %s, enabled: %s, count: %d\n", 
+					 dev_path(cpu), dev_path_name(cpu->path.type), dev_path(cpu->bus->dev), 
+					 dev_path_name(cpu->bus->dev->path.type), cpu->enabled ? "yes" : "no", count);
+#endif
 	}
 
 	return count;

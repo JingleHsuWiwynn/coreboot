@@ -14,11 +14,126 @@
  *
  */
 
-// Intel SATA Controller 0:13.0
-
-Device (SATA)
+// 00:17.0 SATA controller: Intel Corporation Lewisburg SATA Controller [AHCI mode]
+Device (SAT1)
 {
-	Name (_ADR, 0x00130000)
+		Name (_ADR, 0x00170000)  // _ADR: Address
+}
 
-	/* TODO */
+Scope (SAT1)
+{
+		Device (PRT0)
+		{
+				Name (_ADR, 0xFFFF)  // _ADR: Address
+		}
+
+		Device (PRT1)
+		{
+				Name (_ADR, 0x0001FFFF)  // _ADR: Address
+		}
+
+		Device (PRT2)
+		{
+				Name (_ADR, 0x0002FFFF)  // _ADR: Address
+		}
+
+		Device (PRT3)
+		{
+				Name (_ADR, 0x0003FFFF)  // _ADR: Address
+		}
+
+		Device (PRT4)
+		{
+				Name (_ADR, 0x0004FFFF)  // _ADR: Address
+		}
+
+		Device (PRT5)
+		{
+				Name (_ADR, 0x0005FFFF)  // _ADR: Address
+		}
+
+		Device (NVM1)
+		{
+				Name (_ADR, 0x00C1FFFF)  // _ADR: Address
+				Name (PRBI, 0x00)
+				Name (PRBD, 0x00)
+				Name (PCMD, 0x00)
+				Name (NCRN, 0x00)
+				Name (NITV, 0x00)
+				Name (NPMV, 0x00)
+				Name (NPCV, 0x00)
+				Name (NL1V, 0x00)
+				Name (ND2V, 0x00)
+				Name (ND1V, 0x00)
+				Name (NLRV, 0x00)
+				Name (NLDV, 0x00)
+				Name (NEAV, 0x00)
+				Name (NEBV, 0x00)
+				Name (NECV, 0x00)
+				Name (NRAV, 0x00)
+				Name (NMBV, 0x00)
+				Name (NMVV, 0x00)
+				Name (NPBV, 0x00)
+				Name (NPVV, 0x00)
+		}
+
+		Device (NVM2)
+		{
+				Name (_ADR, 0x00C2FFFF)  // _ADR: Address
+				Name (PRBI, 0x00)
+				Name (PRBD, 0x00)
+				Name (PCMD, 0x00)
+				Name (NCRN, 0x00)
+				Name (NITV, 0x00)
+				Name (NPMV, 0x00)
+				Name (NPCV, 0x00)
+				Name (NL1V, 0x00)
+				Name (ND2V, 0x00)
+				Name (ND1V, 0x00)
+				Name (NLRV, 0x00)
+				Name (NLDV, 0x00)
+				Name (NEAV, 0x00)
+				Name (NEBV, 0x00)
+				Name (NECV, 0x00)
+				Name (NRAV, 0x00)
+				Name (NMBV, 0x00)
+				Name (NMVV, 0x00)
+				Name (NPBV, 0x00)
+				Name (NPVV, 0x00)
+		}
+
+		Device (NVM3)
+		{
+				Name (_ADR, 0x00C3FFFF)  // _ADR: Address
+				Name (PRBI, 0x00)
+				Name (PRBD, 0x00)
+				Name (PCMD, 0x00)
+				Name (NCRN, 0x00)
+				Name (NITV, 0x00)
+				Name (NPMV, 0x00)
+				Name (NPCV, 0x00)
+				Name (NL1V, 0x00)
+				Name (ND2V, 0x00)
+				Name (ND1V, 0x00)
+				Name (NLRV, 0x00)
+				Name (NLDV, 0x00)
+				Name (NEAV, 0x00)
+				Name (NEBV, 0x00)
+				Name (NECV, 0x00)
+				Name (NRAV, 0x00)
+				Name (NMBV, 0x00)
+				Name (NMVV, 0x00)
+				Name (NPBV, 0x00)
+				Name (NPVV, 0x00)
+		}
+
+		Device (PRT6)
+		{
+				Name (_ADR, 0x0006FFFF)  // _ADR: Address
+		}
+
+		Device (PRT7)
+		{
+				Name (_ADR, 0x0007FFFF)  // _ADR: Address
+		}
 }

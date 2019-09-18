@@ -16,24 +16,39 @@
  */
 
 #include <console/console.h>
-#include <cpu/cpu.h>
-#include <cpu/x86/cache.h>
-#include <cpu/x86/mp.h>
-#include <cpu/x86/msr.h>
-#include <cpu/x86/mtrr.h>
-#include <cpu/intel/turbo.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <intelblocks/cpulib.h>
 #include <reg_script.h>
-
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <bootstate.h>
+#include <console/console.h>
+#include <device/device.h>
+#include <device/pci_ids.h>
+#include <cpu/cpu.h>
+#include <cpu/x86/msr.h>
+#include <cpu/x86/mtrr.h>
+#include <cpu/x86/cache.h>
+#include <cpu/x86/lapic.h>
+#include <cpu/x86/name.h>
+#include <cpu/x86/mp.h>
+#include <cpu/intel/turbo.h>
+#include <arch/acpi.h>
+#include <memrange.h>
 #include <soc/msr.h>
 #include <soc/cpu.h>
 #include <soc/iomap.h>
 #include <soc/smm.h>
 #include <soc/soc_util.h>
+#include <soc/skxsp_util.h>
+#include <assert.h>
 
-static struct smm_relocation_attrs relo_attrs;
+
+static char processor_name[64];
+
+//static struct smm_relocation_attrs relo_attrs;
 
 static void skx_configure_mca(void)
 {
@@ -106,6 +121,7 @@ static const struct cpu_driver driver __cpu_driver = {
  * MP and SMM loading initialization.
  */
 
+#if 0
 static void relocation_handler(int cpu, uintptr_t curr_smbase,
 			       uintptr_t staggered_smbase)
 {
@@ -113,6 +129,7 @@ static void relocation_handler(int cpu, uintptr_t curr_smbase,
 	em64t100_smm_state_save_area_t *smm_state;
 	(void)cpu;
 
+	FUNC_ENTER();
 	/* Set up SMRR. */
 	smrr.lo = relo_attrs.smrr_base;
 	smrr.hi = 0;
@@ -122,6 +139,7 @@ static void relocation_handler(int cpu, uintptr_t curr_smbase,
 	wrmsr(IA32_SMRR_PHYS_MASK, smrr);
 	smm_state = (void *)(SMM_EM64T100_SAVE_STATE_OFFSET + curr_smbase);
 	smm_state->smbase = staggered_smbase;
+	FUNC_EXIT();
 }
 
 static void get_smm_info(uintptr_t *perm_smbase, size_t *perm_smsize,
@@ -132,6 +150,7 @@ static void get_smm_info(uintptr_t *perm_smbase, size_t *perm_smsize,
 	void *handler_base;
 	size_t handler_size;
 
+	FUNC_ENTER();
 	/* All range registers are aligned to 4KiB */
 	const uint32_t rmask = ~((1 << 12) - 1);
 
@@ -147,7 +166,9 @@ static void get_smm_info(uintptr_t *perm_smbase, size_t *perm_smsize,
 	*perm_smbase = (uintptr_t)handler_base;
 	*perm_smsize = handler_size;
 	*smm_save_state_size = sizeof(em64t100_smm_state_save_area_t);
+	FUNC_EXIT();
 }
+#endif
 
 static int detect_num_cpus_via_cpuid(void)
 {
@@ -166,42 +187,11 @@ static int detect_num_cpus_via_cpuid(void)
 	return (leaf_b.ebx & 0xffff);
 }
 
-static int detect_num_cpus_via_mch(void)
-{
-	/* Assumes that FSP has already programmed the cores disabled register
-	 */
-	u32 core_exists_mask, active_cores_mask;
-	u32 core_disable_mask;
-	register int active_cores = 0, total_cores = 0;
-	register int counter = 0;
-
-	/* Get Masks for Total Existing SOC Cores and Core Disable Mask */
-	core_exists_mask = MMIO32(DEFAULT_MCHBAR + MCH_BAR_CORE_EXISTS_MASK);
-	core_disable_mask = MMIO32(DEFAULT_MCHBAR + MCH_BAR_CORE_DISABLE_MASK);
-	active_cores_mask = (~core_disable_mask) & core_exists_mask;
-
-	/* Calculate Number of Active Cores */
-	for (; counter < CONFIG_MAX_CPUS;
-	     counter++, active_cores_mask >>= 1, core_exists_mask >>= 1) {
-		active_cores += (active_cores_mask & CORE_BIT_MSK);
-		total_cores += (core_exists_mask & CORE_BIT_MSK);
-	}
-
-	printk(BIOS_DEBUG, "Number of Active Cores: %d of %d total.\n",
-	       active_cores, total_cores);
-
-	return active_cores;
-}
-
 /* Find CPU topology */
 int get_cpu_count(void)
 {
-	int num_cpus = detect_num_cpus_via_mch();
-
-	if (num_cpus <= 0 || num_cpus > CONFIG_MAX_CPUS) {
-		num_cpus = detect_num_cpus_via_cpuid();
-		printk(BIOS_DEBUG, "Number of Cores (CPUID): %d.\n", num_cpus);
-	}
+	int num_cpus = detect_num_cpus_via_cpuid();
+	printk(BIOS_DEBUG, "Number of Cores (CPUID): %d.\n", num_cpus);
 	return num_cpus;
 }
 
@@ -209,6 +199,7 @@ static void set_max_turbo_freq(void)
 {
 	msr_t msr, perf_ctl;
 
+	FUNC_ENTER();
 	perf_ctl.hi = 0;
 
 	/* Check for configurable TDP option */
@@ -230,6 +221,7 @@ static void set_max_turbo_freq(void)
 
 	printk(BIOS_DEBUG, "cpu: frequency set to %d\n",
 	       ((perf_ctl.lo >> 8) & 0xff) * CPU_BCLK);
+	FUNC_EXIT();
 }
 
 /*
@@ -241,12 +233,39 @@ static void set_max_turbo_freq(void)
  */
 static void pre_mp_init(void)
 {
-	x86_setup_mtrrs_with_detect();
+	FUNC_ENTER();
+	printk(BIOS_DEBUG, "pre_mp_init entry\n");
+
+	/* ./src/cpu/x86/mtrr/mtrr.c */
+	/*
+		x86_setup_mtrrs_with_detect();
+	*/
+	x86_setup_fixed_mtrrs();
+
+#if 0
+  struct memranges *addr_space;
+  addr_space = get_physical_address_space();
+	print_physical_address_space(addr_space, __func__);
 	x86_mtrr_check();
+
+	int fixed_msrs[] = {0x250, 0x258, 0x259, 0x268, 0x269, 0x26a, 0x26b, 0x26c, 0x26d, 0x26e, 0x26f};
+	for (int i=0; i < 11; ++i) {
+		msr_t msr = rdmsr(fixed_msrs[i]);
+		printk(BIOS_DEBUG, "fixed msr: 0x%x, value: 0x%08x%08x\n", fixed_msrs[i], msr.hi, msr.lo);
+	}
+
+	for (int i=0; i < 10; ++i) {
+		printk(BIOS_DEBUG, "IA32_MTRR_PHYSBASE%d (msr: 0x%x): 0x%08x%08x, IA32_MTRR_PHYSMASK0%d (msr: 0x%x): 0x%08x%08x\n",
+					 i, 512 + 2*i, rdmsr(512+2*i).hi, rdmsr(512+2*i).lo, i, 513 + 2*i, rdmsr(513+2*i).hi, rdmsr(513+2*i).lo);
+	}
+#endif
+
+	FUNC_EXIT();
 }
 
 static void post_mp_init(void)
 {
+	FUNC_ENTER();
 	/* Set Max Ratio */
 	set_max_turbo_freq();
 
@@ -254,7 +273,8 @@ static void post_mp_init(void)
 	 * Now that all APs have been relocated as well as the BSP let SMIs
 	 * start flowing.
 	 */
-	southcluster_smm_enable_smi();
+	//southcluster_smm_enable_smi();
+	FUNC_EXIT();	
 }
 
 /*
@@ -267,15 +287,61 @@ static void post_mp_init(void)
 static const struct mp_ops mp_ops = {
 	.pre_mp_init = pre_mp_init,
 	.get_cpu_count = get_cpu_count,
-	.get_smm_info = get_smm_info,
-	.pre_mp_smm_init = southcluster_smm_clear_state,
-	.relocation_handler = relocation_handler,
+	//.get_smm_info = get_smm_info, /* TODO */
+	.get_smm_info = NULL,
+	//.pre_mp_smm_init = southcluster_smm_clear_state, /* TODO */
+	.pre_mp_smm_init = NULL,
+	//.relocation_handler = relocation_handler, /* TODO */
+	.relocation_handler = NULL,
 	.post_mp_init = post_mp_init,
 };
 
+
+static void allocate_cpu_devices(struct bus *cpu_bus)
+{
+  int i;
+  int cpu_count;
+	struct cpu_info *info;
+
+	cpu_count = get_cpu_count();
+
+	/* we need this check b'cos there are several places that use CONFIG_MAX_CPUS as the upper bound */
+	assert(cpu_count <= CONFIG_MAX_CPUS);
+
+	info = cpu_info(); /* ./src/arch/x86/include/arch/cpu.h */
+	printk(BIOS_DEBUG, "cpu path: %s, apic_id: %d\n", dev_path(info->cpu), info->cpu->path.apic.apic_id);
+
+  for (i = 1; i < cpu_count; i++) {
+    struct device_path cpu_path;
+    struct device *new;
+
+    /* Build the CPU device path */
+    cpu_path.type = DEVICE_PATH_APIC;
+
+    /* Assuming linear APIC space allocation. */
+    cpu_path.apic.apic_id = info->cpu->path.apic.apic_id + i;
+
+    /* Allocate the new CPU device structure */
+    new = alloc_find_dev(cpu_bus, &cpu_path);
+    if (new == NULL)
+      die("Could not allocate CPU device\n");
+    new->name = processor_name;
+  }
+}
+
 void skylake_sp_init_cpus(struct device *dev)
 {
-	/* Clear for take-off */
+	FUNC_ENTER();	
+
+	fill_processor_name(processor_name); /* ./src/cpu/x86/name/name.c */
+	printk(BIOS_DEBUG, "processor_name: %s\n", processor_name);
+
+	allocate_cpu_devices(dev->link_list);
+
+  /* calls src/cpu/x86/mp_init.c */
+	/* we are disabling this - repeating what FSP does as part of CPU/KTI initialization.
+     unlikley code will work for 2S servers */
 	if (0 && mp_init_with_smm(dev->link_list, &mp_ops) < 0)
 		printk(BIOS_ERR, "MP initialization failure.\n");
+	FUNC_EXIT();
 }

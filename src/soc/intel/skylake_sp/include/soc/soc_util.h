@@ -14,8 +14,8 @@
  *
  */
 
-#ifndef _SKYLAKESP_NS_SOC_UTIL_H_
-#define _SKYLAKESP_NS_SOC_UTIL_H_
+#ifndef _SKYLAKESP_SOC_UTIL_H_
+#define _SKYLAKESP_SOC_UTIL_H_
 
 #ifndef __ACPI__
 #include <device/device.h>
@@ -74,4 +74,4 @@ uint8_t silicon_stepping(void);
 
 #endif //__ACPI__
 
-#endif /* _SKYLAKESP_NS_SOC_UTIL_H_ */
+#endif /* _SKYLAKESP_SOC_UTIL_H_ */

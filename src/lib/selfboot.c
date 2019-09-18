@@ -129,7 +129,6 @@ static int load_one_segment(uint8_t *dest,
 		 */
 		prog_segment_loaded((uintptr_t)dest, memsz, flags);
 
-
 	return 1;
 }
 

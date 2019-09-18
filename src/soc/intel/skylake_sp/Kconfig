@@ -48,21 +48,30 @@ config CPU_SPECIFIC_OPTIONS
 	select INTEL_DESCRIPTOR_MODE_CAPABLE
 	select COMMON_FADT
 	select SOC_INTEL_COMMON_BLOCK
+  select SOC_INTEL_COMMON_BLOCK_TIMER
+# TODO: uses lpc device directly, switch to common block
+  select SOC_INTEL_COMMON_BLOCK_LPC
+	select SOC_INTEL_COMMON_BLOCK_RTC
 	select SOC_INTEL_COMMON_BLOCK_CPU
-	select SOC_INTEL_COMMON_BLOCK_ACPI
-	select SOC_INTEL_COMMON_BLOCK_PMC
+# select SOC_INTEL_COMMON_BLOCK_ACPI
+  select SOC_INTEL_COMMON_BLOCK_PMC # not used
 	select ACPI_INTEL_HARDWARE_SLEEP_VALUES
 #	select SOC_INTEL_COMMON_BLOCK_SA
 	select SOC_INTEL_COMMON_BLOCK_FAST_SPI
 	select SOC_INTEL_COMMON_BLOCK_GPIO
 	select SOC_INTEL_COMMON_BLOCK_PCR
-    select SUPPORT_CPU_UCODE_IN_CBFS
+	select SOC_INTEL_COMMON_BLOCK_P2SB
+	select SOC_INTEL_COMMON_BLOCK_UART
+	select SOC_INTEL_COMMON_BLOCK_EBDA
+	select SOC_INTEL_COMMON_BLOCK_SMBUS
+  select SUPPORT_CPU_UCODE_IN_CBFS
 	select TSC_CONSTANT_RATE
 	select TSC_MONOTONIC_TIMER
 	select TSC_SYNC_MFENCE
 	select UDELAY_TSC
 	select UDK_2015_BINDING
 	select CPU_INTEL_FIRMWARE_INTERFACE_TABLE
+	select REG_SCRIPT
 	# This option is not used anywhere!! Doesn't comprehend compression
 	# select MIRROR_PAYLOAD_TO_RAM_BEFORE_LOADING
 
@@ -92,9 +101,10 @@ config FSP_FD_PATH
     depends on FSP_USE_REPO
     default "3rdparty/fsp/SkylakeSPFspBinPkg/FspBin/Fsp.fd"
 
+# For Tioga Pass 2S config, this will be 2 threads * 20 cores * 2 sockets
 config MAX_CPUS
 	int
-	default 28
+	default 80
 
 config PCR_BASE_ADDRESS
 	hex
@@ -183,5 +193,9 @@ config SKYLAKE_SP_CAR_NEM_ENHANCED
 	  the modified data will be lost and NEM results will be inconsistent.
 	  ENHANCED NEM guarantees that modified data is always
 	  kept in cache while clean data is replaced.
+
+config HEAP_SIZE
+  hex
+  default 0x80000
 
 endif ## SOC_INTEL_SKYLAKE_SP

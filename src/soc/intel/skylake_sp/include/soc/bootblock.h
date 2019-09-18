@@ -13,8 +13,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _SOC_SKYLAKESP_NS_BOOTBLOCK_H_
-#define _SOC_SKYLAKESP_NS_BOOTBLOCK_H_
+#ifndef _SOC_SKYLAKESP_BOOTBLOCK_H_
+#define _SOC_SKYLAKESP_BOOTBLOCK_H_
 
 /* Bootblock pre console init programming */
 //void bootblock_cpu_init(void);

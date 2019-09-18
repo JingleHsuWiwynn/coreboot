@@ -24,6 +24,10 @@
 #include <cpu/x86/smm.h>
 #include <bootstate.h>
 
+#include <intelblocks/p2sb.h>
+#include <intelblocks/lpc_lib.h>
+
+#include <soc/skxsp_util.h>
 #include <soc/lpc.h>
 #include <soc/pci_devs.h>
 #include <soc/ramstage.h>
@@ -31,6 +35,7 @@
 #include <soc/pcr.h>
 #include <soc/p2sb.h>
 #include <soc/acpi.h>
+#include <lib.h>
 
 #include "chip.h"
 
@@ -185,22 +190,20 @@ static void pci_p2sb_read_resources(struct device *dev)
 	 * Use 0xda as an unused index for PCR BAR.
 	 */
 	res = new_resource(dev, 0xda);
-	res->base = DEFAULT_PCR_BASE;
-	res->size = 16 * 1024 * 1024; /* 16MB PCR config space */
+	res->base = P2SB_BAR;
+	res->size = P2SB_SIZE;
 	res->flags = IORESOURCE_MEM | IORESOURCE_FIXED | IORESOURCE_STORED |
 		     IORESOURCE_ASSIGNED;
-	printk(BIOS_DEBUG,
-	       "Adding P2SB PCR config space BAR 0x%08lx-0x%08lx.\n",
-	       (unsigned long)(res->base),
-	       (unsigned long)(res->base + res->size));
+	LOG_MEM_RESOURCE("P2SB PCR config space BAR", dev, 0xda, (res->base >> 10), (res->size >> 10));
 
 	/* Add MMIO resource
 	 * Use 0xdb as an unused index for IOAPIC.
 	 */
 	res = new_resource(dev, 0xdb); /* IOAPIC */
 	res->base = IO_APIC_ADDR;
-	res->size = 0x00001000;
+	res->size = IOAPIC_SIZE; //0x00001000;
 	res->flags = IORESOURCE_MEM | IORESOURCE_ASSIGNED | IORESOURCE_FIXED;
+	LOG_MEM_RESOURCE("IOAPIC", dev, 0xdb, (res->base >> 10), (res->size >> 10));
 }
 
 static void pch_enable_serial_irqs(struct device *dev)
@@ -214,7 +217,7 @@ static void pch_enable_serial_irqs(struct device *dev)
 #endif
 }
 
-static void lpc_init(struct device *dev)
+void lpc_soc_init(struct device *dev)
 {
 	printk(BIOS_DEBUG, "pch: lpc_init\n");
 
@@ -235,7 +238,25 @@ static void lpc_init(struct device *dev)
 	pch_pirq_init(dev);
 }
 
-static void pch_lpc_add_mmio_resources(struct device *dev) { /* TODO */ }
+static const struct lpc_mmio_range skx_lpc_fixed_mmio_ranges[] = {
+  { 0, 0 }
+};
+
+const struct lpc_mmio_range *soc_get_fixed_mmio_ranges(void)
+{
+  return skx_lpc_fixed_mmio_ranges;
+}
+
+static void pch_lpc_add_mmio_resources(struct device *dev) 
+{
+  ADD_MMIO_RESOURCE(dev, 0xfd00, PCH_PRESERVED_BASE_ADDRESS, PCH_PRESERVED_BASE_SIZE);
+  //ADD_MMIO_RESOURCE(dev, 0xfec0, IOXAPIC_BASE_ADDRESS, IOAPIC_SIZE);
+  ADD_MMIO_RESOURCE(dev, 0xfed0, PCH_BASE_ADDRESS, PCH_BASE_SIZE);
+  ADD_MMIO_RESOURCE(dev, 0xfed0, PCH_BASE_ADDRESS, PCH_BASE_SIZE);
+  ADD_MMIO_RESOURCE(dev, 0xfee0, LXAPIC_BASE_ADDRESS, LXAPIC_BASE_SIZE);
+  ADD_MMIO_RESOURCE(dev, 0xfef0, RESERVED2_BASE_ADDRESS, RESERVED2_BASE_SIZE);
+  //ADD_MMIO_RESOURCE(dev, 0xff00, FIRMWARE_BASE_ADDRESS, FIRMWARE_BASE_SIZE);
+}
 
 static void pch_lpc_add_io_resources(struct device *dev)
 {
@@ -244,23 +265,15 @@ static void pch_lpc_add_io_resources(struct device *dev)
 
 	/* Add an extra subtractive resource for both memory and I/O. */
 	res = new_resource(dev, IOINDEX_SUBTRACTIVE(io_index++, 0));
-	res->base = 0;
-	res->size = 0x1000;
-	res->flags = IORESOURCE_IO | IORESOURCE_SUBTRACTIVE |
-		     IORESOURCE_ASSIGNED | IORESOURCE_FIXED;
-
-	res = new_resource(dev, IOINDEX_SUBTRACTIVE(io_index++, 0));
 	res->base = 0xff000000;
-	res->size = 0x01000000; /* 16 MB for flash */
+	res->size = FIRMWARE_BASE_SIZE; /* 16 MB for flash */
 	res->flags = IORESOURCE_MEM | IORESOURCE_SUBTRACTIVE |
 		     IORESOURCE_ASSIGNED | IORESOURCE_FIXED;
+	LOG_MEM_RESOURCE("[MEM] subtractive_res", dev, io_index-1, (res->base >> 10), (res->size >> 10));
 }
 
-static void lpc_read_resources(struct device *dev)
+void pch_lpc_soc_fill_io_resources(struct device *dev)
 {
-	/* Get the normal PCI resources of this device. */
-	pci_dev_read_resources(dev);
-
 	/* Add non-standard MMIO resources. */
 	pch_lpc_add_mmio_resources(dev);
 
@@ -270,17 +283,6 @@ static void lpc_read_resources(struct device *dev)
 	/* Add MMIO resource for IOAPIC. */
 	pci_p2sb_read_resources(dev);
 }
-
-static void pch_decode_init(struct device *dev) { /* TODO */ }
-
-static void lpc_enable_resources(struct device *dev)
-{
-	pch_decode_init(dev);
-	pci_dev_enable_resources(dev);
-}
-
-/* Set bit in Function Disable register to hide this device */
-static void pch_hide_devfn(uint32_t devfn) { /* TODO */ }
 
 void southcluster_enable_dev(struct device *dev)
 {
@@ -294,9 +296,6 @@ void southcluster_enable_dev(struct device *dev)
 		reg32 &= ~(PCI_COMMAND_MASTER | PCI_COMMAND_MEMORY |
 			   PCI_COMMAND_IO);
 		pci_write_config32(dev, PCI_COMMAND, reg32);
-
-		/* Hide this device if possible */
-		pch_hide_devfn(dev->path.pci.devfn);
 	} else {
 		/* Enable SERR */
 		reg32 = pci_read_config32(dev, PCI_COMMAND);
@@ -304,26 +303,6 @@ void southcluster_enable_dev(struct device *dev)
 		pci_write_config32(dev, PCI_COMMAND, reg32);
 	}
 }
-
-static struct device_operations device_ops = {
-	.read_resources = lpc_read_resources,
-	.set_resources = pci_dev_set_resources,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
-	.acpi_inject_dsdt_generator = southcluster_inject_dsdt,
-	.write_acpi_tables = southcluster_write_acpi_tables,
-#endif
-	.enable_resources = lpc_enable_resources,
-	.init = lpc_init,
-	.enable = southcluster_enable_dev,
-	.scan_bus = scan_lpc_bus,
-	.ops_pci = &soc_pci_ops,
-};
-
-static const struct pci_driver lpc_driver __pci_driver = {
-	.ops = &device_ops,
-	.vendor = PCI_VENDOR_ID_INTEL,
-	.device = LPC_DEVID,
-};
 
 static void finalize_chipset(void *unused)
 {

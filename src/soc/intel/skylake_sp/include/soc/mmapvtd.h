@@ -1,7 +1,9 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2016 - 2017 Intel Corporation.
+ * Copyright (C) 2007 - 2008 coresystems GmbH
+ * Copyright (C) 2014 Google Inc.
+ * Copyright (C) 2014 - 2017 Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,15 +16,10 @@
  *
  */
 
-// Intel NPK Controller 0:1f.7
+#ifndef _SKYLAKESP_MMAPVTD_H_
+#define _SKYLAKESP_MMAPVTD_H_
 
-Device (NPK0)
-{
-	Name (_ADR, 0x001f0007)
+#define LOWMEM_RESERVED_REGION_BEGIN 0xfe000000
+#define LOWMEM_RESERVED_REGION_END   0xffffffff
 
-	// Northpeak DFX
-	Method(_STA, 0, NotSerialized)
-	{
-		Return(0x0B)
-	}
-}
+#endif //_SKYLAKESP_MMAPVTD_H_

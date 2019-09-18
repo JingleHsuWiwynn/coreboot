@@ -14,8 +14,8 @@
  *
  */
 
-#ifndef _CPU_INTEL_SKYLAKESP_NS_H
-#define _CPU_INTEL_SKYLAKESP_NS_H
+#ifndef _CPU_INTEL_SKYLAKESP_H
+#define _CPU_INTEL_SKYLAKESP_H
 
 int get_cpu_count(void);
 
@@ -42,4 +42,4 @@ void skylake_sp_init_cpus(struct device *dev);
 
 #endif /* __ACPI__ */
 
-#endif /* _CPU_INTEL_SKYLAKESP_NS_H */
+#endif /* _CPU_INTEL_SKYLAKESP_H */

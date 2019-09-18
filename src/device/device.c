@@ -26,6 +26,8 @@
 #include <arch/ebda.h>
 #endif
 #include <timer.h>
+#include <device/pci.h>
+
 
 /** Pointer to the last device */
 extern struct device *last_dev;
@@ -320,8 +322,8 @@ static void compute_resources(struct bus *bus, struct resource *bridge,
 	if (!bus)
 		return;
 
-	printk(BIOS_SPEW,  "%s %s: base: %llx size: %llx align: %d gran: %d"
-	       " limit: %llx\n", dev_path(bus->dev), resource2str(bridge),
+	printk(BIOS_SPEW,  "^^^^ %s:%s:%d %s %s: base: %llx size: %llx align: %d gran: %d"
+	       " limit: %llx\n", __FILE__, __func__, __LINE__, dev_path(bus->dev), resource2str(bridge),
 	       base, bridge->size, bridge->align,
 	       bridge->gran, bridge->limit);
 
@@ -369,6 +371,8 @@ static void compute_resources(struct bus *bus, struct resource *bridge,
 	/* Remember we haven't found anything yet. */
 	resource = NULL;
 
+	//printk(BIOS_SPEW, "^^^ walking through all resources\n");
+
 	/*
 	 * Walk through all the resources on the current bus and compute the
 	 * amount of address space taken by them. Take granularity and
@@ -378,6 +382,9 @@ static void compute_resources(struct bus *bus, struct resource *bridge,
 
 		/* Size 0 resources can be skipped. */
 		if (!resource->size)
+			continue;
+
+		if (resource->flags & IORESOURCE_ASSIGNED)
 			continue;
 
 		/* Propagate the resource alignment to the bridge resource. */
@@ -418,10 +425,12 @@ static void compute_resources(struct bus *bus, struct resource *bridge,
 		}
 		/* Base must be aligned. */
 		base = round(base, resource->align);
+		//printk(BIOS_SPEW, "^^^ resource->align: 0x%x, base: 0x%llx\n", resource->align, base);
+
 		resource->base = base;
 		base += resource->size;
 
-		printk(BIOS_SPEW, "%s %02lx *  [0x%llx - 0x%llx] %s\n",
+		printk(BIOS_SPEW, "---> %s %02lx *  [0x%llx - 0x%llx] %s\n",
 		       dev_path(dev), resource->index, resource->base,
 		       resource->base + resource->size - 1,
 		       resource2str(resource));
@@ -433,10 +442,19 @@ static void compute_resources(struct bus *bus, struct resource *bridge,
 	 * minimum granularity so we know not to place something else at an
 	 * address positively decoded by the bridge.
 	 */
-	bridge->size = round(base, bridge->gran) -
-		       round(bridge->base, bridge->align);
+	if (!(bridge->flags & IORESOURCE_ASSIGNED))
+		bridge->size = round(base, bridge->gran) -
+						 round(bridge->base, bridge->align);
 
-	printk(BIOS_SPEW, "%s %s: base: %llx size: %llx align: %d gran: %d"
+#if 0
+	// ANJI FIX
+	if (bridge->size == 0) {
+		bridge->size = 0x1000;
+		printk(BIOS_SPEW, "==> Fixed bridge->size to non zero\n");
+	}
+#endif
+
+	printk(BIOS_SPEW, "==> compute_resources Final Bridge %s %s: base: %llx size: %llx align: %d gran: %d"
 	       " limit: %llx done\n", dev_path(bus->dev),
 	       resource2str(bridge),
 	       base, bridge->size, bridge->align, bridge->gran, bridge->limit);
@@ -467,8 +485,8 @@ static void allocate_resources(struct bus *bus, struct resource *bridge,
 	if (!bus)
 		return;
 
-	printk(BIOS_SPEW, "%s %s: base:%llx size:%llx align:%d gran:%d "
-	       "limit:%llx\n", dev_path(bus->dev),
+	printk(BIOS_SPEW, "^^^^ %s:%s:%d %s %s: base:%llx size:%llx align:%d gran:%d "
+	       "limit:%llx\n", __FILE__, __func__, __LINE__, dev_path(bus->dev),
 	       resource2str(bridge),
 	       base, bridge->size, bridge->align, bridge->gran, bridge->limit);
 
@@ -538,7 +556,7 @@ static void allocate_resources(struct bus *bus, struct resource *bridge,
 			       resource2str(resource));
 		}
 
-		printk(BIOS_SPEW, "%s %02lx *  [0x%llx - 0x%llx] %s\n",
+		printk(BIOS_SPEW, "---> %s %02lx *  [0x%llx - 0x%llx] %s\n",
 		       dev_path(dev), resource->index, resource->base,
 		       resource->size ? resource->base + resource->size - 1 :
 		       resource->base, resource2str(resource));
@@ -553,7 +571,7 @@ static void allocate_resources(struct bus *bus, struct resource *bridge,
 
 	bridge->flags |= IORESOURCE_ASSIGNED;
 
-	printk(BIOS_SPEW, "%s %s: next_base: %llx size: %llx align: %d "
+	printk(BIOS_SPEW, "---> bridge %s %s: next_base: %llx size: %llx align: %d "
 	       "gran: %d done\n", dev_path(bus->dev),
 	       resource2str(bridge), base, bridge->size, bridge->align,
 	       bridge->gran);
@@ -658,15 +676,25 @@ static void constrain_resources(const struct device *dev,
 			res->base + res->size - 1, resource2str(res));
 
 		/*
+			******************
+    *****
+			******************
+										******
+			******************
+					********
 		 * Choose to be above or below fixed resources. This check is
 		 * signed so that "negative" amounts of space are handled
 		 * correctly.
 		 */
 		if ((signed long long)(lim->limit - (res->base + res->size -1))
-		    > (signed long long)(res->base - lim->base))
+		    > (signed long long)(res->base - lim->base)) {
 			lim->base = res->base + res->size;
-		else
+			printk(BIOS_SPEW, " ====> dev %s new base 0x%llx\n", dev_path(dev), lim->base);
+		}
+		else {
 			lim->limit = res->base -1;
+			printk(BIOS_SPEW, " ====> dev %s new limit 0x%llx\n", dev_path(dev), lim->limit);
+		}
 	}
 
 	/* Descend into every enabled child and look for fixed resources. */
@@ -684,7 +712,7 @@ static void avoid_fixed_resources(const struct device *dev)
 	struct resource *res;
 	struct resource *lim;
 
-	printk(BIOS_SPEW, "%s: %s\n", __func__, dev_path(dev));
+	printk(BIOS_SPEW, "================= %s: %s\n", __func__, dev_path(dev));
 
 	/* Initialize constraints to maximum size. */
 	limits.io.base = 0;
@@ -696,8 +724,8 @@ static void avoid_fixed_resources(const struct device *dev)
 	for (res = dev->resource_list; res; res = res->next) {
 		if ((res->flags & IORESOURCE_FIXED))
 			continue;
-		printk(BIOS_SPEW, "%s:@%s %02lx limit %08llx\n", __func__,
-		       dev_path(dev), res->index, res->limit);
+		printk(BIOS_SPEW, "Constrain the limits => %s:@%s %02lx base 0x%llx limit %08llx\n", __func__,
+		       dev_path(dev), res->index, res->base, res->limit);
 
 		lim = resource_limit(&limits, res);
 		if (!lim)
@@ -707,14 +735,30 @@ static void avoid_fixed_resources(const struct device *dev)
 			lim->base = res->base;
 		if (res->limit < lim->limit)
 			lim->limit = res->limit;
+		 printk(BIOS_SPEW, "Constrain the limits => res->base %08llx lim->base %08llx res->limit %08llx lim->limit  %08llx\n",
+						 res->base, lim->base, res->limit, lim->limit);
 	}
 
 	/* Look through the tree for fixed resources and update the limits. */
+	printk(BIOS_SPEW, "\n");
+	printk(BIOS_SPEW, "before constrain_resources call limits.io.base %08llx limits.io.limit %08llx\n",
+				 limits.io.base, limits.io.limit);
+	printk(BIOS_SPEW, "before constrain_resources call limits.mem.base  %08llx limits.mem.limit %08llx\n",
+				 limits.mem.base, limits.mem.limit);
 	constrain_resources(dev, &limits);
+	printk(BIOS_SPEW, "after constrain_resources call limits.io.base %08llx limits.io.limit %08llx\n",
+				 limits.io.base, limits.io.limit);
+	printk(BIOS_SPEW, "after constrain_resources call limits.mem.base  %08llx limits.mem.limit %08llx\n",
+				 limits.mem.base, limits.mem.limit);
+	printk(BIOS_SPEW, "\n");
 
 	/* Update dev's resources with new limits. */
 	for (res = dev->resource_list; res; res = res->next) {
 		if ((res->flags & IORESOURCE_FIXED))
+			continue;
+
+		/* ANJI */
+		if ((res->flags & IORESOURCE_ASSIGNED))
 			continue;
 
 		lim = resource_limit(&limits, res);
@@ -726,12 +770,24 @@ static void avoid_fixed_resources(const struct device *dev)
 			res->base = lim->base;
 		if (res->limit > lim->limit)
 			res->limit = lim->limit;
+	 printk(BIOS_SPEW, "updated the limits => res->base %08llx lim->base %08llx res->limit %08llx lim->limit  %08llx\n",
+						 res->base, lim->base, res->limit, lim->limit);
 
+// REDDY FIX
 		/* MEM resources need to start at the highest address manageable. */
-		if (res->flags & IORESOURCE_MEM)
+		if (res->flags & IORESOURCE_MEM) {
+			printk(BIOS_SPEW, "\tresource_max before base: 0x%llx, limit: 0x%llx, align: 0x%x\n", res->base, res->limit, res->align);
 			res->base = resource_max(res);
+			printk(BIOS_SPEW, "\tresource_max before base: 0x%llx, limit: 0x%llx, align: 0x%x\n", res->base, res->limit, res->align);
 
-		printk(BIOS_SPEW, "%s:@%s %02lx base %08llx limit %08llx\n",
+#if 0
+			// REDDY HACK
+			res->base = 0x90000000;
+			res->limit = 0xfbf00000;
+#endif
+		}
+
+		printk(BIOS_SPEW, "updated device limits => %s:@%s %02lx base %08llx limit %08llx\n",
 			__func__, dev_path(dev), res->index, res->base, res->limit);
 	}
 }
@@ -868,8 +924,9 @@ static void enable_resources(struct bus *link)
 	}
 
 	for (dev = link->children; dev; dev = dev->sibling) {
-		for (c_link = dev->link_list; c_link; c_link = c_link->next)
+		for (c_link = dev->link_list; c_link; c_link = c_link->next) {
 			enable_resources(c_link);
+		}
 	}
 	post_log_clear();
 }
@@ -936,9 +993,12 @@ void scan_bridges(struct bus *bus)
 {
 	struct device *child;
 
+	printk(BIOS_DEBUG, "%s:%s for bus %s\n", __FILE__, __func__, bus_path(bus));
 	for (child = bus->children; child; child = child->sibling) {
+		//printk(BIOS_DEBUG, "%s:%s child %s\n", __FILE__, __func__, dev_path(child));
 		if (!child->ops || !child->ops->scan_bus)
 			continue;
+		printk(BIOS_DEBUG, "%s:%s for scan bus for child %s\n", __FILE__, __func__, dev_path(child));
 		scan_bus(child);
 	}
 }
@@ -968,10 +1028,109 @@ void scan_bridges(struct bus *bus)
 void dev_enumerate(void)
 {
 	struct device *root;
+#if 0
+	struct bus *link;
+#endif
 
 	printk(BIOS_INFO, "Enumerating buses...\n");
 
 	root = &dev_root;
+
+	// REDDY
+#if 0
+	// scan buses on the root device
+	for (link = root->link_list; link; link = link->next) {
+		struct device *child;
+		int done;
+    printk(BIOS_DEBUG, "^^^ got bus %s\n", bus_path(link));
+
+		// get domain
+		done = 0;
+		for (child = link->children; child; child = child->sibling) {
+#if 0
+			if (!child->ops || !child->ops->scan_bus)
+				continue;
+#endif
+			if (child->path.type == DEVICE_PATH_DOMAIN) {
+				struct bus *iiostack_bus;
+
+				done = 1;
+				printk(BIOS_DEBUG, "Found DOMAIN DEVICE %s on bus %s (device bus %s)\n", dev_path(child), bus_path(link),
+							 bus_path(child->bus));
+				/* Attach bus on this device */
+				iiostack_bus = malloc(sizeof(*link));
+				if (iiostack_bus == 0)
+					die("alloc_dev(): out of memory.\n");
+			  memset(iiostack_bus, 0, sizeof(*iiostack_bus));
+				memcpy(iiostack_bus, child->bus, sizeof(*child->bus));
+				iiostack_bus->secondary = 0xb2;
+				iiostack_bus->subordinate = 0xff;
+				iiostack_bus->dev = NULL;
+				iiostack_bus->children = NULL;
+				iiostack_bus->next = NULL;
+				iiostack_bus->link_num = 1;
+
+				/* Allocate device */
+				struct device dummy;
+
+				dummy.bus = iiostack_bus;
+				dummy.path.type = DEVICE_PATH_PCI;
+				dummy.path.pci.devfn = 0;
+				u32 id = pci_read_config32(&dummy, PCI_VENDOR_ID);
+				printk(BIOS_DEBUG, "Pci_read_config returned id 0x%x\n", id);
+
+#if 0
+				struct device *pci_bridge_dev;
+				//pci_bridge_dev = alloc_dev(iiostack_bus, &dummy.path);
+				//pci_bridge_dev = alloc_dev(child->bus, &dummy.path);
+				pci_bridge_dev = pci_probe_dev(NULL, iiostack_bus, 0);
+				printk(BIOS_DEBUG, "pci_probe_dev dev %p\n", pci_bridge_dev);
+
+  struct device *sibling;
+  struct bus *link1;
+
+				sibling = child->link_list->children;
+				while (sibling->sibling)
+					sibling = sibling->sibling;
+				sibling->sibling = pci_bridge_dev;
+  for (link1 = child->link_list; link1; link1 = link1->next) {
+		printk(BIOS_DEBUG, "link1: %s\n", bus_path(link1));
+    for (sibling = link1->children; sibling; sibling = sibling->sibling)
+			printk(BIOS_DEBUG, "sibling: %s\n", dev_path(sibling));
+  }
+
+				printk(BIOS_DEBUG, "Allocate device %s on bus %s\n", dev_path(&dummy), bus_path(iiostack_bus));
+				if (pci_bridge_dev) {
+					printk(BIOS_DEBUG, "Allocated device %s\n", dev_path(pci_bridge_dev));
+				}
+				else {
+					printk(BIOS_DEBUG, "Device allocation failed\n");
+				}
+#endif
+
+				if (child->link_list == NULL) {
+					child->link_list = iiostack_bus;
+				}
+				else {
+					struct bus *nlink = child->link_list;
+					printk(BIOS_DEBUG, "Processing bus %s\n", bus_path(nlink));
+					while (nlink->next != NULL) {
+						nlink = nlink->next;
+						printk(BIOS_DEBUG, "Processing next bus %s\n", bus_path(nlink));
+					}
+					printk(BIOS_DEBUG, "Attaching bus %s to current bus link %s\n", bus_path(iiostack_bus),
+								 bus_path(nlink));
+					nlink->next = iiostack_bus;
+				}
+				break;
+			}
+		}
+		if (done)
+			break;
+  }
+
+#endif
+	// END OF REDDY CODE
 
 	show_all_devs(BIOS_SPEW, "Before device enumeration.");
 	printk(BIOS_SPEW, "Compare with tree...\n");
@@ -1042,8 +1201,10 @@ void dev_configure(void)
 				continue;
 			}
 			if (res->flags & IORESOURCE_IO) {
+				printk(BIOS_INFO, "^^^^ BEGIN %s:%d call compute_resources bridge base 0x%llx\n", __func__, __LINE__, res->base);
 				compute_resources(child->link_list,
 						  res, IORESOURCE_TYPE_MASK, IORESOURCE_IO);
+				printk(BIOS_INFO, "^^^^ END %s:%d finished compute_resources bridge base 0x%llx\n", __func__, __LINE__, res->base);
 				continue;
 			}
 		}
@@ -1054,8 +1215,10 @@ void dev_configure(void)
 		if (child->path.type == DEVICE_PATH_DOMAIN)
 			avoid_fixed_resources(child);
 
+	printk(BIOS_INFO, "^^^ After avoid fixed resources...\n");
+
 	/* Store the computed resource allocations into device registers ... */
-	printk(BIOS_INFO, "Setting resources...\n");
+	printk(BIOS_INFO, "Allocating resources...\n");
 	for (child = root->link_list->children; child; child = child->sibling) {
 		if (!(child->path.type == DEVICE_PATH_DOMAIN))
 			continue;
@@ -1063,20 +1226,26 @@ void dev_configure(void)
 		for (res = child->resource_list; res; res = res->next) {
 			if (res->flags & IORESOURCE_FIXED)
 				continue;
+			if (res->flags & IORESOURCE_ASSIGNED) /* ANJI */
+				continue;
 			if (res->flags & IORESOURCE_MEM) {
 				allocate_resources(child->link_list,
 						   res, IORESOURCE_TYPE_MASK, IORESOURCE_MEM);
 				continue;
 			}
 			if (res->flags & IORESOURCE_IO) {
+				printk(BIOS_INFO, "^^^^ calling allocate_resources bridge base 0x%llx\n", res->base);
 				allocate_resources(child->link_list,
 						   res, IORESOURCE_TYPE_MASK, IORESOURCE_IO);
 				continue;
 			}
 		}
 	}
+
+	printk(BIOS_INFO, "Assigning resources...\n");
 	assign_resources(root->link_list);
-	printk(BIOS_INFO, "Done setting resources.\n");
+	printk(BIOS_INFO, "Done Assigning resources.\n");
+
 	print_resource_tree(root, BIOS_SPEW, "After assigning values.");
 
 	printk(BIOS_INFO, "Done allocating resources.\n");

@@ -95,7 +95,7 @@ static void southbridge_smi_sleep(void)
 {
 	uint32_t reg32;
 	uint8_t slp_typ;
-	uint16_t pmbase = get_pmbase();
+	uint16_t pmbase = ACPI_BASE_ADDRESS;
 
 	/* First, disable further SMIs */
 	disable_smi(SLP_SMI_EN);
@@ -300,7 +300,7 @@ static void southbridge_smi_periodic(void)
 {
 	uint32_t reg32;
 
-	reg32 = inl((uint16_t)(get_pmbase() + SMI_EN));
+	reg32 = inl((uint16_t)(ACPI_BASE_ADDRESS + SMI_EN));
 
 	/* Are periodic SMIs enabled? */
 	if ((reg32 & PERIODIC_EN) == 0)

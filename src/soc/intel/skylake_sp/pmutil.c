@@ -143,7 +143,7 @@ static uint32_t print_smi_status(uint32_t smi_sts)
 
 static uint32_t reset_smi_status(void)
 {
-	uint16_t pmbase = get_pmbase();
+	uint16_t pmbase = ACPI_BASE_ADDRESS;
 	uint32_t smi_sts = inl((uint16_t)(pmbase + SMI_STS));
 	outl(smi_sts, (uint16_t)(pmbase + SMI_STS));
 	return smi_sts;
@@ -153,7 +153,7 @@ uint32_t clear_smi_status(void) { return print_smi_status(reset_smi_status()); }
 
 void enable_smi(uint32_t mask)
 {
-	uint16_t pmbase = get_pmbase();
+	uint16_t pmbase = ACPI_BASE_ADDRESS;
 	uint32_t smi_en = inl((uint16_t)(pmbase + SMI_EN));
 	smi_en |= mask;
 	outl(smi_en, (uint16_t)(pmbase + SMI_EN));
@@ -161,7 +161,7 @@ void enable_smi(uint32_t mask)
 
 void disable_smi(uint32_t mask)
 {
-	uint16_t pmbase = get_pmbase();
+	uint16_t pmbase = ACPI_BASE_ADDRESS;
 	uint32_t smi_en = inl((uint16_t)(pmbase + SMI_EN));
 	smi_en &= ~mask;
 	outl(smi_en, (uint16_t)(pmbase + SMI_EN));
@@ -169,7 +169,7 @@ void disable_smi(uint32_t mask)
 
 void enable_pm1_control(uint32_t mask)
 {
-	uint16_t pmbase = get_pmbase();
+	uint16_t pmbase = ACPI_BASE_ADDRESS;
 	uint32_t pm1_cnt = inl((uint16_t)(pmbase + PM1_CNT));
 	pm1_cnt |= mask;
 	outl(pm1_cnt, (uint16_t)(pmbase + PM1_CNT));
@@ -177,7 +177,7 @@ void enable_pm1_control(uint32_t mask)
 
 void disable_pm1_control(uint32_t mask)
 {
-	uint16_t pmbase = get_pmbase();
+	uint16_t pmbase = ACPI_BASE_ADDRESS;
 	uint32_t pm1_cnt = inl((uint16_t)(pmbase + PM1_CNT));
 	pm1_cnt &= ~mask;
 	outl(pm1_cnt, (uint16_t)(pmbase + PM1_CNT));
@@ -185,7 +185,7 @@ void disable_pm1_control(uint32_t mask)
 
 static uint16_t reset_pm1_status(void)
 {
-	uint16_t pmbase = get_pmbase();
+	uint16_t pmbase = ACPI_BASE_ADDRESS;
 	uint16_t pm1_sts = inw((uint16_t)(pmbase + PM1_STS));
 	outw(pm1_sts, (uint16_t)(pmbase + PM1_STS));
 	return pm1_sts;
@@ -213,7 +213,7 @@ uint16_t clear_pm1_status(void) { return print_pm1_status(reset_pm1_status()); }
 
 void enable_pm1(uint16_t events)
 {
-	uint16_t pmbase = get_pmbase();
+	uint16_t pmbase = ACPI_BASE_ADDRESS;
 	outw(events, (uint16_t)(pmbase + PM1_EN));
 }
 
@@ -252,7 +252,7 @@ uint32_t clear_tco_status(void) { return print_tco_status(reset_tco_status()); }
 
 void enable_gpe(uint32_t mask)
 {
-	uint16_t pmbase = get_pmbase();
+	uint16_t pmbase = ACPI_BASE_ADDRESS;
 	uint32_t gpe0_en = inl((uint16_t)(pmbase + GPE0_EN(GPE_STD)));
 	gpe0_en |= mask;
 	outl(gpe0_en, (uint16_t)(pmbase + GPE0_EN(GPE_STD)));
@@ -260,7 +260,7 @@ void enable_gpe(uint32_t mask)
 
 void disable_gpe(uint32_t mask)
 {
-	uint16_t pmbase = get_pmbase();
+	uint16_t pmbase = ACPI_BASE_ADDRESS;
 	uint32_t gpe0_en = inl((uint16_t)(pmbase + GPE0_EN(GPE_STD)));
 	gpe0_en &= ~mask;
 	outl(gpe0_en, (uint16_t)(pmbase + GPE0_EN(GPE_STD)));
@@ -270,7 +270,7 @@ void disable_all_gpe(void) { disable_gpe(~0); }
 
 static uint32_t reset_gpe_status(void)
 {
-	uint16_t pmbase = get_pmbase();
+	uint16_t pmbase = ACPI_BASE_ADDRESS;
 	uint32_t gpe_sts = inl((uint16_t)(pmbase + GPE0_STS(GPE_STD)));
 	outl(gpe_sts, (uint16_t)(pmbase + GPE0_STS(GPE_STD)));
 	return gpe_sts;

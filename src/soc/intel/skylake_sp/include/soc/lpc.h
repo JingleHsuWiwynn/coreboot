@@ -16,8 +16,12 @@
  *
  */
 
-#ifndef _SKYLAKESP_NS_LPC_H_
-#define _SKYLAKESP_NS_LPC_H_
+#ifndef _SKYLAKESP_LPC_H_
+#define _SKYLAKESP_LPC_H_
+
+/* Default IO range claimed by the LPC device. The upper bound is exclusive. */
+#define LPC_DEFAULT_IO_RANGE_LOWER 0
+#define LPC_DEFAULT_IO_RANGE_UPPER 0x1000
 
 /* PCI Configuration Space (D31:F0): LPC */
 #define PCH_LPC_DEV PCI_DEV(0, LPC_DEV, LPC_FUNC)
@@ -60,4 +64,4 @@
 #define LPC_GEN3_DEC 0x8c     /* LPC IF Generic Decode Range 3 */
 #define LPC_GEN4_DEC 0x90     /* LPC IF Generic Decode Range 4 */
 
-#endif /* _SKYLAKESP_NS_LPC_H_ */
+#endif /* _SKYLAKESP_LPC_H_ */

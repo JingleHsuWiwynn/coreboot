@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef _SKYLAKESP_NS_SATA_H
-#define _SKYLAKESP_NS_SATA_H
+#ifndef _SKYLAKESP_SATA_H
+#define _SKYLAKESP_SATA_H
 
 /* PCI Configuration Space (D19:F0): SATA #0 */
 /* PCI Configuration Space (D20:F0): SATA #1 */
@@ -28,4 +28,4 @@
 #define SATA_MAP_RAID (1 << 6)
 #define SATA_PSC 0x92
 
-#endif //_SKYLAKESP_NS_SATA_H
+#endif //_SKYLAKESP_SATA_H

@@ -39,9 +39,9 @@ void southcluster_smm_clear_state(void)
 	uint32_t smi_en;
 
 	printk(BIOS_DEBUG, "Initializing Southbridge SMI...");
-	printk(BIOS_SPEW, " pmbase = 0x%04x\n", get_pmbase());
+	printk(BIOS_SPEW, " pmbase = 0x%04x\n", ACPI_BASE_ADDRESS);
 
-	smi_en = inl((uint16_t)(get_pmbase() + SMI_EN));
+	smi_en = inl((uint16_t)(ACPI_BASE_ADDRESS + SMI_EN));
 	if (smi_en & APMC_EN) {
 		printk(BIOS_INFO, "SMI# handler already enabled?\n");
 		return;

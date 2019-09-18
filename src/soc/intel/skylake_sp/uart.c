@@ -1,12 +1,12 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2015 - 2017 Intel Corp.
+ * Copyright (C) 2015 Google Inc.
+ * Copyright (C) 2015-2018 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * the Free Software Foundation; version 2 of the License.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -14,79 +14,77 @@
  * GNU General Public License for more details.
  */
 
-/*
- * The sole purpose of this driver is to avoid BAR to be changed during
- * resource allocation. Since configuration space is just 32 bytes it
- * shouldn't cause any fragmentation.
- */
-
-#include <console/uart.h>
-#include <device/device.h>
-#include <device/pci.h>
-#include <device/pci_ids.h>
-#include <soc/pci_devs.h>
 #include <console/console.h>
-#include <soc/uart.h>
-#include <fsp/api.h>
+#include <device/pci_def.h>
+#include <gpio.h>
+#include <intelblocks/lpss.h>
+#include <intelblocks/pcr.h>
+#include <intelblocks/uart.h>
+#include <soc/bootblock.h>
+#include <soc/pci_devs.h>
+#include <soc/pcr_ids.h>
+#include <string.h>
 
-static void skx_uart_read_resources(struct device *dev)
-{
-	/* read resources to be visible in the log*/
-	pci_dev_read_resources(dev);
-	if (!IS_ENABLED(CONFIG_LEGACY_UART_MODE))
-		return;
-	struct resource *res = find_resource(dev, PCI_BASE_ADDRESS_0);
-	if (res == NULL)
-		return;
-	res->size = 0x8;
-	res->flags = IORESOURCE_IO | IORESOURCE_ASSIGNED | IORESOURCE_FIXED;
-	/* Do not configure membar */
-	res = find_resource(dev, PCI_BASE_ADDRESS_1);
-	if (res != NULL)
-		res->flags = 0;
-	compact_resources(dev);
+/* Serial IO UART controller legacy mode */
+#define PCR_SERIAL_IO_GPPRVRW7		0x618
+#define PCR_SIO_PCH_LEGACY_UART(idx)	(1 << (idx))
 
-}
-
-static struct device_operations uart_ops = {
-	.read_resources = skx_uart_read_resources,
-	.set_resources = pci_dev_set_resources,
-	.enable_resources = pci_dev_enable_resources,
-	.init = pci_dev_init,
-	.enable = DEVICE_NOOP
-};
-
-static const unsigned short uart_ids[] = {
-	HSUART_DEVID, /* HSUART 0/1/2 */
-	0
-};
-
-static const struct pci_driver uart_driver __pci_driver = {
-	.ops = &uart_ops,
-	.vendor = PCI_VENDOR_ID_INTEL,
-	.devices = uart_ids
-};
-
-static void hide_hsuarts(void)
-{
-	int i;
-	printk(BIOS_DEBUG, "HIDING HSUARTs.\n");
-	/* There is a hardware requirement to hide functions starting from the
-	   last one. */
-	for (i = SKYLAKESP_UARTS_TO_INI - 1; i >= 0; i--) {
-		struct device *uart_dev;
-		uart_dev = dev_find_slot(0, PCI_DEVFN(HSUART_DEV, i));
-		if (uart_dev == NULL)
-			continue;
-		pci_or_config32(uart_dev, PCI_FUNC_RDCFG_HIDE, 1);
+/* UART pad configuration. Support RXD and TXD for now. */
+const struct uart_gpio_pad_config uart_gpio_pads[] = {
+/* TODO */
+#if 0
+	{
+		.console_index = 0,
+		.gpios = {
+			PAD_CFG_NF(GPP_C8, NONE, DEEP, NF1), /* UART0 RX */
+			PAD_CFG_NF(GPP_C9, NONE, DEEP, NF1), /* UART0 TX */
+		},
+	},
+	{
+		.console_index = 1,
+		.gpios = {
+			PAD_CFG_NF(GPP_C12, NONE, DEEP, NF1), /* UART1 RX */
+			PAD_CFG_NF(GPP_C13, NONE, DEEP, NF1), /* UART1 TX */
+		},
+	},
+	{
+		.console_index = 2,
+		.gpios = {
+			PAD_CFG_NF(GPP_C20, NONE, DEEP, NF1), /* UART2 RX */
+			PAD_CFG_NF(GPP_C21, NONE, DEEP, NF1), /* UART2 TX */
+		},
 	}
+#endif
+};
+
+const int uart_max_index = ARRAY_SIZE(uart_gpio_pads);
+
+void soc_uart_set_legacy_mode(void)
+{
+	pcr_write32(PID_SERIALIO, PCR_SERIAL_IO_GPPRVRW7,
+		PCR_SIO_PCH_LEGACY_UART(CONFIG_UART_FOR_CONSOLE));
+	/*
+	 * Dummy read after setting any of GPPRVRW7.
+	 * Required for UART 16550 8-bit Legacy mode to become active
+	 */
+	lpss_clk_read(UART_BASE(CONFIG_UART_FOR_CONSOLE));
 }
 
-/* Hide HSUART PCI device very last when FSP no longer needs it */
-void platform_fsp_notify_status(enum fsp_notify_phase phase)
+struct device *soc_uart_console_to_device(int uart_console)
 {
-	if (phase != END_OF_FIRMWARE)
-		return;
-	if (IS_ENABLED(CONFIG_LEGACY_UART_MODE))
-		hide_hsuarts();
+	/*
+	 * if index is valid, this function will return corresponding structure
+	 * for uart console else will return NULL.
+	 */
+	switch (uart_console) {
+	case 0:
+		return (struct device *)PCH_DEV_UART0;
+	case 1:
+		return (struct device *)PCH_DEV_UART1;
+	case 2:
+		return (struct device *)PCH_DEV_UART2;
+	default:
+		printk(BIOS_ERR, "Invalid UART console index\n");
+		return NULL;
+	}
 }

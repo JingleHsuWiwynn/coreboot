@@ -37,6 +37,7 @@
 #include <timer.h>
 #include <timestamp.h>
 #include <thread.h>
+#include <lib.h>
 
 static boot_state_t bs_pre_device(void *arg);
 static boot_state_t bs_dev_init_chips(void *arg);
@@ -377,6 +378,7 @@ static void bs_walk_state_machine(void)
 		bs_report_time(state);
 
 		state->complete = 1;
+
 	}
 }
 

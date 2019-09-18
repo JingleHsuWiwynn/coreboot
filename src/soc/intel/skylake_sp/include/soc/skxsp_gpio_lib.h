@@ -200,4 +200,4 @@ typedef enum {
 	GpioPadOwnIsh = 0x2,
 } GPIO_PAD_OWN;
 
-#endif /* _SKYLAKESP_NS_GPIO_H_ */
+#endif /* _SKYLAKESP_GPIO_H_ */

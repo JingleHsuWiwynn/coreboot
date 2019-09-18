@@ -29,10 +29,10 @@ Method (IRQM, 1, Serialized) {
 		Package() { 0x0000ffff, 2, 0, 18 },
 		Package() { 0x0000ffff, 3, 0, 19 } })
 	Name (IQAP, Package() {
-		Package() { 0x0000ffff, 0, \_SB.PCI0.LPCB.LNKA, 0 },
-		Package() { 0x0000ffff, 1, \_SB.PCI0.LPCB.LNKB, 0 },
-		Package() { 0x0000ffff, 2, \_SB.PCI0.LPCB.LNKC, 0 },
-		Package() { 0x0000ffff, 3, \_SB.PCI0.LPCB.LNKD, 0 } })
+		Package() { 0x0000ffff, 0, \_SB.PC00.LPCB.LNKA, 0 },
+		Package() { 0x0000ffff, 1, \_SB.PC00.LPCB.LNKB, 0 },
+		Package() { 0x0000ffff, 2, \_SB.PC00.LPCB.LNKC, 0 },
+		Package() { 0x0000ffff, 3, \_SB.PC00.LPCB.LNKD, 0 } })
 
 	/* Interrupt Map INTA->INTB, INTB->INTC, INTC->INTD, INTD->INTA */
 	Name (IQBA, Package() {
@@ -41,10 +41,10 @@ Method (IRQM, 1, Serialized) {
 		Package() { 0x0000ffff, 2, 0, 19 },
 		Package() { 0x0000ffff, 3, 0, 16 } })
 	Name (IQBP, Package() {
-		Package() { 0x0000ffff, 0, \_SB.PCI0.LPCB.LNKB, 0 },
-		Package() { 0x0000ffff, 1, \_SB.PCI0.LPCB.LNKC, 0 },
-		Package() { 0x0000ffff, 2, \_SB.PCI0.LPCB.LNKD, 0 },
-		Package() { 0x0000ffff, 3, \_SB.PCI0.LPCB.LNKA, 0 } })
+		Package() { 0x0000ffff, 0, \_SB.PC00.LPCB.LNKB, 0 },
+		Package() { 0x0000ffff, 1, \_SB.PC00.LPCB.LNKC, 0 },
+		Package() { 0x0000ffff, 2, \_SB.PC00.LPCB.LNKD, 0 },
+		Package() { 0x0000ffff, 3, \_SB.PC00.LPCB.LNKA, 0 } })
 
 	/* Interrupt Map INTA->INTC, INTB->INTD, INTC->INTA, INTD->INTB */
 	Name (IQCA, Package() {
@@ -53,10 +53,10 @@ Method (IRQM, 1, Serialized) {
 		Package() { 0x0000ffff, 2, 0, 16 },
 		Package() { 0x0000ffff, 3, 0, 17 } })
 	Name (IQCP, Package() {
-		Package() { 0x0000ffff, 0, \_SB.PCI0.LPCB.LNKC, 0 },
-		Package() { 0x0000ffff, 1, \_SB.PCI0.LPCB.LNKD, 0 },
-		Package() { 0x0000ffff, 2, \_SB.PCI0.LPCB.LNKA, 0 },
-		Package() { 0x0000ffff, 3, \_SB.PCI0.LPCB.LNKB, 0 } })
+		Package() { 0x0000ffff, 0, \_SB.PC00.LPCB.LNKC, 0 },
+		Package() { 0x0000ffff, 1, \_SB.PC00.LPCB.LNKD, 0 },
+		Package() { 0x0000ffff, 2, \_SB.PC00.LPCB.LNKA, 0 },
+		Package() { 0x0000ffff, 3, \_SB.PC00.LPCB.LNKB, 0 } })
 
 	/* Interrupt Map INTA->INTD, INTB->INTA, INTC->INTB, INTD->INTC */
 	Name (IQDA, Package() {
@@ -65,10 +65,10 @@ Method (IRQM, 1, Serialized) {
 		Package() { 0x0000ffff, 2, 0, 17 },
 		Package() { 0x0000ffff, 3, 0, 18 } })
 	Name (IQDP, Package() {
-		Package() { 0x0000ffff, 0, \_SB.PCI0.LPCB.LNKD, 0 },
-		Package() { 0x0000ffff, 1, \_SB.PCI0.LPCB.LNKA, 0 },
-		Package() { 0x0000ffff, 2, \_SB.PCI0.LPCB.LNKB, 0 },
-		Package() { 0x0000ffff, 3, \_SB.PCI0.LPCB.LNKC, 0 } })
+		Package() { 0x0000ffff, 0, \_SB.PC00.LPCB.LNKD, 0 },
+		Package() { 0x0000ffff, 1, \_SB.PC00.LPCB.LNKA, 0 },
+		Package() { 0x0000ffff, 2, \_SB.PC00.LPCB.LNKB, 0 },
+		Package() { 0x0000ffff, 3, \_SB.PC00.LPCB.LNKC, 0 } })
 
 	/* Interrupt Map INTA->INTE, INTB->INTF, INTC->INTG, INTD->INTH */
 	Name (IQEA, Package() {
@@ -77,10 +77,10 @@ Method (IRQM, 1, Serialized) {
 		Package() { 0x0000ffff, 2, 0, 22 },
 		Package() { 0x0000ffff, 3, 0, 23 } })
 	Name (IQEP, Package() {
-		Package() { 0x0000ffff, 0, \_SB.PCI0.LPCB.LNKE, 0 },
-		Package() { 0x0000ffff, 1, \_SB.PCI0.LPCB.LNKF, 0 },
-		Package() { 0x0000ffff, 2, \_SB.PCI0.LPCB.LNKG, 0 },
-		Package() { 0x0000ffff, 3, \_SB.PCI0.LPCB.LNKH, 0 } })
+		Package() { 0x0000ffff, 0, \_SB.PC00.LPCB.LNKE, 0 },
+		Package() { 0x0000ffff, 1, \_SB.PC00.LPCB.LNKF, 0 },
+		Package() { 0x0000ffff, 2, \_SB.PC00.LPCB.LNKG, 0 },
+		Package() { 0x0000ffff, 3, \_SB.PC00.LPCB.LNKH, 0 } })
 
 	/* Interrupt Map INTA->INTF, INTB->INTG, INTC->INTH, INTD->INTE */
 	Name (IQFA, Package() {
@@ -89,10 +89,10 @@ Method (IRQM, 1, Serialized) {
 		Package() { 0x0000ffff, 2, 0, 23 },
 		Package() { 0x0000ffff, 3, 0, 20 } })
 	Name (IQFP, Package() {
-		Package() { 0x0000ffff, 0, \_SB.PCI0.LPCB.LNKF, 0 },
-		Package() { 0x0000ffff, 1, \_SB.PCI0.LPCB.LNKG, 0 },
-		Package() { 0x0000ffff, 2, \_SB.PCI0.LPCB.LNKH, 0 },
-		Package() { 0x0000ffff, 3, \_SB.PCI0.LPCB.LNKE, 0 } })
+		Package() { 0x0000ffff, 0, \_SB.PC00.LPCB.LNKF, 0 },
+		Package() { 0x0000ffff, 1, \_SB.PC00.LPCB.LNKG, 0 },
+		Package() { 0x0000ffff, 2, \_SB.PC00.LPCB.LNKH, 0 },
+		Package() { 0x0000ffff, 3, \_SB.PC00.LPCB.LNKE, 0 } })
 
 	/* Interrupt Map INTA->INTG, INTB->INTH, INTC->INTE, INTD->INTF */
 	Name (IQGA, Package() {
@@ -101,10 +101,10 @@ Method (IRQM, 1, Serialized) {
 		Package() { 0x0000ffff, 2, 0, 20 },
 		Package() { 0x0000ffff, 3, 0, 21 } })
 	Name (IQGP, Package() {
-		Package() { 0x0000ffff, 0, \_SB.PCI0.LPCB.LNKG, 0 },
-		Package() { 0x0000ffff, 1, \_SB.PCI0.LPCB.LNKH, 0 },
-		Package() { 0x0000ffff, 2, \_SB.PCI0.LPCB.LNKE, 0 },
-		Package() { 0x0000ffff, 3, \_SB.PCI0.LPCB.LNKF, 0 } })
+		Package() { 0x0000ffff, 0, \_SB.PC00.LPCB.LNKG, 0 },
+		Package() { 0x0000ffff, 1, \_SB.PC00.LPCB.LNKH, 0 },
+		Package() { 0x0000ffff, 2, \_SB.PC00.LPCB.LNKE, 0 },
+		Package() { 0x0000ffff, 3, \_SB.PC00.LPCB.LNKF, 0 } })
 
 	/* Interrupt Map INTA->INTH, INTB->INTE, INTC->INTF, INTD->INTG */
 	Name (IQHA, Package() {
@@ -113,10 +113,10 @@ Method (IRQM, 1, Serialized) {
 		Package() { 0x0000ffff, 2, 0, 21 },
 		Package() { 0x0000ffff, 3, 0, 22 } })
 	Name (IQHP, Package() {
-		Package() { 0x0000ffff, 0, \_SB.PCI0.LPCB.LNKH, 0 },
-		Package() { 0x0000ffff, 1, \_SB.PCI0.LPCB.LNKE, 0 },
-		Package() { 0x0000ffff, 2, \_SB.PCI0.LPCB.LNKF, 0 },
-		Package() { 0x0000ffff, 3, \_SB.PCI0.LPCB.LNKG, 0 } })
+		Package() { 0x0000ffff, 0, \_SB.PC00.LPCB.LNKH, 0 },
+		Package() { 0x0000ffff, 1, \_SB.PC00.LPCB.LNKE, 0 },
+		Package() { 0x0000ffff, 2, \_SB.PC00.LPCB.LNKF, 0 },
+		Package() { 0x0000ffff, 3, \_SB.PC00.LPCB.LNKG, 0 } })
 
 	Switch (ToInteger (Arg0)) {
 		/* PCIe Root Port 1 */

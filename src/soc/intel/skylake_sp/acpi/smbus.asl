@@ -15,7 +15,7 @@
  *
  */
 
-// Intel SMBus Controller 0:1f.4
+// 00:1f.4 SMBus: Intel Corporation Lewisburg SMBus (rev 09)
 
 Device (SBUS)
 {
