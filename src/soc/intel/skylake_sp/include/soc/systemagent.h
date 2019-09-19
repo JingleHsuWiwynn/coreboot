@@ -42,11 +42,6 @@
 //#define TOUUD TOUUD_LO /* Top of Upper Usable DRAM */
 #define MASK_TOUUD 0x7FFFF00000
 
-#define TSEGMB 0xb8 /* TSEG base */
-#define MASK_TSEGMB 0xFFF00000
-#define TOLUD 0xbc /* Top of Low Used Memory */
-#define MASK_TOLUD 0xFFF00000
-
 /* SideBand B-UNIT */
 #define B_UNIT 3
 

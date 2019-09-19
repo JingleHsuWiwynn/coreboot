@@ -35,7 +35,7 @@
 // SMBus 00:1F.4
 #include "smbus.asl"
 
-//#include "pcie.asl"
+#include "pcie.asl"
 
 Device (PRRE)
 {

@@ -864,4 +864,8 @@ Device (PC03)
 		{
 				Return (PR03) /* \_SB_.PC03.PR03 */
 		}
+
+	/* IRQ assignment is mainboard specific. Get it from mainboard ACPI code */
+	#include "acpi/mainboard_pci_irqs.asl"
+
 }

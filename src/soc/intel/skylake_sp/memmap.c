@@ -67,7 +67,7 @@ u32 top_of_32bit_ram(void)
 /*
  *     +-------------------------+  TOLM
  *     | System Management Mode  |
- *     |      code and data      |  
+ *     |      code and data      |
  *     |         (TSEG)          |
  *     +-------------------------+  SMM base (aligned)
  *     |                         |
@@ -92,8 +92,8 @@ u32 top_of_32bit_ram(void)
  *     +-------------------------+
  */
 
-void *cbmem_top(void) 
-{ 
+void *cbmem_top(void)
+{
   outb(0xa, 0x70);
   printk(BIOS_DEBUG, "^^^ %s:%s CMOS read: 0x%x\n", __FILE__, __func__, inb(0x71));
 
@@ -123,12 +123,12 @@ void cbmem_top_init(void)
 
 static inline uintptr_t smm_region_start(void)
 {
-	return system_agent_region_base(TSEGMB);
+	return system_agent_region_base(SKXSP_VTD_TSEG_BASE_CSR);
 }
 
 static inline size_t smm_region_size(void)
 {
-	return system_agent_region_base(TOLUD) - smm_region_start();
+	return system_agent_region_base(SKXSP_VTD_TOLM_CSR) - smm_region_start();
 }
 
 void smm_region(void **start, size_t *size)
@@ -145,7 +145,7 @@ int smm_subregion(int sub, void **start, size_t *size)
 
 	sub_base = smm_region_start();
 	sub_size = smm_region_size();
-	printk(BIOS_DEBUG, "sub_base: 0x%lx, sub_size: 0x%lx, CONFIG_SMM_RESERVED_SIZE: 0x%x\n", 
+	printk(BIOS_DEBUG, "sub_base: 0x%lx, sub_size: 0x%lx, CONFIG_SMM_RESERVED_SIZE: 0x%x\n",
 			   sub_base, sub_size, CONFIG_SMM_RESERVED_SIZE);
 
 	assert(sub_size > CONFIG_SMM_RESERVED_SIZE);
