@@ -36,6 +36,10 @@
 #include <soc/hob_iiouds.h>
 #include <lib.h>
 
+#include <cpu/x86/mp.h>
+#include <cpu/x86/lapic.h>
+
+
 struct pci_resource {
 	struct device        *dev;
 	struct resource      *res;
@@ -720,12 +724,59 @@ static void soc_enable_dev(struct device *dev)
 	DEV_FUNC_EXIT(dev);
 }
 
+static int detect_num_cpus_via_cpuid(void)
+{
+  register int ecx = 0;
+  struct cpuid_result leaf_b;
+
+  while (1) {
+    leaf_b = cpuid_ext(0xb, ecx);
+
+    /* Processor doesn't have hyperthreading so just determine the
+    * number of cores by from level type (ecx[15:8] == * 2). */
+    if ((leaf_b.ecx & 0xff00) == 0x0200)
+      break;
+    ecx++;
+  }
+  return (leaf_b.ebx & 0xffff);
+}
+
+/* Find CPU topology */
+int xget_cpu_count(void);
+int xget_cpu_count(void)
+{
+  int num_cpus = detect_num_cpus_via_cpuid();
+  printk(BIOS_DEBUG, "Number of Cores (CPUID): %d.\n", num_cpus);
+  return num_cpus;
+}
+
+static const struct mp_ops mp_ops = {
+  .pre_mp_init = NULL,
+  .get_cpu_count = xget_cpu_count,
+  .get_smm_info = NULL,
+  .pre_mp_smm_init = NULL,
+  .relocation_handler = NULL,
+  .post_mp_init = NULL,
+};
+
 static void soc_init(void *data)
 {
 	FUNC_ENTER();
 
 	printk(BIOS_DEBUG, "coreboot: calling fsp_silicon_init\n");
 	fsp_silicon_init(false);
+
+	if (0) {
+		struct device *curdev;
+		for (curdev = dev_root.link_list->children; curdev; curdev = curdev->sibling) {
+			if (curdev->path.type == DEVICE_PATH_CPU_CLUSTER) {
+				printk(BIOS_DEBUG, "Found CPU Cluster\n");
+				if (mp_init_with_smm(curdev->link_list, &mp_ops) < 0)
+					printk(BIOS_ERR, "MP initialization failure.\n");
+			}
+		}
+		die("halt...");
+	}
 
 	printk(BIOS_DEBUG, "coreboot: calling soc_save_dimm_info \n");
 	soc_save_dimm_info();

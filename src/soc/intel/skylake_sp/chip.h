@@ -18,8 +18,20 @@
 #define SOC_INTEL_SKYLAKE_SP_CHIP_H
 
 #include <stdint.h>
+#include <commonlib/helpers.h>
+#include <intelblocks/chip.h>
+#include <intelblocks/gspi.h>
+#include <soc/gpe.h>
+#include <soc/gpio.h>
+#include <soc/pm.h>
+#include <soc/irq.h>
+#include <soc/pci_devs.h>
+#include <soc/pmc.h>
 
 struct soc_intel_skylake_sp_config {
+	/* Common struct containing soc config data required by common code */
+  struct soc_intel_common_config common_soc_config;
+
 	/**
 	 * Interrupt Routing configuration
 	 * If bit7 is 1, the interrupt is disabled.
@@ -50,14 +62,6 @@ struct soc_intel_skylake_sp_config {
 	uint16_t ir02_routing;
 	uint16_t ir03_routing;
 	uint16_t ir04_routing;
-	uint16_t ir05_routing;
-	uint16_t ir06_routing;
-	uint16_t ir07_routing;
-	uint16_t ir08_routing;
-	uint16_t ir09_routing;
-	uint16_t ir10_routing;
-	uint16_t ir11_routing;
-	uint16_t ir12_routing;
 
 	/**
 	* Device Interrupt Polarity Control

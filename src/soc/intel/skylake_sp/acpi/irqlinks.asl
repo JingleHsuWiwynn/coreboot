@@ -1,8 +1,9 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2007 - 2009 coresystems GmbH
- * Copyright (C) 2015 - 2017 Intel Corporation.
+ * Copyright (C) 2007-2009 coresystems GmbH
+ * Copyright (C) 2014 Google Inc.
+ * Copyright (C) 2015 Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,477 +13,435 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
+
+/*
+ * PIRQ routing control is in PCR ITSS region.
+ *
+ * Due to what appears to be an ACPI interpreter bug we do not use
+ * the PCRB() method here as it may not be defined yet because the method
+ * definiton depends on the order of the include files in pch.asl.
+ *
+ * https://bugs.acpica.org/show_bug.cgi?id=1201
+ */
+/* CONFIG_PCR_BASE_ADDRESS 0xfd000000 0x3100
+C620 Interrupt PCR Registers Summary  */
+OperationRegion (ITSS, SystemMemory,
+		 Add (PCR_ITSS_PIRQA_ROUT,
+		      Add (CONFIG_PCR_BASE_ADDRESS,
+		           ShiftLeft (PID_ITSS, PCR_PORTID_SHIFT))), 8)
+Field (ITSS, ByteAcc, NoLock, Preserve)
+{
+	PIRA, 8,	/* PIRQA Routing Control */
+	PIRB, 8,	/* PIRQB Routing Control */
+	PIRC, 8,	/* PIRQC Routing Control */
+	PIRD, 8,	/* PIRQD Routing Control */
+	PIRE, 8,	/* PIRQE Routing Control */
+	PIRF, 8,	/* PIRQF Routing Control */
+	PIRG, 8,	/* PIRQG Routing Control */
+	PIRH, 8,	/* PIRQH Routing Control */
+}
+
+Name (IREN, 0x80)	/* Interrupt Routing Enable */
+Name (IREM, 0x0f)	/* Interrupt Routing Mask */
+
+Name (PRSA, ResourceTemplate ()
+{
+		IRQ (Level, ActiveLow, Shared, )
+				{3,4,5,6,7,10,11,12,14,15}
+})
+Alias (PRSA, PRSB)
+Name (PRSC, ResourceTemplate ()
+{
+		IRQ (Level, ActiveLow, Shared, )
+				{3,4,5,6,10,11,12,14,15}
+})
+Alias (PRSC, PRSD)
+Alias (PRSA, PRSE)
+Alias (PRSA, PRSF)
+Alias (PRSA, PRSG)
+Alias (PRSA, PRSH)
 
 Device (LNKA)
 {
-	Name (_HID, EISAID("PNP0C0F"))
+	Name (_HID, EISAID ("PNP0C0F"))
 	Name (_UID, 1)
 
-	// Disable method
-	Method (_DIS, 0, Serialized)
-	{
-		Store (0x80, PRTA)
+	Method (_PRS, 0, NotSerialized)  // _PRS: Possible Resource Settings
+  {
+		Return (PRSA) /* \_SB_.PRSA */
 	}
 
-	// Possible Resource Settings for this Link
-	Name (_PRS, ResourceTemplate()
-	{
-		IRQ(Level, ActiveLow, Shared)
-			{ 6, 7, 10, 11, 12, 14, 15 }
-	})
-
-	// Current Resource Settings for this link
 	Method (_CRS, 0, Serialized)
 	{
-		Name (RTLA, ResourceTemplate()
+		Name (RTLA, ResourceTemplate ()
 		{
-			IRQ(Level, ActiveLow, Shared) {}
+			IRQ (Level, ActiveLow, Shared) {}
 		})
-		CreateWordField(RTLA, 1, IRQ0)
-
-		// Clear the WordField
+		CreateWordField (RTLA, 1, IRQ0)
 		Store (Zero, IRQ0)
 
-		// Set the bit from PRTA
-		ShiftLeft(1, And(PRTA, 0x0f), IRQ0)
+		/* Set the bit from PIRQ Routing Register */
+		ShiftLeft (1, And (^^PIRA, ^^IREM), IRQ0)
 
 		Return (RTLA)
 	}
 
-	// Set Resource Setting for this IRQ link
 	Method (_SRS, 1, Serialized)
 	{
-		CreateWordField(Arg0, 1, IRQ0)
-
-		// Which bit is set?
-		FindSetRightBit(IRQ0, Local0)
-
-		Decrement(Local0)
-		Store(Local0, PRTA)
+		CreateWordField (Arg0, 1, IRQ0)
+		FindSetRightBit (IRQ0, Local0)
+		Decrement (Local0)
+		Store (Local0, ^^PIRA)
 	}
 
-	// Status
 	Method (_STA, 0, Serialized)
 	{
-		If(And(PRTA, 0x80)) {
+		If (And (^^PIRA, ^^IREN)) {
 			Return (0x9)
 		} Else {
 			Return (0xb)
 		}
+	}
+
+	Method (_DIS, 0, Serialized)
+	{
+		Or (^^PIRA, ^^IREN, ^^PIRA)
 	}
 }
 
 Device (LNKB)
 {
-	Name (_HID, EISAID("PNP0C0F"))
+	Name (_HID, EISAID ("PNP0C0F"))
 	Name (_UID, 2)
 
-	// Disable method
-	Method (_DIS, 0, Serialized)
-	{
-		Store (0x80, PRTB)
+	Method (_PRS, 0, NotSerialized)  // _PRS: Possible Resource Settings
+  {
+		Return (PRSB) /* \_SB_.PRSB */
 	}
 
-	// Possible Resource Settings for this Link
-	Name (_PRS, ResourceTemplate()
-	{
-		IRQ(Level, ActiveLow, Shared)
-			{ 6, 7, 10, 11, 12, 14, 15 }
-	})
-
-	// Current Resource Settings for this link
 	Method (_CRS, 0, Serialized)
 	{
-		Name (RTLB, ResourceTemplate()
+		Name (RTLA, ResourceTemplate ()
 		{
-			IRQ(Level, ActiveLow, Shared) {}
+			IRQ (Level, ActiveLow, Shared) {}
 		})
-		CreateWordField(RTLB, 1, IRQ0)
-
-		// Clear the WordField
+		CreateWordField (RTLA, 1, IRQ0)
 		Store (Zero, IRQ0)
 
-		// Set the bit from PRTB
-		ShiftLeft(1, And(PRTB, 0x0f), IRQ0)
+		/* Set the bit from PIRQ Routing Register */
+		ShiftLeft (1, And (^^PIRB, ^^IREM), IRQ0)
 
-		Return (RTLB)
+		Return (RTLA)
 	}
 
-	// Set Resource Setting for this IRQ link
 	Method (_SRS, 1, Serialized)
 	{
-		CreateWordField(Arg0, 1, IRQ0)
-
-		// Which bit is set?
-		FindSetRightBit(IRQ0, Local0)
-
-		Decrement(Local0)
-		Store(Local0, PRTB)
+		CreateWordField (Arg0, 1, IRQ0)
+		FindSetRightBit (IRQ0, Local0)
+		Decrement (Local0)
+		Store (Local0, ^^PIRB)
 	}
 
-	// Status
 	Method (_STA, 0, Serialized)
 	{
-		If(And(PRTB, 0x80)) {
+		If (And (^^PIRB, ^^IREN)) {
 			Return (0x9)
 		} Else {
 			Return (0xb)
 		}
+	}
+
+	Method (_DIS, 0, Serialized)
+	{
+		Or (^^PIRB, ^^IREN, ^^PIRB)
 	}
 }
 
 Device (LNKC)
 {
-	Name (_HID, EISAID("PNP0C0F"))
+	Name (_HID, EISAID ("PNP0C0F"))
 	Name (_UID, 3)
 
-	// Disable method
-	Method (_DIS, 0, Serialized)
-	{
-		Store (0x80, PRTC)
+	Method (_PRS, 0, NotSerialized)  // _PRS: Possible Resource Settings
+  {
+		Return (PRSC) /* \_SB_.PRSC */
 	}
 
-	// Possible Resource Settings for this Link
-	Name (_PRS, ResourceTemplate()
-	{
-		IRQ(Level, ActiveLow, Shared)
-			{ 6, 7, 10, 11, 12, 14, 15 }
-	})
-
-	// Current Resource Settings for this link
 	Method (_CRS, 0, Serialized)
 	{
-		Name (RTLC, ResourceTemplate()
+		Name (RTLA, ResourceTemplate ()
 		{
-			IRQ(Level, ActiveLow, Shared) {}
+			IRQ (Level, ActiveLow, Shared) {}
 		})
-		CreateWordField(RTLC, 1, IRQ0)
-
-		// Clear the WordField
+		CreateWordField (RTLA, 1, IRQ0)
 		Store (Zero, IRQ0)
 
-		// Set the bit from PRTC
-		ShiftLeft(1, And(PRTC, 0x0f), IRQ0)
+		/* Set the bit from PIRQ Routing Register */
+		ShiftLeft (1, And (^^PIRC, ^^IREM), IRQ0)
 
-		Return (RTLC)
+		Return (RTLA)
 	}
 
-	// Set Resource Setting for this IRQ link
 	Method (_SRS, 1, Serialized)
 	{
-		CreateWordField(Arg0, 1, IRQ0)
-
-		// Which bit is set?
-		FindSetRightBit(IRQ0, Local0)
-
-		Decrement(Local0)
-		Store(Local0, PRTC)
+		CreateWordField (Arg0, 1, IRQ0)
+		FindSetRightBit (IRQ0, Local0)
+		Decrement (Local0)
+		Store (Local0, ^^PIRC)
 	}
 
-	// Status
 	Method (_STA, 0, Serialized)
 	{
-		If(And(PRTC, 0x80)) {
+		If (And (^^PIRC, ^^IREN)) {
 			Return (0x9)
 		} Else {
 			Return (0xb)
 		}
+	}
+
+	Method (_DIS, 0, Serialized)
+	{
+		Or (^^PIRC, ^^IREN, ^^PIRC)
 	}
 }
 
 Device (LNKD)
 {
-	Name (_HID, EISAID("PNP0C0F"))
+	Name (_HID, EISAID ("PNP0C0F"))
 	Name (_UID, 4)
 
-	// Disable method
-	Method (_DIS, 0, Serialized)
-	{
-		Store (0x80, PRTD)
+	Method (_PRS, 0, NotSerialized)  // _PRS: Possible Resource Settings
+  {
+		Return (PRSD) /* \_SB_.PRSD */
 	}
 
-	// Possible Resource Settings for this Link
-	Name (_PRS, ResourceTemplate()
-	{
-		IRQ(Level, ActiveLow, Shared)
-			{ 6, 7, 10, 11, 12, 14, 15 }
-	})
-
-	// Current Resource Settings for this link
 	Method (_CRS, 0, Serialized)
 	{
-		Name (RTLD, ResourceTemplate()
+		Name (RTLA, ResourceTemplate ()
 		{
-			IRQ(Level, ActiveLow, Shared) {}
+			IRQ (Level, ActiveLow, Shared) {}
 		})
-		CreateWordField(RTLD, 1, IRQ0)
-
-		// Clear the WordField
+		CreateWordField (RTLA, 1, IRQ0)
 		Store (Zero, IRQ0)
 
-		// Set the bit from PRTD
-		ShiftLeft(1, And(PRTD, 0x0f), IRQ0)
+		/* Set the bit from PIRQ Routing Register */
+		ShiftLeft (1, And (^^PIRD, ^^IREM), IRQ0)
 
-		Return (RTLD)
+		Return (RTLA)
 	}
 
-	// Set Resource Setting for this IRQ link
 	Method (_SRS, 1, Serialized)
 	{
-		CreateWordField(Arg0, 1, IRQ0)
-
-		// Which bit is set?
-		FindSetRightBit(IRQ0, Local0)
-
-		Decrement(Local0)
-		Store(Local0, PRTD)
+		CreateWordField (Arg0, 1, IRQ0)
+		FindSetRightBit (IRQ0, Local0)
+		Decrement (Local0)
+		Store (Local0, ^^PIRD)
 	}
 
-	// Status
 	Method (_STA, 0, Serialized)
 	{
-		If(And(PRTD, 0x80)) {
+		If (And (^^PIRD, ^^IREN)) {
 			Return (0x9)
 		} Else {
 			Return (0xb)
 		}
+	}
+
+	Method (_DIS, 0, Serialized)
+	{
+		Or (^^PIRD, ^^IREN, ^^PIRD)
 	}
 }
 
 Device (LNKE)
 {
-	Name (_HID, EISAID("PNP0C0F"))
+	Name (_HID, EISAID ("PNP0C0F"))
 	Name (_UID, 5)
 
-	// Disable method
-	Method (_DIS, 0, Serialized)
-	{
-		Store (0x80, PRTE)
+	Method (_PRS, 0, NotSerialized)  // _PRS: Possible Resource Settings
+  {
+		Return (PRSE) /* \_SB_.PRSE */
 	}
 
-	// Possible Resource Settings for this Link
-	Name (_PRS, ResourceTemplate()
-	{
-		IRQ(Level, ActiveLow, Shared)
-			{ 6, 7, 10, 11, 12, 14, 15 }
-	})
-
-	// Current Resource Settings for this link
 	Method (_CRS, 0, Serialized)
 	{
-		Name (RTLE, ResourceTemplate()
+		Name (RTLA, ResourceTemplate ()
 		{
-			IRQ(Level, ActiveLow, Shared) {}
+			IRQ (Level, ActiveLow, Shared) {}
 		})
-		CreateWordField(RTLE, 1, IRQ0)
-
-		// Clear the WordField
+		CreateWordField (RTLA, 1, IRQ0)
 		Store (Zero, IRQ0)
 
-		// Set the bit from PRTE
-		ShiftLeft(1, And(PRTE, 0x0f), IRQ0)
+		/* Set the bit from PIRQ Routing Register */
+		ShiftLeft (1, And (^^PIRE, ^^IREM), IRQ0)
 
-		Return (RTLE)
+		Return (RTLA)
 	}
 
-	// Set Resource Setting for this IRQ link
 	Method (_SRS, 1, Serialized)
 	{
-		CreateWordField(Arg0, 1, IRQ0)
-
-		// Which bit is set?
-		FindSetRightBit(IRQ0, Local0)
-
-		Decrement(Local0)
-		Store(Local0, PRTE)
+		CreateWordField (Arg0, 1, IRQ0)
+		FindSetRightBit (IRQ0, Local0)
+		Decrement (Local0)
+		Store (Local0, ^^PIRE)
 	}
 
-	// Status
 	Method (_STA, 0, Serialized)
 	{
-		If(And(PRTE, 0x80)) {
+		If (And (^^PIRE, ^^IREN)) {
 			Return (0x9)
 		} Else {
 			Return (0xb)
 		}
+	}
+
+	Method (_DIS, 0, Serialized)
+	{
+		Or (^^PIRE, ^^IREN, ^^PIRE)
 	}
 }
 
 Device (LNKF)
 {
-	Name (_HID, EISAID("PNP0C0F"))
+	Name (_HID, EISAID ("PNP0C0F"))
 	Name (_UID, 6)
 
-	// Disable method
-	Method (_DIS, 0, Serialized)
-	{
-		Store (0x80, PRTF)
+	Method (_PRS, 0, NotSerialized)  // _PRS: Possible Resource Settings
+  {
+		Return (PRSF) /* \_SB_.PRSF */
 	}
 
-	// Possible Resource Settings for this Link
-	Name (_PRS, ResourceTemplate()
-	{
-		IRQ(Level, ActiveLow, Shared)
-			{ 6, 7, 10, 11, 12, 14, 15 }
-	})
-
-	// Current Resource Settings for this link
 	Method (_CRS, 0, Serialized)
 	{
-		Name (RTLF, ResourceTemplate()
+		Name (RTLA, ResourceTemplate ()
 		{
-			IRQ(Level, ActiveLow, Shared) {}
+			IRQ (Level, ActiveLow, Shared) {}
 		})
-		CreateWordField(RTLF, 1, IRQ0)
-
-		// Clear the WordField
+		CreateWordField (RTLA, 1, IRQ0)
 		Store (Zero, IRQ0)
 
-		// Set the bit from PRTF
-		ShiftLeft(1, And(PRTF, 0x0f), IRQ0)
+		/* Set the bit from PIRQ Routing Register */
+		ShiftLeft (1, And (^^PIRF, ^^IREM), IRQ0)
 
-		Return (RTLF)
+		Return (RTLA)
 	}
 
-	// Set Resource Setting for this IRQ link
 	Method (_SRS, 1, Serialized)
 	{
-		CreateWordField(Arg0, 1, IRQ0)
-
-		// Which bit is set?
-		FindSetRightBit(IRQ0, Local0)
-
-		Decrement(Local0)
-		Store(Local0, PRTF)
+		CreateWordField (Arg0, 1, IRQ0)
+		FindSetRightBit (IRQ0, Local0)
+		Decrement (Local0)
+		Store (Local0, ^^PIRF)
 	}
 
-	// Status
 	Method (_STA, 0, Serialized)
 	{
-		If(And(PRTF, 0x80)) {
+		If (And (^^PIRF, ^^IREN)) {
 			Return (0x9)
 		} Else {
 			Return (0xb)
 		}
+	}
+
+	Method (_DIS, 0, Serialized)
+	{
+		Or (^^PIRF, ^^IREN, ^^PIRF)
 	}
 }
 
 Device (LNKG)
 {
-	Name (_HID, EISAID("PNP0C0F"))
+	Name (_HID, EISAID ("PNP0C0F"))
 	Name (_UID, 7)
 
-	// Disable method
-	Method (_DIS, 0, Serialized)
-	{
-		Store (0x80, PRTG)
+	Method (_PRS, 0, NotSerialized)  // _PRS: Possible Resource Settings
+  {
+		Return (PRSG) /* \_SB_.PRSG */
 	}
 
-	// Possible Resource Settings for this Link
-	Name (_PRS, ResourceTemplate()
-	{
-		IRQ(Level, ActiveLow, Shared)
-			{ 6, 7, 10, 11, 12, 14, 15 }
-	})
-
-	// Current Resource Settings for this link
 	Method (_CRS, 0, Serialized)
 	{
-		Name (RTLG, ResourceTemplate()
+		Name (RTLA, ResourceTemplate ()
 		{
-			IRQ(Level, ActiveLow, Shared) {}
+			IRQ (Level, ActiveLow, Shared) {}
 		})
-		CreateWordField(RTLG, 1, IRQ0)
-
-		// Clear the WordField
+		CreateWordField (RTLA, 1, IRQ0)
 		Store (Zero, IRQ0)
 
-		// Set the bit from PRTG
-		ShiftLeft(1, And(PRTG, 0x0f), IRQ0)
+		/* Set the bit from PIRQ Routing Register */
+		ShiftLeft (1, And (^^PIRG, ^^IREM), IRQ0)
 
-		Return (RTLG)
+		Return (RTLA)
 	}
 
-	// Set Resource Setting for this IRQ link
 	Method (_SRS, 1, Serialized)
 	{
-		CreateWordField(Arg0, 1, IRQ0)
-
-		// Which bit is set?
-		FindSetRightBit(IRQ0, Local0)
-
-		Decrement(Local0)
-		Store(Local0, PRTG)
+		CreateWordField (Arg0, 1, IRQ0)
+		FindSetRightBit (IRQ0, Local0)
+		Decrement (Local0)
+		Store (Local0, ^^PIRG)
 	}
 
-	// Status
 	Method (_STA, 0, Serialized)
 	{
-		If(And(PRTG, 0x80)) {
+		If (And (^^PIRG, ^^IREN)) {
 			Return (0x9)
 		} Else {
 			Return (0xb)
 		}
+	}
+
+	Method (_DIS, 0, Serialized)
+	{
+		Or (^^PIRG, ^^IREN, ^^PIRG)
 	}
 }
 
 Device (LNKH)
 {
-	Name (_HID, EISAID("PNP0C0F"))
+	Name (_HID, EISAID ("PNP0C0F"))
 	Name (_UID, 8)
 
-	// Disable method
-	Method (_DIS, 0, Serialized)
-	{
-		Store (0x80, PRTH)
+	Method (_PRS, 0, NotSerialized)  // _PRS: Possible Resource Settings
+  {
+		Return (PRSH) /* \_SB_.PRSH */
 	}
 
-	// Possible Resource Settings for this Link
-	Name (_PRS, ResourceTemplate()
-	{
-		IRQ(Level, ActiveLow, Shared)
-			{ 6, 7, 10, 11, 12, 14, 15 }
-	})
-
-	// Current Resource Settings for this link
 	Method (_CRS, 0, Serialized)
 	{
-		Name (RTLH, ResourceTemplate()
+		Name (RTLA, ResourceTemplate ()
 		{
-			IRQ(Level, ActiveLow, Shared) {}
+			IRQ (Level, ActiveLow, Shared) {}
 		})
-		CreateWordField(RTLH, 1, IRQ0)
-
-		// Clear the WordField
+		CreateWordField (RTLA, 1, IRQ0)
 		Store (Zero, IRQ0)
 
-		// Set the bit from PRTH
-		ShiftLeft(1, And(PRTH, 0x0f), IRQ0)
+		/* Set the bit from PIRQ Routing Register */
+		ShiftLeft (1, And (^^PIRH, ^^IREM), IRQ0)
 
-		Return (RTLH)
+		Return (RTLA)
 	}
 
-	// Set Resource Setting for this IRQ link
 	Method (_SRS, 1, Serialized)
 	{
-		CreateWordField(Arg0, 1, IRQ0)
-
-		// Which bit is set?
-		FindSetRightBit(IRQ0, Local0)
-
-		Decrement(Local0)
-		Store(Local0, PRTH)
+		CreateWordField (Arg0, 1, IRQ0)
+		FindSetRightBit (IRQ0, Local0)
+		Decrement (Local0)
+		Store (Local0, ^^PIRH)
 	}
 
-	// Status
 	Method (_STA, 0, Serialized)
 	{
-		If(And(PRTH, 0x80)) {
+		If (And (^^PIRH, ^^IREN)) {
 			Return (0x9)
 		} Else {
 			Return (0xb)
 		}
+	}
+
+	Method (_DIS, 0, Serialized)
+	{
+		Or (^^PIRH, ^^IREN, ^^PIRH)
 	}
 }

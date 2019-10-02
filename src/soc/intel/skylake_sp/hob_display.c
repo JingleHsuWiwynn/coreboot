@@ -127,6 +127,34 @@ void soc_display_iio_universal_data_hob(void)
 	//assert(hob != NULL && hob_size != 0 && hob_size == sizeof(IIO_UDS));
 	
   printk(BIOS_DEBUG, "===================== IIO_UDS HOB DATA =====================\n");
+
+  printk(BIOS_DEBUG, "\t===================== SYSTEM STATUS =====================\n");
+	printk(BIOS_DEBUG, "\tcpuType: 0x%x\n", hob->SystemStatus.cpuType);
+	printk(BIOS_DEBUG, "\tcpuSubType: 0x%x\n", hob->SystemStatus.cpuSubType);
+	printk(BIOS_DEBUG, "\tSystemRasType: 0x%x\n", hob->SystemStatus.SystemRasType);
+	printk(BIOS_DEBUG, "\tnumCpus: 0x%x\n", hob->SystemStatus.numCpus);
+	for (int x=0; x < MAX_SOCKET; ++x) {
+		printk(BIOS_DEBUG, "\tSocket %d FusedCores: 0x%x, ActiveCores: 0x%x, MaxCoreToBusRatio: 0x%x, MinCoreToBusRatio: 0x%x\n",
+					 x, hob->SystemStatus.FusedCores[x], hob->SystemStatus.ActiveCores[x], hob->SystemStatus.MaxCoreToBusRatio[x],
+				   hob->SystemStatus.MinCoreToBusRatio[x]); 
+	}
+	printk(BIOS_DEBUG, "\tCurrentCoreToBusRatio: 0x%x\n", hob->SystemStatus.CurrentCoreToBusRatio);
+	printk(BIOS_DEBUG, "\tIntelSpeedSelectCapable: 0x%x\n", hob->SystemStatus.IntelSpeedSelectCapable);
+	printk(BIOS_DEBUG, "\tIssConfigTdpLevelInfo: 0x%x\n", hob->SystemStatus.IssConfigTdpLevelInfo);
+	for (int x=0; x < CONFIG_TDP_MAX_LEVEL; ++x) {
+		printk(BIOS_DEBUG, "\t\tTDL Level %d IssConfigTdpTdpInfo: 0x%x, IssConfigTdpPowerInfo: 0x%x, IssConfigTdpCoreCount: 0x%x\n",
+					 x, hob->SystemStatus.IssConfigTdpTdpInfo[x], hob->SystemStatus.IssConfigTdpPowerInfo[x], 
+					 hob->SystemStatus.IssConfigTdpCoreCount[x]);
+	}
+	printk(BIOS_DEBUG, "\tsocketPresentBitMap: 0x%x\n", hob->SystemStatus.socketPresentBitMap);
+	printk(BIOS_DEBUG, "\ttolmLimit: 0x%x\n", hob->SystemStatus.tolmLimit);
+	printk(BIOS_DEBUG, "\ttohmLimit: 0x%x\n", hob->SystemStatus.tohmLimit);
+	printk(BIOS_DEBUG, "\tmmCfgBase: 0x%x\n", hob->SystemStatus.mmCfgBase);
+	printk(BIOS_DEBUG, "\tnumChPerMC: 0x%x\n", hob->SystemStatus.numChPerMC);
+	printk(BIOS_DEBUG, "\tmaxCh: 0x%x\n", hob->SystemStatus.maxCh);
+	printk(BIOS_DEBUG, "\tmaxIMC: 0x%x\n", hob->SystemStatus.maxIMC);
+
+  printk(BIOS_DEBUG, "\t===================== PLATFORM DATA =====================\n");
 	printk(BIOS_DEBUG, "\tPlatGlobalIoBase: 0x%x\n", hob->PlatformData.PlatGlobalIoBase);
 	printk(BIOS_DEBUG, "\tPlatGlobalIoLimit: 0x%x\n", hob->PlatformData.PlatGlobalIoLimit);
 	printk(BIOS_DEBUG, "\tPlatGlobalMmiolBase: 0x%x\n", hob->PlatformData.PlatGlobalMmiolBase);

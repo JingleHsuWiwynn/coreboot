@@ -29,8 +29,6 @@ Device (LPCB)
 		IOD1,	8,
 	}
 
-	#include "irqlinks.asl"
-
 	Device(LDRC)	// LPC device: Resource consumption
 	{
 		Name (_HID, EISAID("PNP0C02"))
@@ -50,7 +48,7 @@ Device (LPCB)
 			//IO (Decode16, 0x800, 0x800, 0x1, 0x10)		// ACPI I/O trap
 
 			// BIOS ROM shadow memory range
-			Memory32Fixed(ReadOnly, 0x000E0000, 0x20000)
+			//Memory32Fixed(ReadOnly, 0x000E0000, 0x20000)
 
 			// BIOS flash 16MB
 			Memory32Fixed(ReadOnly,0xFF000000,0x1000000)

@@ -25,6 +25,7 @@ Device (PMC0)
 		Name(_HID,EISAID("PNP0C02"))
 		Name(_UID, 0x10)
 
+		/*
 		Name(PMCR,ResourceTemplate()
 		{
 			IO (Decode16, ACPI_BASE_ADDRESS, ACPI_BASE_ADDRESS, 0x1, 0x80)	// ACPI Base
@@ -35,5 +36,6 @@ Device (PMC0)
 		{
 			return(PMCR)
 		}
+		*/
 	}
 }

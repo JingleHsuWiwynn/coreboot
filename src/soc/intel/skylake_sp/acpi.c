@@ -93,22 +93,6 @@ static acpi_cstate_t cstate_map[] = {
 	}
 };
 
-static int get_cores_per_package(void)
-{
-  struct cpuinfo_x86 c;
-  struct cpuid_result result;
-  int cores = 1;
-
-  get_fms(&c, cpuid_eax(1));
-  if (c.x86 != 6)
-    return 1;
-
-  result = cpuid_ext(0xb, 1);
-  cores = result.ebx & 0xff;
-
-  return cores;
-}
-
 static int acpi_sci_irq(void)
 {
   int sci_irq = 9;
@@ -403,11 +387,9 @@ void generate_p_state_entries(int core, int cores_per_package)
 
 void generate_cpu_entries(struct device *device)
 {
-#if 0
   size_t hob_size;
   const uint8_t fsp_hob_iio_universal_data_guid[16] = FSP_HOB_IIO_UNIVERSAL_DATA_GUID;
   const IIO_UDS *hob;
-#endif
 
 	int core_id, cpu_id, pcontrol_blk = ACPI_BASE_ADDRESS;
 	int plen = 6;
@@ -415,7 +397,6 @@ void generate_cpu_entries(struct device *device)
 	int cores_per_package = get_cores_per_package();
 	int numcpus = totalcores / cores_per_package;
 
-#if 0
 	/* these fields are incorrect - need debugging */
   hob = fsp_find_extension_hob_by_guid(
                           fsp_hob_iio_universal_data_guid,
@@ -427,7 +408,6 @@ void generate_cpu_entries(struct device *device)
 		printk(BIOS_DEBUG, "Socket %d FusedCores: 0x%x, ActiveCores: 0x%x\n", i, 
 					 hob->SystemStatus.FusedCores[i], hob->SystemStatus.ActiveCores[i]);
 	}
-#endif
 
 	printk(BIOS_DEBUG, "Found %d CPU(s) with %d core(s) each, totalcores: %d.\n",
 	       numcpus, cores_per_package, totalcores);
@@ -445,10 +425,10 @@ void generate_cpu_entries(struct device *device)
 						core_id, pcontrol_blk, plen);
 
 			/* Generate C-state tables */
-			generate_c_state_entries();
+			if (0) generate_c_state_entries();
 
 			/* Soc specific power states generation */
-			soc_power_states_generation(core_id, cores_per_package);
+			//soc_power_states_generation(core_id, cores_per_package);
 
 			acpigen_pop_len();
 		}
@@ -718,8 +698,8 @@ acpi_tstate_t *soc_get_tss_table(int *entries)
 
 void soc_power_states_generation(int core_id, int cores_per_package)
 {
-	generate_p_state_entries(core_id, cores_per_package);
-	generate_t_state_entries(core_id, cores_per_package);
+	//generate_p_state_entries(core_id, cores_per_package);
+	//generate_t_state_entries(core_id, cores_per_package);
 }
 
 int soc_madt_sci_irq_polarity(int sci)
@@ -771,8 +751,10 @@ void southbridge_inject_dsdt(struct device *device)
 
 	if (gnvs) {
 		acpi_create_gnvs(gnvs);
+#if CONFIG_HAVE_SMI_HANDLER
 		/* And tell SMI about it */
 		smm_setup_structures(gnvs, NULL, NULL);
+#endif
 
 		/* Add it to DSDT.  */
 		acpigen_write_scope("\\");

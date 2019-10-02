@@ -19,7 +19,7 @@
 #include <arch/cpu.h>
 #include <types.h>
 
-#define SMM_DEFAULT_BASE 0x30000
+#define SMM_DEFAULT_BASE 0x60000
 #define SMM_DEFAULT_SIZE 0x10000
 
 /* used only by C programs so far */

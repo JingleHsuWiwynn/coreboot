@@ -42,6 +42,8 @@ void itss_irq_init(uint8_t pch_interrupt_routing[MAX_PXRC_CONFIG])
 		/* Access the routing register in 32 bit mode to make this
 		   function suitable for both IOSF 1.0 (where only 32 bit access
 		   is supported) and later versions of the interface. */
+		printk(BIOS_DEBUG, "pcr_write32 index %d PID_ITSS: 0x%x, arg2: 0x%lx, regs: 0x%x\n", index,
+					 PID_ITSS, (PCR_ITSS_PIRQA_ROUT + (index * sizeof(uint32_t))), regs[index]);
 		pcr_write32(PID_ITSS,
 			    PCR_ITSS_PIRQA_ROUT + (index * sizeof(uint32_t)),
 			    regs[index]);

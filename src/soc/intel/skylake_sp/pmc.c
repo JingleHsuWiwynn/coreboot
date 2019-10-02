@@ -70,10 +70,11 @@ static void pmc_init(struct device *dev)
 				 PMC_ACPI_BASE, acpi_base, PMC_PWRMBASE, pwrm_base);
 
 	actl = pci_read_config32(dev, ACTL);
-	printk(BIOS_DEBUG, "pmc_init ACTL csr: 0x%x, ACPI: %s, PWRM: %s\n", actl, 
+	printk(BIOS_DEBUG, "pmc_init ACTL csr: 0x%x, ACPI: %s, PWRM: %s, SCI IRQ Select: %d\n", actl, 
 				 (actl & ACPI_EN) ? "enabled" : "NOT enabled",
-				 (actl & PWRM_EN) ? "enabled" : "NOT enabled");
+				 (actl & PWRM_EN) ? "enabled" : "NOT enabled", (actl & 0x3));
 
+	if (0) {
 	/* Set the value for PCI command register. */
 	pci_write_config16(dev, PCI_COMMAND, PCI_COMMAND_MASTER |
 						     PCI_COMMAND_MEMORY |
@@ -86,6 +87,7 @@ static void pmc_init(struct device *dev)
 
 	/* Configure ACPI mode. */
 	pch_set_acpi_mode();
+	}
 	FUNC_EXIT();
 }
 
@@ -111,7 +113,7 @@ static void pci_pmc_read_resources(struct device *dev)
 		printk(BIOS_DEBUG,
 		       "Adding PMC PWRM config space BAR 0x%08lx-0x%08lx.\n",
 		       (unsigned long)(res->base),
-		       (unsigned long)(res->base + res->size));
+		       (unsigned long)(res->base + res->size - 1));
 	}
 
 	/* Add MMIO resource

@@ -46,8 +46,7 @@
 #include <assert.h>
 
 
-static char processor_name[64];
-
+//static char processor_name[64];
 //static struct smm_relocation_attrs relo_attrs;
 
 static void skx_configure_mca(void)
@@ -106,9 +105,9 @@ static struct device_operations cpu_dev_ops = {
 };
 
 static const struct cpu_device_id cpu_table[] = {
-	{X86_VENDOR_INTEL,
-	 CPUID_SKYLAKESP_A0_A1},		/* Skylake-SP A0/A1 CPUID */
-	{X86_VENDOR_INTEL, CPUID_SKYLAKESP_B0}, /* Skylake-SP B0 CPUID */
+	{X86_VENDOR_INTEL, CPUID_SKYLAKESP_A0_A1},		/* Skylake-SP A0/A1 CPUID 0x506f0*/
+	{X86_VENDOR_INTEL, CPUID_SKYLAKESP_B0}, /* Skylake-SP B0 CPUID 0x506f1*/
+	{X86_VENDOR_INTEL, CPUID_SKYLAKESP_4}, /* Skylake-SP 4 CPUID 0x50654*/
 	{0, 0},
 };
 
@@ -169,31 +168,6 @@ static void get_smm_info(uintptr_t *perm_smbase, size_t *perm_smsize,
 	FUNC_EXIT();
 }
 #endif
-
-static int detect_num_cpus_via_cpuid(void)
-{
-	register int ecx = 0;
-	struct cpuid_result leaf_b;
-
-	while (1) {
-		leaf_b = cpuid_ext(0xb, ecx);
-
-		/* Processor doesn't have hyperthreading so just determine the
-		* number of cores by from level type (ecx[15:8] == * 2). */
-		if ((leaf_b.ecx & 0xff00) == 0x0200)
-			break;
-		ecx++;
-	}
-	return (leaf_b.ebx & 0xffff);
-}
-
-/* Find CPU topology */
-int get_cpu_count(void)
-{
-	int num_cpus = detect_num_cpus_via_cpuid();
-	printk(BIOS_DEBUG, "Number of Cores (CPUID): %d.\n", num_cpus);
-	return num_cpus;
-}
 
 static void set_max_turbo_freq(void)
 {
@@ -297,6 +271,7 @@ static const struct mp_ops mp_ops = {
 };
 
 
+#if 0
 static void allocate_cpu_devices(struct bus *cpu_bus)
 {
   int i;
@@ -311,7 +286,7 @@ static void allocate_cpu_devices(struct bus *cpu_bus)
 	info = cpu_info(); /* ./src/arch/x86/include/arch/cpu.h */
 	printk(BIOS_DEBUG, "cpu path: %s, apic_id: %d\n", dev_path(info->cpu), info->cpu->path.apic.apic_id);
 
-  for (i = 1; i < cpu_count; i++) {
+  for (i = 0; i < cpu_count; i++) {
     struct device_path cpu_path;
     struct device *new;
 
@@ -319,7 +294,8 @@ static void allocate_cpu_devices(struct bus *cpu_bus)
     cpu_path.type = DEVICE_PATH_APIC;
 
     /* Assuming linear APIC space allocation. */
-    cpu_path.apic.apic_id = info->cpu->path.apic.apic_id + i;
+    //cpu_path.apic.apic_id = info->cpu->path.apic.apic_id + i;
+    cpu_path.apic.apic_id = i;
 
     /* Allocate the new CPU device structure */
     new = alloc_find_dev(cpu_bus, &cpu_path);
@@ -328,20 +304,33 @@ static void allocate_cpu_devices(struct bus *cpu_bus)
     new->name = processor_name;
   }
 }
+#endif
 
 void skylake_sp_init_cpus(struct device *dev)
 {
 	FUNC_ENTER();	
 
+#if 0
 	fill_processor_name(processor_name); /* ./src/cpu/x86/name/name.c */
 	printk(BIOS_DEBUG, "processor_name: %s\n", processor_name);
-
 	allocate_cpu_devices(dev->link_list);
+#endif
 
   /* calls src/cpu/x86/mp_init.c */
 	/* we are disabling this - repeating what FSP does as part of CPU/KTI initialization.
      unlikley code will work for 2S servers */
-	if (0 && mp_init_with_smm(dev->link_list, &mp_ops) < 0)
+	if (mp_init_with_smm(dev->link_list, &mp_ops) < 0)
 		printk(BIOS_ERR, "MP initialization failure.\n");
+
+#if 0
+	struct device *curdev;
+	for (curdev = dev->link_list->children; curdev; curdev = curdev->sibling) {
+		if (curdev->path.type == DEVICE_PATH_APIC)
+			printk(BIOS_DEBUG, "dev: %s, apicid: 0x%x\n", dev_path(curdev), dev->path.apic.apic_id);
+		else
+			printk(BIOS_DEBUG, "dev: %s not apic\n",  dev_path(curdev));
+	}
+#endif
+
 	FUNC_EXIT();
 }

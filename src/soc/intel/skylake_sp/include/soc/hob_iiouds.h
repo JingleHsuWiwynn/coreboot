@@ -157,6 +157,7 @@ typedef struct {
 } PLATFORM_DATA;
 
 typedef struct {
+		UINT32                  FILLER_BUG;
     UINT8                   CurrentCsiLinkSpeed;// Current programmed CSI Link speed (Slow/Full speed mode)
     UINT8                   CurrentCsiLinkFrequency; // Current requested CSI Link frequency (in GT)
     UINT32                  OutKtiPerLinkL1En[MAX_SOCKET];    // output kti link enabled status for PM 

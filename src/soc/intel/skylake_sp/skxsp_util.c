@@ -14,15 +14,49 @@
  *
  */
 
+#include <console/console.h>
+#include <device/device.h>
+#include <device/pci.h>
+#include <intelblocks/cpulib.h>
+#include <intelblocks/p2sb.h>
+#include <intelblocks/lpc_lib.h>
+#include <intelblocks/itss.h>
+#include <reg_script.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <bootstate.h>
+#include <assert.h>
 #include <stdint.h>
 #include <console/console.h>
-#include <arch/io.h>
+#include <device/device.h>
+#include <device/pci_ids.h>
 #include <device/pci_ops.h>
 #include <device/pci.h>
 #include <device/pci_def.h>
-#include <device/device.h>
+#include <cpu/cpu.h>
+#include <cpu/x86/msr.h>
+#include <cpu/x86/mtrr.h>
+#include <cpu/x86/cache.h>
+#include <cpu/x86/lapic.h>
+#include <cpu/x86/name.h>
+#include <cpu/x86/mp.h>
+#include <cpu/intel/turbo.h>
+#include <arch/acpi.h>
+#include <arch/io.h>
+#include <memrange.h>
+#include <soc/msr.h>
+#include <soc/cpu.h>
+#include <soc/iomap.h>
+#include <soc/smm.h>
+#include <soc/soc_util.h>
 #include <soc/skxsp_util.h>
 #include <soc/pci_devs.h>
+#include <soc/pcr_ids.h>
+#include <soc/pcr.h>
+#include <soc/p2sb.h>
+#include <soc/acpi.h>
+#include <soc/irq.h>
 
 #define DRV_IS_PCI_VENDOR_ID_INTEL 0x8086
 #define VENDOR_ID_MSASK 0x0000FFFF
@@ -439,3 +473,131 @@ void unlock_pam_regions(void)
 	u32 reg2 = pci_read_csr32(bus1, SKXSP_SAD_ALL_DEV, SKXSP_SAD_ALL_FUNC, SKXSP_SAD_ALL_PAM456_CSR);
 	printk(BIOS_DEBUG, "%s:%s pam0123_csr: 0x%x, pam456_csr: 0x%x\n", __FILE__, __func__, reg1, reg2);
 }
+
+static int detect_num_cpus_via_cpuid(void)
+{
+	register int ecx = 0;
+	struct cpuid_result leaf_b;
+	struct cpuid_result cpuid_regs;
+	uint32_t max_cpu_index;
+	uint64_t apic_base;
+  msr_t msr;
+
+  unsigned int num_virt_cores, num_phys_cores;
+
+  cpu_read_topology(&num_phys_cores, &num_virt_cores);
+  msr = rdmsr(MSR_CORE_THREAD_COUNT);
+  num_virt_cores = (msr.lo >> 0) & 0xffff;
+  num_phys_cores = (msr.lo >> 16) & 0xffff;
+  printk(BIOS_DEBUG, "Detected %u core, %u thread CPU.\n",
+         num_phys_cores, num_virt_cores);
+
+	/* get max index of CPUID */
+  cpuid_regs = cpuid(0);
+	max_cpu_index = cpuid_regs.eax;
+	printk(BIOS_DEBUG, "maximum input value for cpuid 0x%x\n", max_cpu_index);
+	assert (max_cpu_index >= 0xb);
+
+	/* get apic mode */
+  msr = rdmsr(LAPIC_BASE_MSR); /* LAPIC_BASE_MSR 0x1B */
+	apic_base = (((uint64_t)msr.hi & 0x00003fff) << 32) | (msr.lo & 0xfffff000);
+	printk(BIOS_DEBUG, "LAPIC_BASE_MSR hi: 0x%x, lo: 0x%x, apic_base: 0x%llx, LAPIC_DEFAULT_BASE: 0x%x\n", 
+				 msr.hi, msr.lo, apic_base, LAPIC_DEFAULT_BASE);
+	printk(BIOS_DEBUG, "LAPICID: 0x%lx\n", lapicid());
+
+	/*
+		CPUID.(EAX=0Bh, ECX=0h):EAX[4:0] = 1, shift 1 bit to get Core level of APIC ID
+		from Thread level (ECX input =0).
+		CPUID.(EAX=0Bh, ECX=1h):EAX[4:0] = 6, shift 6 bits to get Socket level of APIC
+		ID from Core level (ECX input =1)
+	*/
+	while (1) {
+		leaf_b = cpuid_ext(0xb, ecx);
+		printk(BIOS_DEBUG, "ApicIdShift - EAX[4:0]: 0x%x, LogicalProcessors - EBX[15:0]: 0x%x, "
+					 "LevelNumber - ECX[7:0]: 0x%x, LevelType - ECX[15:8]: 0x%x, x2APIC_ID - EDX[31:0]: 0x%x\n",
+					 (leaf_b.eax & 0x1f), (leaf_b.ebx & 0xffff), (leaf_b.ecx & 0xff), ((leaf_b.ecx >> 8) & 0xff), 
+					 (leaf_b.edx & 0xffffffff));
+		if (ecx == 0) {
+			if ((leaf_b.ebx & 0xffff) != 0)
+				printk(BIOS_DEBUG, "Initial APICID: 0x%x\n", leaf_b.edx);
+		}
+
+		/* Processor doesn't have hyperthreading so just determine the
+		* number of cores by from level type (ecx[15:8] == * 2). */
+		if ((leaf_b.ecx & 0xff00) == 0x0200)
+			break;
+		ecx++;
+	}
+	//return (leaf_b.ebx & 0xffff);
+	return num_virt_cores;
+}
+
+int get_cores_per_package(void)
+{
+#if 0
+  struct cpuinfo_x86 c;
+  struct cpuid_result result;
+  int cores = 1;
+
+  get_fms(&c, cpuid_eax(1));
+  if (c.x86 != 6)
+    return 1;
+
+  result = cpuid_ext(0xb, 1);
+  cores = result.ebx & 0xff;
+  return cores;
+#endif
+
+	return get_cpu_count();
+}
+
+/* Find CPU topology */
+int get_cpu_count(void)
+{
+	int num_cpus = detect_num_cpus_via_cpuid();
+	printk(BIOS_DEBUG, "Number of Cores (CPUID): %d.\n", num_cpus);
+	return num_cpus;
+}
+
+void dump_pch_int_regs(const char *header)
+{
+	/*
+   * Refer to C620 P2SB for PID_ITSS Table 36-10.Private Configuration Space Register Target Port IDs 
+   * Processor Interface, 8254 Timer, HPET, APIC 0xC4
+   * PID_ITSS is 0xC4
+   */
+	printk(BIOS_DEBUG, "%s\n", header);
+	printk(BIOS_DEBUG, "\tP2SB Target Port ID 0x%x\n", PID_ITSS);
+
+	printk(BIOS_DEBUG, "\tPIRQ[A-H] Routing Control Data\n");
+  for (int i=0; i < MAX_PXRC_CONFIG; ++i) {
+		uint16_t reg = (PCR_ITSS_PIRQA_ROUT + (i * sizeof(uint8_t)));
+		void *addr = (void *) PCH_PCR_ADDRESS(PID_ITSS, reg);
+    uint8_t val = read8(addr);
+    printk(BIOS_DEBUG, "\t\tpirq_reg: x%x, addr: 0x%p, val: 0x%x\n", reg, addr, val);
+  }
+
+	printk(BIOS_DEBUG, "\tPIR[0-4] PCI Interrupt Route Data\n");
+	for (int i=0; i < 5; ++i) {
+		uint16_t reg = (PCR_ITSS_PIR00 + (i * sizeof(uint16_t)));
+		void *addr = (void *) PCH_PCR_ADDRESS(PID_ITSS, reg);
+		uint16_t val = read16(addr);
+		printk(BIOS_DEBUG, "\t\tpir_reg: x%x, addr: 0x%p, val: 0x%x", reg, addr, val);
+		for (int p=0; p < 4; ++p) {
+			char intn = 'A' + p;
+			uint8_t pir = (val >> (p*4)) & 0x3;
+			char pin = 'A' + pir;
+			printk(BIOS_DEBUG, ", INT%c => PIRQ%c", intn, pin);
+		}
+		printk(BIOS_DEBUG, "\n");
+	}
+
+	printk(BIOS_DEBUG, "\tIPC[0-3] Interrupt Polarity Control Data\n");
+	for (int i=0; i < 4; ++i) {
+		uint16_t reg = (PCH_PCR_ITSS_IPC0 + (i * sizeof(uint32_t)));
+		void *addr = (void *) PCH_PCR_ADDRESS(PID_ITSS, reg);
+		uint32_t val = read32(addr);
+    printk(BIOS_DEBUG, "\t\tipc_reg: x%x, addr: 0x%p, val: 0x%x\n", reg, addr, val);
+	}
+}
+

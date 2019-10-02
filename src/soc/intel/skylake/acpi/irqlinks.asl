@@ -24,6 +24,8 @@
  *
  * https://bugs.acpica.org/show_bug.cgi?id=1201
  */
+/* CONFIG_PCR_BASE_ADDRESS 0xfd000000 0x3100
+C620 Interrupt PCR Registers Summary  */
 OperationRegion (ITSS, SystemMemory,
 		 Add (PCR_ITSS_PIRQA_ROUT,
 		      Add (CONFIG_PCR_BASE_ADDRESS,

@@ -332,8 +332,6 @@ static void do_fsp_memory_init(struct fsp_header *hdr, bool s3wake,
 			"FspMemoryInit returned an error!\n");
 	}
 
-  outb(0xa, 0x70);
-  printk(BIOS_DEBUG, "^^^ %s:%s CMOS read: 0x%x\n", __FILE__, __func__, inb(0x71));
 	do_fsp_post_memory_init(s3wake, fsp_version);
 
 	/*
@@ -342,8 +340,8 @@ static void do_fsp_memory_init(struct fsp_header *hdr, bool s3wake,
 	 * after cbmem has been initialised in do_fsp_post_memory_init().
 	 */
 	fsp_debug_after_memory_init(status);
-  outb(0xa, 0x70);
-  printk(BIOS_DEBUG, "^^^ %s:%s CMOS read: 0x%x\n", __FILE__, __func__, inb(0x71));
+  //outb(0xa, 0x70);
+  //printk(BIOS_DEBUG, "^^^ %s:%s CMOS read: 0x%x\n", __FILE__, __func__, inb(0x71));
 }
 
 /* Load the binary into the memory specified by the info header. */

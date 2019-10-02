@@ -1,7 +1,7 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2015 - 2017 Intel Corporation.
+ * Copyright (C) 2017 Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,27 +11,16 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
 
-#ifndef _SKYLAKESP_PCR_H_
-#define _SKYLAKESP_PCR_H_
+#ifndef SOC_INTEL_SKXSP_ITSS_H
+#define SOC_INTEL_SKXSP_ITSS_H
 
-/* PCR BASE */
-#include <soc/iomap.h>
+#define GPIO_IRQ_START	50
+#define GPIO_IRQ_END	ITSS_MAX_IRQ
 
-/* PCR address */
-#define PCH_PCR_ADDRESS(Pid, Offset) \
-	(P2SB_BAR | ((uint8_t)(Pid) << 16) | (uint16_t)(Offset))
+#define ITSS_MAX_IRQ	119
+#define IRQS_PER_IPC	32
+#define NUM_IPC_REGS	((ITSS_MAX_IRQ + IRQS_PER_IPC - 1)/IRQS_PER_IPC)
 
-#if 0
-/* PID for PCR and SBI */
-typedef enum {
-	PID_SMB = 0xCF,
-	PID_ITSS = 0xD0,
-	PID_GPIOCOM0 = 0xC2,
-	PID_GPIOCOM1 = 0xC5,
-} PCH_SBI_PID;
-#endif
-
-#endif /* _SKYLAKESP_PCR_H_ */
+#endif	/* SOC_INTEL_SKXSP_ITSS_H */

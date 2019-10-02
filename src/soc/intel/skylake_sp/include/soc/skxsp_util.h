@@ -53,5 +53,7 @@ void get_stack_busnos(u32 *bus);
 void dump_iio_stack_basic(void);
 void dump_iio_stack_detailed(void);
 void unlock_pam_regions(void);
+int get_cores_per_package(void);
+void dump_pch_int_regs(const char *header);
 
 #endif /* _SKXSP_UTIL_H_ */

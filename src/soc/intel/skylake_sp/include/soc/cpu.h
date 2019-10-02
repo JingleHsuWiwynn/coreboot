@@ -28,9 +28,10 @@ void skylake_sp_init_cpus(struct device *dev);
 /* Everything below this line is ignored in the DSDT */
 #ifndef __ACPI__
 
-/* Denverton-NS CPUID */
+/* SKXSP CPUID */
 #define CPUID_SKYLAKESP_A0_A1 0x506f0
 #define CPUID_SKYLAKESP_B0 0x506f1
+#define CPUID_SKYLAKESP_4 0x50654
 
 #define MSR_CORE_THREAD_COUNT 0x35
 #define CORE_BIT_MSK 0x1

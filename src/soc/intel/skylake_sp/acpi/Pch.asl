@@ -15,7 +15,13 @@
  *
  */
 
-#include "../include/soc/iomap.h"
+#include <intelblocks/itss.h>
+#include <intelblocks/pcr.h>
+#include <soc/iomap.h>
+#include <soc/irq.h>
+#include <soc/itss.h>
+#include <soc/gpe.h>
+#include <soc/pcr_ids.h>
 
 // SATA 0:13.0
 #include "sata.asl"
@@ -35,7 +41,8 @@
 // SMBus 00:1F.4
 #include "smbus.asl"
 
-#include "pcie.asl"
+//#include "irqlinks.asl"
+#include "hsio_pcie.asl"
 
 Device (PRRE)
 {
