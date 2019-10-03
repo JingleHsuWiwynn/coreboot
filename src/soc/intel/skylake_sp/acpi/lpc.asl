@@ -340,6 +340,9 @@ Device (LPCB)
 		})
 	}
 
+// commented to avoid wrong IRQ shown in Linux boot log, such as:
+// 00:05: ttyS1 at I/O 0x2f8 (irq = 17, base_baud = 115200) is a 16550A
+/*
 	Device(IUR3) // Internal UART 1
 	{
 	  Name(_HID, EISAID("PNP0501"))
@@ -556,7 +559,7 @@ Device (LPCB)
 			Return(BUF0)
 	  }
 	}
-
+*/
    Device (LPC2)
    {
         Name (_HID, EisaId ("PNP0C08") /* ACPI Core Hardware */)  // _HID: Hardware ID
