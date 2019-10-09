@@ -32,7 +32,6 @@
 #include <soc/skxsp_util.h>
 
 
-
 /* While we read BAR dynamically in case it changed, let's
  * initialize it with a same value
  */

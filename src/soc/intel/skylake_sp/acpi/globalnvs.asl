@@ -49,29 +49,32 @@ Field (GNVS, ByteAcc, NoLock, Preserve)
 	TPMP,	 8,	// 0x12 - TPM Present and Enabled
 	TLVL,	 8,	// 0x13 - Throttle Level
 	PPCM,	 8,	// 0x14 - Maximum P-state usable by OS
+  PM1I, 64, // 0x15 - PM1 wake status bit
+  GPEI, 64, // 0x1D - GPE wake status bit
+
 
 	/* Device Config */
-	Offset (0x20),
-	S5U0,	 8,	// 0x20 - Enable USB0 in S5
-	S5U1,	 8,	// 0x21 - Enable USB1 in S5
-	S3U0,	 8,	// 0x22 - Enable USB0 in S3
-	S3U1,	 8,	// 0x23 - Enable USB1 in S3
-	TACT,	 8,	// 0x24 - Thermal Active trip point
-	TPSV,	 8,	// 0x25 - Thermal Passive trip point
-	TCRT,	 8,	// 0x26 - Thermal Critical trip point
-	DPTE,	 8,	// 0x27 - Enable DPTF
+	Offset (0x30),
+	S5U0,	 8,	// 0x30 - Enable USB0 in S5
+	S5U1,	 8,	// 0x31 - Enable USB1 in S5
+	S3U0,	 8,	// 0x32 - Enable USB0 in S3
+	S3U1,	 8,	// 0x33 - Enable USB1 in S3
+	TACT,	 8,	// 0x34 - Thermal Active trip point
+	TPSV,	 8,	// 0x35 - Thermal Passive trip point
+	TCRT,	 8,	// 0x36 - Thermal Critical trip point
+	DPTE,	 8,	// 0x37 - Enable DPTF
 
 	/* Base addresses */
-	Offset (0x30),
-	CMEM,	 32,	// 0x30 - CBMEM TOC
-	TOLM,	 32,	// 0x34 - Top of Low Memory
-	CBMC,	 32,	// 0x38 - coreboot mem console pointer
-	MMOB,	 32,	// 0x3c - MMIO Base Low Base
-	MMOL,	 32,	// 0x40 - MMIO Base Low Limit
-	MMHB,	 64,	// 0x44 - MMIO Base High Base
-	MMHL,	 64,	// 0x4c - MMIO Base High Limit
-	TSGB,	 32,	// 0x54 - TSEG Base
-	TSSZ,	 32,	// 0x58 - TSEG Size
+	Offset (0x50),
+	CMEM,	 32,	// 0x50 - CBMEM TOC
+	TOLM,	 32,	// 0x54 - Top of Low Memory
+	CBMC,	 32,	// 0x58 - coreboot mem console pointer
+	MMOB,	 32,	// 0x5C - MMIO Base Low Base
+	MMOL,	 32,	// 0x60 - MMIO Base Low Limit
+	MMHB,	 64,	// 0x64 - MMIO Base High Base
+	MMHL,	 64,	// 0x6C - MMIO Base High Limit
+	TSGB,	 32,	// 0x74 - TSEG Base
+	TSSZ,	 32,	// 0x78 - TSEG Size
 }
 
 /* Set flag to enable USB charging in S3 */

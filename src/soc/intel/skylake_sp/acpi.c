@@ -205,7 +205,6 @@ unsigned long acpi_fill_madt(unsigned long current)
       b2:05.4 PIC: Intel Corporation Device 2036 (rev 04) (prog-if 20 [IO(X)-APIC])
    */
 
-#if 0
   current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current,
                                      8, 0xfec00000, 0);
   current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current,
@@ -216,28 +215,29 @@ unsigned long acpi_fill_madt(unsigned long current)
                                      0xb, 0xfec10000, 0x28);
   current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current,
                                      0xc, 0xfec18000, 0x30);
-#endif
 
-	hob = fsp_find_extension_hob_by_guid(
-                          fsp_hob_iio_universal_data_guid,
-                          &hob_size);
-  assert(hob != NULL && hob_size != 0);
+	if (0) {
+		hob = fsp_find_extension_hob_by_guid(
+														fsp_hob_iio_universal_data_guid,
+														&hob_size);
+		assert(hob != NULL && hob_size != 0);
 
-  // find out total number of stacks
-	int i = 0;
-  for (int socket=0; socket < hob->PlatformData.numofIIO; ++socket) {
-    for (int stack=0; stack < MAX_IIO_STACK; ++stack) {
-      const STACK_RES *ri = &hob->PlatformData.IIO_resource[socket].StackRes[stack];
-      if (ri->BusBase != ri->BusLimit) { // TODO: do we have situation with only bux 0 and one stack?
-				printk(BIOS_DEBUG, "Adding MADT IOAPIC for socket: %d, stack: %d, id: 0x%x, base: 0x%x, gsi_base: 0x%x\n", 
-							 socket, stack,  (i+8), ri->IoApicBase, (8*i)+0x18);
-				/* acpi_create_madt_ioapic implementation in src/arch/x86/acpi.c */
-				current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current, (i+8), 
-																					 ri->IoApicBase, (i == 0) ? 0 : ((8*i)+0x18));
-				++i;
+		// find out total number of stacks
+		int i = 0;
+		for (int socket=0; socket < hob->PlatformData.numofIIO; ++socket) {
+			for (int stack=0; stack < MAX_IIO_STACK; ++stack) {
+				const STACK_RES *ri = &hob->PlatformData.IIO_resource[socket].StackRes[stack];
+				if (ri->BusBase != ri->BusLimit) { // TODO: do we have situation with only bux 0 and one stack?
+					printk(BIOS_DEBUG, "Adding MADT IOAPIC for socket: %d, stack: %d, id: 0x%x, base: 0x%x, gsi_base: 0x%x\n", 
+								 socket, stack,  (i+8), ri->IoApicBase, (8*i)+0x18);
+					/* acpi_create_madt_ioapic implementation in src/arch/x86/acpi.c */
+					current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current, (i+8), 
+																						 ri->IoApicBase, (i == 0) ? 0 : ((8*i)+0x18));
+					++i;
+				}
 			}
-    }
-  }
+		}
+	}
 
   return acpi_madt_irq_overrides(current);
 }

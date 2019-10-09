@@ -25,15 +25,6 @@
 
 Scope(\)
 {
-  // IO-Trap at 0x800. This is the ACPI->SMI communication interface.
-
-  OperationRegion(IO_T, SystemIO, 0x800, 0x10)
-  Field(IO_T, ByteAcc, NoLock, Preserve)
-  {
-    Offset(0x8),
-    TRP0, 8   // IO-Trap at 0x808
-  }
-
   // Private Chipset Register(PCR). Memory Mapped through ILB
   OperationRegion(PCRR, SystemMemory, P2SB_BAR, 0x01000000)
   Field(PCRR, DWordAcc, Lock, Preserve)
@@ -3092,11 +3083,75 @@ Scope (_SB)
 					0x36
 			}
 	})
+        Name (P06B, Package (0x04)
+        {
+            Package (0x04)
+            {
+                0xFFFF,
+                0x00,
+                LNKA,
+                0x00
+            },
 
-	#include "irqlinks.asl"
+            Package (0x04)
+            {
+                0xFFFF,
+                0x01,
+                LNKB,
+                0x00
+            },
 
-  /* IRQ assignment is mainboard specific. Get it from mainboard ACPI code */
-  #include "acpi/mainboard_pci_irqs.asl"
+            Package (0x04)
+            {
+                0xFFFF,
+                0x02,
+                LNKC,
+                0x00
+            },
+
+            Package (0x04)
+            {
+                0xFFFF,
+                0x03,
+                LNKD,
+                0x00
+            }
+        })
+ 
+        Name (G06B, Package (0x04)
+        {
+            Package (0x04)
+            {
+                0xFFFF,
+                0x00,
+                0x00,
+                0x30
+            },
+
+            Package (0x04)
+            {
+                0xFFFF,
+                0x01,
+                0x00,
+                0x34
+            },
+
+            Package (0x04)
+            {
+                0xFFFF,
+                0x02,
+                0x00,
+                0x35
+            },
+
+            Package (0x04)
+            {
+                0xFFFF,
+                0x03,
+                0x00,
+                0x36
+            }
+        })
 }
 
 Device (PC00)
@@ -3634,8 +3689,94 @@ Device (PC03)
 						0x0000000040000000, // Length
 						,, , AddressRangeMemory, TypeStatic)
 		})
+
 		Method (_CRS, 0, NotSerialized)  // _CRS: Current Resource Settings
 		{
 				Return (PR03) /* \_SB_.PC03.PR03 */
 		}
+
+	Device (BR3A)
+	{
+		Name (_ADR, 0x00)  // _ADR: Address
+		OperationRegion (MCTL, SystemMemory, 0x86418188, 0x04)
+		Field (MCTL, ByteAcc, NoLock, Preserve)
+		{
+						,   3,
+				HGPE,   1,
+						,   7,
+						,   8,
+						,   8
+		}
+
+		Method (_INI, 0, NotSerialized)  // _INI: Initialize
+		{
+				HGPE = 0x01
+		}
+
+		Name (_HPP, Package (0x04)  // _HPP: Hot Plug Parameters
+		{
+				0x08,
+				0x40,
+				0x01,
+				0x00
+		})
+
+		OperationRegion (PPA4, PCI_Config, 0x00, 0x0100)
+		Field (PPA4, ByteAcc, NoLock, Preserve)
+		{
+				Offset (0xA0),
+						,   4,
+				LDIS,   1,
+				Offset (0xA2),
+				Offset (0xA4),
+				ATBP,   1,
+						,   1,
+				MRSP,   1,
+				ATIP,   1,
+				PWIP,   1,
+						,   14,
+				PSNM,   13,
+				ABIE,   1,
+				PFIE,   1,
+				MSIE,   1,
+				PDIE,   1,
+				CCIE,   1,
+				HPIE,   1,
+				SCTL,   5,
+				Offset (0xAA),
+				SSTS,   7,
+				Offset (0xAB),
+				Offset (0xB0),
+				Offset (0xB2),
+				PMES,   1,
+				PMEP,   1,
+				Offset (0xB4)
+		}
+
+		Method (SNUM, 0, Serialized)
+		{
+				Local0 = PSNM /* \_SB_.PC03.BR3A.PSNM */
+				Return (Local0)
+		}
+
+	 	Method (_SUN, 0, NotSerialized)  // _SUN: Slot User Number
+		{
+				Return (SNUM ())
+		}
+
+		Method (_PRT, 0, NotSerialized)  // _PRT: PCI Routing Table
+		{
+				If (PICM)
+				{
+						Return (G06B) /* \_SB_.G06B */
+				}
+
+				Return (P06B) /* \_SB_.P06B */
+		}
+
+		Device (SLT2)
+		{
+				Name (_ADR, 0xFFFF)  // _ADR: Address
+		}
+	}
 }

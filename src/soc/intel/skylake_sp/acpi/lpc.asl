@@ -560,6 +560,7 @@ Device (LPCB)
 	  }
 	}
 */
+
    Device (LPC2)
    {
         Name (_HID, EisaId ("PNP0C08") /* ACPI Core Hardware */)  // _HID: Hardware ID

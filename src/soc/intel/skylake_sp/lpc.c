@@ -242,6 +242,7 @@ static void pch_enable_serial_irqs(struct device *dev)
 void lpc_soc_init(struct device *dev)
 {
 	printk(BIOS_DEBUG, "pch: lpc_init\n");
+	return;
 
 	/* Get the base address */
 
