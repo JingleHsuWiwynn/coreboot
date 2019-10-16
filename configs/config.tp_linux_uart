@@ -231,7 +231,6 @@ CONFIG_SOC_INTEL_COMMON_BLOCK_GPIO=y
 CONFIG_SOC_INTEL_COMMON_BLOCK_ITSS=y
 CONFIG_SOC_INTEL_COMMON_BLOCK_LPC=y
 # CONFIG_SOC_INTEL_COMMON_BLOCK_LPC_COMB_ENABLE is not set
-CONFIG_SOC_INTEL_COMMON_BLOCK_LPSS=y
 CONFIG_SOC_INTEL_COMMON_BLOCK_P2SB=y
 CONFIG_SOC_INTEL_COMMON_BLOCK_PCR=y
 CONFIG_PCR_COMMON_IOSF_1_0=y
@@ -246,7 +245,6 @@ CONFIG_SA_PCIEX_LENGTH=0x10000000
 # CONFIG_SA_ENABLE_IMR is not set
 # CONFIG_SA_ENABLE_DPR is not set
 CONFIG_SOC_INTEL_COMMON_BLOCK_TIMER=y
-CONFIG_SOC_INTEL_COMMON_BLOCK_UART=y
 # CONFIG_SOC_INTEL_COMMON_BLOCK_VMX is not set
 
 #
@@ -720,14 +718,14 @@ CONFIG_PAYLOAD_LINUXBOOT=y
 # CONFIG_PAYLOAD_YABITS is not set
 # CONFIG_PAYLOAD_LINUX is not set
 # CONFIG_PAYLOAD_TIANOCORE is not set
-CONFIG_PAYLOAD_FILE="/home/jonzhang/local/fbsource/fbcode/osf/linuxboot/kernel/linuxboot_uroot_ttys0"
+CONFIG_PAYLOAD_FILE="/home/jonzhang/local/work/tp/imgs/bzImage"
 
 #
 # Linux kernel
 #
 # CONFIG_LINUXBOOT_COMPILE_KERNEL is not set
-CONFIG_LINUXBOOT_KERNEL_PATH="/home/jonzhang/local/fbsource/fbcode/osf/linuxboot/kernel/linuxboot_uroot_ttys0"
-CONFIG_LINUX_COMMAND_LINE="earlyprintk=ttyS0,57600n1 console=ttyS0,57600n1 earlycon=uart8250,io,0x3f8,57600n1 loglevel=7"
+CONFIG_LINUXBOOT_KERNEL_PATH="/home/jonzhang/local/work/tp/imgs/bzImage"
+CONFIG_LINUX_COMMAND_LINE="earlyprintk=ttyS0,57600n1 console=ttyS0,57600n1 loglevel=7"
 
 #
 # Linux initramfs

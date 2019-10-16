@@ -25,17 +25,13 @@
 
 Scope (_SB)
 {
-	#include "pirq_irqs.asl"
-#ifdef BLAH
 	#include "pch_pciedev_irqs.asl"
 	#include "pchdev_irqs.asl"
-#endif
 
 	/* IRQ assignment is mainboard specific. Get it from mainboard ACPI code */
 	//#include "acpi/mainboard_pci_irqs.asl"
 }
 
-#ifdef BLAH
 
 // SATA 0:13.0
 #include "sata.asl"
@@ -55,7 +51,6 @@ Scope (_SB)
 // SMBus 00:1F.4
 #include "smbus.asl"
 
-#endif
 
 Device (PRRE)
 {

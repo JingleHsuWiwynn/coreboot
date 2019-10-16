@@ -43,6 +43,7 @@ Scope(\)
 
 Scope (_SB)
 {
+	#include "pirq_irqs.asl"
 	Name (PR00, Package (0x28)
 	{
 			Package (0x04)
