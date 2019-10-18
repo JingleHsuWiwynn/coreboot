@@ -41,13 +41,16 @@ void mainboard_config_gpios(FSPM_UPD *mupd)
 
 void mainboard_config_iio(FSPM_UPD *mupd)
 {
-#if 0
 	mupd->FspmConfig.IioBifurcationConfig.IIoBifurcationTable = (UPD_IIO_BIFURCATION_DATA_ENTRY *) tp_iio_bifur_table;
 	mupd->FspmConfig.IioBifurcationConfig.NumberOfEntries = sizeof(tp_iio_bifur_table)/sizeof(UPD_IIO_BIFURCATION_DATA_ENTRY);
 
-	mupd->FspmConfig.IioSlotConfig.IIoSlotConfigTable = (UPD_IIO_SLOT_CONFIG_DATA_ENTRY *) tp_iio_slot_table;
-	mupd->FspmConfig.IioSlotConfig.NumberOfEntries = sizeof(tp_iio_slot_table)/sizeof(UPD_IIO_SLOT_CONFIG_DATA_ENTRY);
-#endif
+	mupd->FspmConfig.IioPciConfig.ConfigurationTable = (UPD_PCI_PORT_CONFIG *) tp_iio_pci_port_skt0;
+	mupd->FspmConfig.IioPciConfig.NumberOfEntries = sizeof(tp_iio_pci_port_skt0)/sizeof(UPD_PCI_PORT_CONFIG);
+
+	mupd->FspmConfig.PchPciConfig.PciPortConfig = (UPD_PCH_PCIE_PORT *) tp_pch_pci_port_skt0;
+	mupd->FspmConfig.PchPciConfig.NumberOfEntries = sizeof(tp_pch_pci_port_skt0)/sizeof(UPD_PCH_PCIE_PORT);
+	mupd->FspmConfig.PchPciConfig.RootPortFunctionSwapping = 0x00;
+	mupd->FspmConfig.PchPciConfig.PciePllSsc = 0x00;
 }
 
 void mainboard_memory_init_params(FSPM_UPD *mupd)

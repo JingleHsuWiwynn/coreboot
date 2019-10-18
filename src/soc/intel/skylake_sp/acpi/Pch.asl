@@ -23,15 +23,11 @@
 #include <soc/gpe.h>
 #include <soc/pcr_ids.h>
 
-Scope (_SB)
-{
 	#include "pch_pciedev_irqs.asl"
-	#include "pchdev_irqs.asl"
+//#include "pchdev_irqs.asl"
 
 	/* IRQ assignment is mainboard specific. Get it from mainboard ACPI code */
 	//#include "acpi/mainboard_pci_irqs.asl"
-}
-
 
 // SATA 0:13.0
 #include "sata.asl"

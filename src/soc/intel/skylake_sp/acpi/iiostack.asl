@@ -3513,10 +3513,10 @@ Device (PC01)
 		{
 				If (PICM)
 				{
-						Return (AR10) /* \_SB_.AR10 */
+						Return (\_SB_.AR10) /* \_SB_.AR10 */
 				}
 
-				Return (PR10) /* \_SB_.PR10 */
+				Return (\_SB_.PR10) /* \_SB_.PR10 */
 		}
 
 		Name (SUPP, 0x00)
@@ -3582,10 +3582,10 @@ Device (PC02)
 		{
 				If (PICM)
 				{
-						Return (AR20) /* \_SB_.AR20 */
+						Return (\_SB_.AR20) /* \_SB_.AR20 */
 				}
 
-				Return (PR20) /* \_SB_.PR20 */
+				Return (\_SB_.PR20) /* \_SB_.PR20 */
 		}
 
 		Name (SUPP, 0x00)
@@ -3650,10 +3650,10 @@ Device (PC03)
 		{
 				If (PICM)
 				{
-						Return (AR28) /* \_SB_.AR28 */
+						Return (\_SB_.AR28) /* \_SB_.AR28 */
 				}
 
-				Return (PR28) /* \_SB_.PR28 */
+				Return (\_SB_.PR28) /* \_SB_.PR28 */
 		}
 
 		Name (SUPP, 0x00)
@@ -3769,10 +3769,10 @@ Device (PC03)
 		{
 				If (PICM)
 				{
-						Return (G06B) /* \_SB_.G06B */
+						Return (\_SB_.G06B) /* \_SB_.G06B */
 				}
 
-				Return (P06B) /* \_SB_.P06B */
+				Return (\_SB_.P06B) /* \_SB_.P06B */
 		}
 
 		Device (SLT2)

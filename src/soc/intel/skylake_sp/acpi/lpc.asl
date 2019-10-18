@@ -17,7 +17,7 @@
 
 // 00:1F.0 ISA bridge: Intel Corporation Lewisburg LPC Controller (rev 09)
 
-Device (LPCB)
+Device (LPC0)
 {
 	Name(_ADR, 0x001f0000)
 

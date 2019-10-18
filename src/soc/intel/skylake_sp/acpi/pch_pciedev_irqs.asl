@@ -1,3 +1,5 @@
+Scope (\_SB)
+{
 Name (P12E, Package (0x04)
 {
 		Package (0x04)
@@ -406,6 +408,7 @@ Name (G02C, Package (0x04)
 				0x11
 		}
 })
+}
 
 Device (RP01)
 {
