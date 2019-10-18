@@ -14,11 +14,9 @@
 #include <device/resource.h>
 #include <device/path.h>
 #include <device/pci_type.h>
-#include <arch/io.h>
 
 struct device;
 struct pci_operations;
-struct pci_bus_operations;
 struct i2c_bus_operations;
 struct smbus_bus_operations;
 struct pnp_mode_ops;
@@ -53,23 +51,24 @@ struct device_operations {
 	void (*disable)(struct device *dev);
 	void (*set_link)(struct device *dev, unsigned int link);
 	void (*reset_bus)(struct bus *bus);
-#if IS_ENABLED(CONFIG_GENERATE_SMBIOS_TABLES)
+#if CONFIG(GENERATE_SMBIOS_TABLES)
 	int (*get_smbios_data)(struct device *dev, int *handle,
 		unsigned long *current);
 	void (*get_smbios_strings)(struct device *dev, struct smbios_type11 *t);
 #endif
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	unsigned long (*write_acpi_tables)(struct device *dev,
 		unsigned long start, struct acpi_rsdp *rsdp);
 	void (*acpi_fill_ssdt_generator)(struct device *dev);
 	void (*acpi_inject_dsdt_generator)(struct device *dev);
 	const char *(*acpi_name)(const struct device *dev);
+	/* Returns the optional _HID (Hardware ID) */
+	const char *(*acpi_hid)(const struct device *dev);
 #endif
 	const struct pci_operations *ops_pci;
 	const struct i2c_bus_operations *ops_i2c_bus;
 	const struct spi_bus_operations *ops_spi_bus;
 	const struct smbus_bus_operations *ops_smbus_bus;
-	const struct pci_bus_operations * (*ops_pci_bus)(struct device *dev);
 	const struct pnp_mode_ops *ops_pnp_mode;
 };
 
@@ -95,6 +94,7 @@ struct bus {
 	unsigned int	reset_needed : 1;
 	unsigned int	disable_relaxed_ordering : 1;
 	unsigned int	ht_link_up : 1;
+	unsigned int	no_vga16 : 1;	/* No support for 16-bit VGA decoding */
 };
 
 /*
@@ -129,7 +129,6 @@ struct device {
 	unsigned int    on_mainboard : 1;
 	unsigned int    disable_pcie_aspm : 1;
 	unsigned int    hidden : 1;	/* set if we should hide from UI */
-	struct pci_irq_info pci_irq_info[4];
 	u8 command;
 
 	/* Base registers for this device. I/O, MEM and Expansion ROM */
@@ -140,10 +139,17 @@ struct device {
 	 */
 	DEVTREE_CONST struct bus *link_list;
 
-	struct device_operations *ops;
 #if !DEVTREE_EARLY
+	struct pci_irq_info pci_irq_info[4];
+	struct device_operations *ops;
 	struct chip_operations *chip_ops;
 	const char *name;
+#if CONFIG(GENERATE_SMBIOS_TABLES)
+	u8 smbios_slot_type;
+	u8 smbios_slot_data_width;
+	u8 smbios_slot_length;
+	const char *smbios_slot_designation;
+#endif
 #endif
 	DEVTREE_CONST void *chip_info;
 };
@@ -160,7 +166,7 @@ extern struct bus	*free_links;
 
 extern const char mainboard_name[];
 
-#if IS_ENABLED(CONFIG_GFXUMA)
+#if CONFIG(GFXUMA)
 /* IGD UMA memory */
 extern uint64_t uma_memory_base;
 extern uint64_t uma_memory_size;
@@ -188,6 +194,7 @@ const char *bus_path(struct bus *bus);
 void dev_set_enabled(struct device *dev, int enable);
 void disable_children(struct bus *bus);
 bool dev_is_active_bridge(struct device *dev);
+void add_more_links(struct device *dev, unsigned int total_links);
 
 /* Option ROM helper functions */
 void run_bios(struct device *dev, unsigned long addr);
@@ -216,6 +223,12 @@ void set_cpu_topology(struct device *cpu, unsigned int node,
 #define intel_cpu_topology(cpu, package, core, thread) \
 	set_cpu_topology(cpu, 0, package, core, thread)
 
+void mp_init_cpus(DEVTREE_CONST struct bus *cpu_bus);
+static inline void mp_cpu_bus_init(struct device *dev)
+{
+	mp_init_cpus(dev->link_list);
+}
+
 /* Debug functions */
 void print_resource_tree(const struct device *root, int debug_level,
 			 const char *msg);
@@ -236,6 +249,9 @@ void show_all_devs_resources(int debug_level, const char *msg);
 extern struct device_operations default_dev_ops_root;
 void pci_domain_read_resources(struct device *dev);
 void pci_domain_scan_bus(struct device *dev);
+
+void fixed_io_resource(struct device *dev, unsigned long index,
+		unsigned long base, unsigned long size);
 
 void fixed_mem_resource(struct device *dev, unsigned long index,
 		  unsigned long basek, unsigned long sizek, unsigned long type);
@@ -262,11 +278,12 @@ void mmconf_resource(struct device *dev, unsigned long index);
 #define mmio_resource(dev, idx, basek, sizek) \
 	fixed_mem_resource(dev, idx, basek, sizek, IORESOURCE_RESERVE)
 
+#define io_resource(dev, idx, base, size) \
+	fixed_io_resource(dev, idx, base, size)
+
 void tolm_test(void *gp, struct device *dev, struct resource *new);
 u32 find_pci_tolm(struct bus *bus);
 
-DEVTREE_CONST struct device *dev_find_slot(unsigned int bus,
-						unsigned int devfn);
 DEVTREE_CONST struct device *dev_find_next_pci_device(
 				DEVTREE_CONST struct device *previous_dev);
 DEVTREE_CONST struct device *dev_find_slot_on_smbus(unsigned int bus,
@@ -278,13 +295,42 @@ DEVTREE_CONST struct device *dev_bus_each_child(const struct bus *parent,
 DEVTREE_CONST struct device *pcidev_path_behind(const struct bus *parent,
 		pci_devfn_t devfn);
 DEVTREE_CONST struct device *pcidev_path_on_root(pci_devfn_t devfn);
+DEVTREE_CONST struct device *pcidev_path_on_bus(unsigned int bus, pci_devfn_t devfn);
 DEVTREE_CONST struct device *pcidev_on_root(uint8_t dev, uint8_t fn);
+DEVTREE_CONST struct bus *pci_root_bus(void);
 
+/* To be deprecated, avoid using.
+ *
+ * Note that this function can return the incorrect device prior
+ * to PCI enumeration because the secondary field of the bus object
+ * is 0. The failing scenario is determined by the order of the
+ * devices in all_devices singly-linked list as well as the time
+ * when this function is called (secondary reflecting topology).
+ */
+DEVTREE_CONST struct device *dev_find_slot(unsigned int bus, unsigned int devfn);
+DEVTREE_CONST struct device *pcidev_path_on_root_debug(pci_devfn_t devfn, const char *func);
+
+/* Robust discovery of chip_info. */
+void devtree_bug(const char *func, pci_devfn_t devfn);
+void __noreturn devtree_die(void);
+
+static inline DEVTREE_CONST void *config_of(const struct device *dev)
+{
+	if (dev && dev->chip_info)
+		return dev->chip_info;
+
+	devtree_die();
+}
+
+static inline DEVTREE_CONST void *config_of_soc(void)
+{
+	return config_of(pcidev_on_root(0, 0));
+}
+
+void enable_static_devices(struct device *bus);
 void scan_smbus(struct device *bus);
 void scan_generic_bus(struct device *bus);
 void scan_static_bus(struct device *bus);
-void scan_lpc_bus(struct device *bus);
-void scan_usb_bus(struct device *bus);
 
 #endif /* !defined(__ROMCC__) */
 

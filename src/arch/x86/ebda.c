@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2012 The Chromium OS Authors. All rights reserved.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2 of
@@ -16,7 +14,6 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <arch/io.h>
 #include <arch/acpi.h>
 #include <arch/ebda.h>
 #include <commonlib/endian.h>

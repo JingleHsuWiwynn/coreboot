@@ -15,11 +15,6 @@
  * GNU General Public License for more details.
  */
 
-#include <intelblocks/itss.h>
-#include <intelblocks/pcr.h>
-#include <soc/itss.h>
-#include <soc/pcr_ids.h>
-
 /* PCI IRQ assignment */
 #include "pci_irqs.asl"
 
@@ -30,7 +25,7 @@
 #include "scs.asl"
 
 /* GPIO controller */
-#if IS_ENABLED(CONFIG_SOC_INTEL_CANNONLAKE_PCH_H)
+#if CONFIG(SOC_INTEL_CANNONLAKE_PCH_H)
 #include "gpio_cnp_h.asl"
 #else
 #include "gpio.asl"
@@ -50,6 +45,9 @@
 
 /* SMBus 0:1f.4 */
 #include "smbus.asl"
+
+/* ISH 0:13.0 */
+#include "ish.asl"
 
 /* USB XHCI 0:14.0 */
 #include "xhci.asl"

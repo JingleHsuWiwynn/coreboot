@@ -18,6 +18,8 @@
 
 #include <stdint.h>
 #include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <arch/ioapic.h>
 #include <console/console.h>
 #include <device/device.h>
@@ -39,10 +41,6 @@
 #include <soc/ramstage.h>
 #include "chip.h"
 #include <arch/acpi.h>
-#include <arch/acpigen.h>
-
-#define ENABLE_ACPI_MODE_IN_COREBOOT	0
-#define TEST_SMM_FLASH_LOCKDOWN		0
 
 typedef struct soc_intel_fsp_baytrail_config config_t;
 
@@ -100,7 +98,7 @@ static void sc_enable_ioapic(struct device *dev)
 	reg32 = *ioapic_data;
 	printk(BIOS_DEBUG, "Southbridge APIC ID = %x\n", (reg32 >> 24) & 0x0f);
 	if (reg32 != (1 << 25))
-		die("APIC Error\n");
+		die_with_post_code(POST_HW_INIT_FAILURE, "APIC Error\n");
 
 	printk(BIOS_SPEW, "Dumping IOAPIC registers\n");
 	for (i=0; i<3; i++) {
@@ -137,7 +135,7 @@ static void sc_enable_serial_irqs(struct device *dev)
 	write32(ibase + ILB_OIC, read32(ibase + ILB_OIC) | SIRQEN);
 	write8(ibase + ILB_SERIRQ_CNTL, SCNT_CONTINUOUS_MODE);
 
-#if !IS_ENABLED(CONFIG_SERIRQ_CONTINUOUS_MODE)
+#if !CONFIG(SERIRQ_CONTINUOUS_MODE)
 	/*
 	 * SoC requires that the System BIOS first set the SERIRQ logic to
 	 * continuous mode operation for at least one frame before switching
@@ -607,7 +605,7 @@ static struct device_operations device_ops = {
 	.enable_resources	= NULL,
 	.init			= sc_init,
 	.enable			= southcluster_enable_dev,
-	.scan_bus		= scan_lpc_bus,
+	.scan_bus		= scan_static_bus,
 	.ops_pci		= &soc_pci_ops,
 };
 

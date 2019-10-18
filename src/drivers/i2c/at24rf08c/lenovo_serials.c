@@ -15,7 +15,6 @@
 
 #include <types.h>
 #include <string.h>
-#include <arch/io.h>
 #include <device/device.h>
 #include <device/smbus.h>
 #include <smbios.h>
@@ -116,7 +115,7 @@ const char *smbios_mainboard_product_name(void)
 	return lenovo_mainboard_partnumber();
 }
 
-void smbios_mainboard_set_uuid(u8 *uuid)
+void smbios_system_set_uuid(u8 *uuid)
 {
 	static char result[16];
 	unsigned i;

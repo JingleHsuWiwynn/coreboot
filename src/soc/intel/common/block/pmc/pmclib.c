@@ -13,20 +13,22 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/early_variables.h>
 #include <arch/io.h>
+#include <device/mmio.h>
 #include <cbmem.h>
 #include <console/console.h>
 #include <halt.h>
 #include <intelblocks/pmclib.h>
 #include <intelblocks/gpio.h>
 #include <intelblocks/tco.h>
+#include <pc80/mc146818rtc.h>
 #include <soc/pm.h>
+#include <stdint.h>
 #include <string.h>
 #include <timer.h>
 #include <security/vboot/vboot_common.h>
 
-static struct chipset_power_state power_state CAR_GLOBAL;
+static struct chipset_power_state power_state;
 
 struct chipset_power_state *pmc_get_power_state(void)
 {
@@ -37,7 +39,7 @@ struct chipset_power_state *pmc_get_power_state(void)
 
 	/* cbmem is online but ptr is not populated yet */
 	if (ptr == NULL && !(ENV_RAMSTAGE || ENV_POSTCAR))
-		return car_get_var_ptr(&power_state);
+		return &power_state;
 
 	return ptr;
 }
@@ -45,16 +47,14 @@ struct chipset_power_state *pmc_get_power_state(void)
 static void migrate_power_state(int is_recovery)
 {
 	struct chipset_power_state *ps_cbmem;
-	struct chipset_power_state *ps_car;
 
-	ps_car = car_get_var_ptr(&power_state);
 	ps_cbmem = cbmem_add(CBMEM_ID_POWER_STATE, sizeof(*ps_cbmem));
 
 	if (ps_cbmem == NULL) {
 		printk(BIOS_DEBUG, "Not adding power state to cbmem!\n");
 		return;
 	}
-	memcpy(ps_cbmem, ps_car, sizeof(*ps_cbmem));
+	memcpy(ps_cbmem, &power_state, sizeof(*ps_cbmem));
 }
 ROMSTAGE_CBMEM_INIT_HOOK(migrate_power_state)
 
@@ -79,18 +79,6 @@ static void print_num_status_bits(int num_bits, uint32_t status,
 __weak uint32_t soc_get_smi_status(uint32_t generic_sts)
 {
 	return generic_sts;
-}
-
-/*
- * Set PMC register to know which state system should be after
- * power reapplied
- */
-__weak void pmc_soc_restore_power_failure(void)
-{
-	/*
-	 * SoC code should set PMC config register in order to set
-	 * MAINBOARD_POWER_ON bit as per EDS.
-	 */
 }
 
 int acpi_get_sleep_type(void)
@@ -383,7 +371,7 @@ static int pmc_prev_sleep_state(const struct chipset_power_state *ps)
 	if (ps->pm1_sts & WAK_STS) {
 		switch (acpi_sleep_from_pm1(ps->pm1_cnt)) {
 		case ACPI_S3:
-			if (IS_ENABLED(CONFIG_HAVE_ACPI_RESUME))
+			if (CONFIG(HAVE_ACPI_RESUME))
 				prev_sleep_state = ACPI_S3;
 			break;
 		case ACPI_S5:
@@ -431,7 +419,7 @@ int pmc_fill_power_state(struct chipset_power_state *ps)
 	return ps->prev_sleep_state;
 }
 
-#if IS_ENABLED(CONFIG_PMC_GLOBAL_RESET_ENABLE_LOCK)
+#if CONFIG(PMC_GLOBAL_RESET_ENABLE_LOCK)
 /*
  * If possible, lock 0xcf9. Once the register is locked, it can't be changed.
  * This lock is reset on cold boot, hard reset, soft reset and Sx.
@@ -580,4 +568,33 @@ void pmc_gpe_init(void)
 
 	/* Set the routes in the GPIO communities as well. */
 	gpio_route_gpe(dw0, dw1, dw2);
+}
+
+void pmc_set_power_failure_state(const bool target_on)
+{
+	bool on;
+
+	uint8_t state = CONFIG_MAINBOARD_POWER_FAILURE_STATE;
+	get_option(&state, "power_on_after_fail");
+
+	switch (state) {
+	case MAINBOARD_POWER_STATE_OFF:
+		printk(BIOS_INFO, "Set power off after power failure.\n");
+		on = false;
+		break;
+	case MAINBOARD_POWER_STATE_ON:
+		printk(BIOS_INFO, "Set power on after power failure.\n");
+		on = true;
+		break;
+	case MAINBOARD_POWER_STATE_PREVIOUS:
+		printk(BIOS_INFO, "Keep power state after power failure.\n");
+		on = target_on;
+		break;
+	default:
+		printk(BIOS_WARNING, "WARNING: Unknown power-failure state: %d\n", state);
+		on = false;
+		break;
+	}
+
+	pmc_soc_set_afterg3_en(on);
 }

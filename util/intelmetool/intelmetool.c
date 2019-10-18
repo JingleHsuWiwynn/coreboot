@@ -3,7 +3,8 @@
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
+ * the Free Software Foundation; either version 2 of the License,
+ * or (at your option), any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -137,7 +138,12 @@ static int pci_platform_scan(void)
 		if (dev->vendor_id != PCI_VENDOR_ID_INTEL)
 			continue;
 
-		if (PCI_DEV_HAS_ME_DISABLE(dev->device_id)) {
+		if (PCI_DEV_NO_ME(dev->device_id)) {
+			printf(CGRN "Good news, you have a `%s` so you have "
+			       "no ME present at all, continuing...\n\n"
+			       RESET, name);
+			break;
+		} else if (PCI_DEV_HAS_ME_DISABLE(dev->device_id)) {
 			printf(CGRN "Good news, you have a `%s` so ME is "
 			       "present but can be disabled, continuing...\n\n"
 			       RESET, name);

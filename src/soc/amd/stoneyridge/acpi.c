@@ -22,18 +22,21 @@
 #include <console/console.h>
 #include <arch/acpi.h>
 #include <arch/acpigen.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <arch/ioapic.h>
 #include <cpu/x86/smm.h>
 #include <cbmem.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <amdblocks/acpimmio.h>
+#include <amdblocks/acpi.h>
 #include <soc/acpi.h>
 #include <soc/pci_devs.h>
 #include <soc/southbridge.h>
 #include <soc/northbridge.h>
 #include <soc/nvs.h>
 #include <soc/gpio.h>
+#include <version.h>
 
 unsigned long acpi_fill_madt(unsigned long current)
 {
@@ -82,22 +85,22 @@ void acpi_create_fadt(acpi_fadt_t *fadt, acpi_facs_t *facs, void *dsdt)
 	memcpy(header->oem_id, OEM_ID, 6);
 	memcpy(header->oem_table_id, ACPI_TABLE_CREATOR, 8);
 	memcpy(header->asl_compiler_id, ASLC, 4);
-	header->asl_compiler_revision = 0;
+	header->asl_compiler_revision = asl_revision;
 
 	fadt->firmware_ctrl = (u32) facs;
 	fadt->dsdt = (u32) dsdt;
-	fadt->model = 0;		/* reserved, should be 0 ACPI 3.0 */
+	fadt->reserved = 0;		/* reserved, should be 0 ACPI 3.0 */
 	fadt->preferred_pm_profile = FADT_PM_PROFILE;
 	fadt->sci_int = 9;		/* IRQ 09 - ACPI SCI */
 
-	if (IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)) {
+	if (CONFIG(HAVE_SMI_HANDLER)) {
 		fadt->smi_cmd = APM_CNT;
 		fadt->acpi_enable = APM_CNT_ACPI_ENABLE;
 		fadt->acpi_disable = APM_CNT_ACPI_DISABLE;
 		fadt->s4bios_req = 0;	/* Not supported */
 		fadt->pstate_cnt = 0;	/* Not supported */
 		fadt->cst_cnt = 0;	/* Not supported */
-		acpi_write32(MMIO_ACPI_PM1_CNT_BLK, 0); /* clear SCI_EN */
+		acpi_disable_sci();
 	} else {
 		fadt->smi_cmd = 0;	/* disable system management mode */
 		fadt->acpi_enable = 0;	/* unused if SMI_CMD = 0 */
@@ -105,7 +108,7 @@ void acpi_create_fadt(acpi_fadt_t *fadt, acpi_facs_t *facs, void *dsdt)
 		fadt->s4bios_req = 0;	/* unused if SMI_CMD = 0 */
 		fadt->pstate_cnt = 0;	/* unused if SMI_CMD = 0 */
 		fadt->cst_cnt = 0x00;	/* unused if SMI_CMD = 0 */
-		acpi_write32(MMIO_ACPI_PM1_CNT_BLK, 1); /* set SCI_EN */
+		acpi_enable_sci();
 	}
 
 	fadt->pm1a_evt_blk = ACPI_PM_EVT_BLK;
@@ -267,10 +270,10 @@ static void acpi_create_gnvs(struct global_nvs_t *gnvs)
 	/* Clear out GNVS. */
 	memset(gnvs, 0, sizeof(*gnvs));
 
-	if (IS_ENABLED(CONFIG_CONSOLE_CBMEM))
+	if (CONFIG(CONSOLE_CBMEM))
 		gnvs->cbmc = (uintptr_t)cbmem_find(CBMEM_ID_CONSOLE);
 
-	if (IS_ENABLED(CONFIG_CHROMEOS)) {
+	if (CONFIG(CHROMEOS)) {
 		/* Initialize Verified Boot data */
 		chromeos_init_chromeos_acpi(&gnvs->chromeos);
 		gnvs->chromeos.vbt2 = ACTIVE_ECFW_RO;
@@ -315,9 +318,9 @@ static void acpigen_soc_get_gpio_in_local5(uintptr_t addr)
 
 static int acpigen_soc_get_gpio_val(unsigned int gpio_num, uint32_t mask)
 {
-	if (gpio_num >= GPIO_TOTAL_PINS) {
+	if (gpio_num >= SOC_GPIO_TOTAL_PINS) {
 		printk(BIOS_WARNING, "Warning: Pin %d should be smaller than"
-					" %d\n", gpio_num, GPIO_TOTAL_PINS);
+					" %d\n", gpio_num, SOC_GPIO_TOTAL_PINS);
 		return -1;
 	}
 	uintptr_t addr = (uintptr_t) gpio_get_address(gpio_num);
@@ -345,9 +348,9 @@ static int acpigen_soc_get_gpio_val(unsigned int gpio_num, uint32_t mask)
 
 static int acpigen_soc_set_gpio_val(unsigned int gpio_num, uint32_t val)
 {
-	if (gpio_num >= GPIO_TOTAL_PINS) {
+	if (gpio_num >= SOC_GPIO_TOTAL_PINS) {
 		printk(BIOS_WARNING, "Warning: Pin %d should be smaller than"
-					" %d\n", gpio_num, GPIO_TOTAL_PINS);
+					" %d\n", gpio_num, SOC_GPIO_TOTAL_PINS);
 		return -1;
 	}
 	uintptr_t addr = (uintptr_t) gpio_get_address(gpio_num);

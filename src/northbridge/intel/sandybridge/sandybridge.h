@@ -34,12 +34,7 @@
 #define IVB_STEP_K0	(BASE_REV_IVB + 5)
 #define IVB_STEP_D0	(BASE_REV_IVB + 6)
 
-/* Intel Enhanced Debug region must be 4MB */
-
-#define IED_SIZE	CONFIG_IED_REGION_SIZE
-
 /* Northbridge BARs */
-#define DEFAULT_PCIEXBAR	CONFIG_MMCONF_BASE_ADDRESS	/* 4 KB per PCIe device */
 #ifndef __ACPI__
 #define DEFAULT_MCHBAR		((u8 *)0xfed10000)	/* 16 KB */
 #define DEFAULT_DMIBAR		((u8 *)0xfed18000)	/* 4 KB */
@@ -52,8 +47,6 @@
 
 #define IOMMU_BASE1		0xfed90000ULL
 #define IOMMU_BASE2		0xfed91000ULL
-
-#include <southbridge/intel/bd82x6x/pch.h>
 
 /* Everything below this line is ignored in the DSDT */
 #ifndef __ACPI__
@@ -107,10 +100,6 @@ enum platform_type {
 #define CAPID0_B	0xe8	/* Capabilities Register B */
 
 #define SKPAD		0xdc	/* Scratchpad Data */
-
-/* Device 0:1.0 PCI configuration space (PCI Express) */
-
-#define BCTRL1		0x3e	/* 16bit */
 
 
 /* Device 0:2.0 PCI configuration space (Graphics Device) */
@@ -178,12 +167,23 @@ enum platform_type {
 #define DMIPVCCCTL	0x00c	/* 16bit */
 
 #define DMIVC0RCAP	0x010	/* 32bit */
-#define DMIVC0RCTL0	0x014	/* 32bit */
+#define DMIVC0RCTL	0x014	/* 32bit */
 #define DMIVC0RSTS	0x01a	/* 16bit */
+#define  VC0NP		0x2
 
 #define DMIVC1RCAP	0x01c	/* 32bit */
 #define DMIVC1RCTL	0x020	/* 32bit */
 #define DMIVC1RSTS	0x026	/* 16bit */
+#define  VC1NP		0x2
+
+#define DMIVCPRCTL	0x02c	/* 32bit */
+
+#define DMIVCPRSTS	0x032	/* 16bit */
+#define  VCPNP		0x2
+
+#define DMIVCMRCTL	0x0038	/* 32 bit */
+#define DMIVCMRSTS	0x003e	/* 16 bit */
+#define  VCMNP		0x2
 
 #define DMILE1D		0x050	/* 32bit */
 #define DMILE1A		0x058	/* 64bit */
@@ -193,7 +193,7 @@ enum platform_type {
 #define DMILCAP		0x084	/* 32bit */
 #define DMILCTL		0x088	/* 16bit */
 #define DMILSTS		0x08a	/* 16bit */
-
+#define  TXTRN		(1 << 11)
 #define DMICTL1		0x0f0	/* 32bit */
 #define DMICTL2		0x0fc	/* 32bit */
 
@@ -208,10 +208,11 @@ static inline void barrier(void) { asm("" ::: "memory"); }
 void intel_sandybridge_finalize_smm(void);
 #else /* !__SMM__ */
 int bridge_silicon_revision(void);
-void sandybridge_early_initialization(void);
+void systemagent_early_init(void);
 void sandybridge_init_iommu(void);
 void sandybridge_late_initialization(void);
 void northbridge_romstage_finalize(int s3resume);
+void early_init_dmi(void);
 
 #endif /* !__SMM__ */
 
@@ -222,12 +223,10 @@ int mainboard_should_reset_usb(int s3resume);
 void perform_raminit(int s3resume);
 enum platform_type get_platform_type(void);
 
-#if ENV_RAMSTAGE && !defined(__SIMPLE_DEVICE__)
 #include <device/device.h>
 
 struct acpi_rsdp;
 unsigned long northbridge_write_acpi_tables(struct device *device, unsigned long start, struct acpi_rsdp *rsdp);
-#endif
 
 #endif
 #endif

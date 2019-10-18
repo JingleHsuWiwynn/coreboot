@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <assert.h>
 #include <spi_flash.h>
 #include <soc/addressmap.h>
@@ -24,6 +24,7 @@
 struct mtk_spi_bus spi_bus[SPI_BUS_NUMBER] = {
 	{
 		.regs = (void *)SPI_BASE,
+		.cs_gpio = GPIO(MSDC2_CMD),
 	}
 };
 
@@ -35,17 +36,20 @@ void mtk_spi_set_gpio_pinmux(unsigned int bus,
 	gpio_set_mode(GPIO(MSDC2_DAT2), PAD_MSDC2_DAT2_FUNC_SPI_CK_1);
 	gpio_set_mode(GPIO(MSDC2_DAT3), PAD_MSDC2_DAT3_FUNC_SPI_MI_1);
 	gpio_set_mode(GPIO(MSDC2_CLK), PAD_MSDC2_CLK_FUNC_SPI_MO_1);
-	gpio_set_mode(GPIO(MSDC2_CMD), PAD_MSDC2_CMD_FUNC_SPI_CS_1);
+	gpio_set_mode(GPIO(MSDC2_CMD), 0);
 }
 
-void mtk_spi_set_timing(struct mtk_spi_regs *regs, u32 sck_ticks, u32 cs_ticks)
+void mtk_spi_set_timing(struct mtk_spi_regs *regs, u32 sck_ticks, u32 cs_ticks,
+			unsigned int tick_dly)
 {
 	write32(&regs->spi_cfg0_reg,
 		((sck_ticks - 1) << SPI_CFG0_SCK_HIGH_SHIFT) |
 		((sck_ticks - 1) << SPI_CFG0_SCK_LOW_SHIFT) |
 		((cs_ticks - 1) << SPI_CFG0_CS_HOLD_SHIFT) |
 		((cs_ticks - 1) << SPI_CFG0_CS_SETUP_SHIFT));
-	clrsetbits_le32(&regs->spi_cfg1_reg, SPI_CFG1_CS_IDLE_MASK,
+	clrsetbits_le32(&regs->spi_cfg1_reg, SPI_CFG1_CS_IDLE_MASK |
+			SPI_CFG1_TICK_DLY_MASK,
+			(tick_dly << SPI_CFG1_TICK_DLY_SHIFT) |
 			((cs_ticks - 1) << SPI_CFG1_CS_IDLE_SHIFT));
 }
 

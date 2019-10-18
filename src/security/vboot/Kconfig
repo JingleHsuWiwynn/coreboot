@@ -26,6 +26,25 @@ config VBOOT
 
 if VBOOT
 
+comment "Anti-Rollback Protection disabled because mocking secdata is enabled."
+	depends on VBOOT_MOCK_SECDATA
+
+config VBOOT_MEASURED_BOOT
+	bool "Enable Measured Boot"
+	default n
+	depends on TPM1 || TPM2
+	depends on !VBOOT_RETURN_FROM_VERSTAGE
+	help
+	  Enables measured boot mode in vboot (experimental)
+
+config VBOOT_MEASURED_BOOT_RUNTIME_DATA
+	string "Runtime data whitelist"
+	default ""
+	depends on VBOOT_MEASURED_BOOT
+	help
+	  Runtime data whitelist of cbfs filenames. Needs to be a comma separated
+	  list
+
 config VBOOT_SLOTS_RW_A
 	bool "Firmware RO + RW_A"
 	help
@@ -36,7 +55,6 @@ config VBOOT_SLOTS_RW_AB
 	select VBOOT_SLOTS_RW_A
 	help
 	  Have two update partitions beside the RO partition.
-
 
 config VBOOT_VBNV_CMOS
 	bool
@@ -139,16 +157,15 @@ config VBOOT_SAVE_RECOVERY_REASON_ON_REBOOT
 	  reboots caused after vboot verification is run. e.g. reboots caused by
 	  FSP components on Intel platforms.
 
-config VBOOT_OPROM_MATTERS
+config VBOOT_MUST_REQUEST_DISPLAY
 	bool
+	default y if VGA_ROM_RUN
 	default n
 	help
 	  Set this option to indicate to vboot that this platform will skip its
 	  display initialization on a normal (non-recovery, non-developer) boot.
-	  Vboot calls this "oprom matters" because on x86 devices this
-	  traditionally meant that the video option ROM will not be loaded, but
-	  it works functionally the same for other platforms that can skip their
-	  native display initialization code instead.
+	  Unless display is specifically requested, the video option ROM is not
+	  loaded, and any other native display initialization code is not run.
 
 config VBOOT_HAS_REC_HASH_SPACE
 	bool
@@ -160,47 +177,6 @@ config VBOOT_HAS_REC_HASH_SPACE
 config VBOOT_SOFT_REBOOT_WORKAROUND
 	bool
 	default n
-
-config VBOOT_EC_SOFTWARE_SYNC
-	bool "Enable EC software sync"
-	default y if EC_GOOGLE_CHROMEEC
-	default n
-	help
-	  EC software sync is a mechanism where the AP helps the EC verify its
-	  firmware similar to how vboot verifies the main system firmware. This
-	  option selects whether vboot should support EC software sync.
-
-config VBOOT_EC_SLOW_UPDATE
-	bool
-	default n
-	depends on VBOOT_EC_SOFTWARE_SYNC
-	help
-	  Whether the EC (or PD) is slow to update and needs to display a
-	  screen that informs the user the update is happening.
-
-config VBOOT_EC_EFS
-	bool
-	default n
-	depends on VBOOT_EC_SOFTWARE_SYNC
-	help
-	  CrosEC can support EFS: Early Firmware Selection. If it's enabled,
-	  software sync need to also support it. This setting tells vboot to
-	  perform EFS software sync.
-
-config VBOOT_PHYSICAL_DEV_SWITCH
-	bool
-	default n
-	help
-	  Whether this platform has a physical developer switch. Note that this
-	  disables virtual dev switch functionality (through secdata). Operation
-	  where both a physical pin and the virtual switch get sampled is not
-	  supported by coreboot.
-
-config VBOOT_PHYSICAL_REC_SWITCH
-	bool
-	default n
-	help
-	  Whether this platform has a physical recovery switch.
 
 config VBOOT_LID_SWITCH
 	bool
@@ -252,7 +228,12 @@ menu "GBB configuration"
 
 config GBB_HWID
 	string "Hardware ID"
-	default "NOCONF HWID"
+	default ""
+	help
+	  A hardware identifier for device. On Chrome OS this is used for auto
+	  update and recovery, and will be generated when manufacturing by the
+	  factory software, in a strictly defined format.
+	  Leave empty to get a test-only Chrome OS HWID v2 string generated.
 
 config GBB_BMPFV_FILE
 	string "Path to bmpfv image"
@@ -308,10 +289,6 @@ config GBB_FLAG_DISABLE_PD_SOFTWARE_SYNC
 
 config GBB_FLAG_DISABLE_LID_SHUTDOWN
 	bool "Disable shutdown on closed lid"
-	default n
-
-config GBB_FLAG_FORCE_DEV_BOOT_FASTBOOT_FULL_CAP
-	bool "Allow fastboot even if dev_boot_fastboot_full_cap=0"
 	default n
 
 config GBB_FLAG_FORCE_MANUAL_RECOVERY

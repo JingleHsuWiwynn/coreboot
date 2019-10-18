@@ -21,11 +21,10 @@
  * It can be called after RAM is set up by including amdfam10.h and enabling the
  * compilation of this file in src/northbridge/amd/amdfam10/Makefile.inc.
  */
-#ifndef __PRE_RAM__
 #include <console/console.h>
 #include <device/pci.h>
 #include <device/pci_ops.h>
-#endif
+
 #include "amdfam10.h"
 
 /* Function 1 */
@@ -40,13 +39,6 @@
 #define PCIIO_ROUTE_END		0xd8
 #define CONF_ROUTE_START	0xe0
 #define CONF_ROUTE_END		0xec
-
-#define PCI_IO_BASE0		0xc0
-#define PCI_IO_BASE1		0xc8
-#define PCI_IO_BASE2		0xd0
-#define PCI_IO_BASE3		0xd8
-#define PCI_IO_BASE_VGA_EN	(1 << 4)
-#define PCI_IO_BASE_NO_ISA	(1 << 5)
 
 #define BITS(r, shift, mask) (((r>>shift)&mask))
 
@@ -135,7 +127,7 @@ static void showdram(int level, u8 which, u32 base, u32 lim)
 static void showconfig(int level, u8 which, u32 reg)
 {
 	/* Don't use r_node() and r_link() here. */
-	printk(level, "CONFIG(%02x)%02x-%02x ->(%d,%d),%s %s (%s numbers)\n",
+	printk(level, "Config(%02x)%02x-%02x ->(%d,%d),%s %s (%s numbers)\n",
 	       which, BITS(reg, 16, 0xff), BITS(reg, 24, 0xff),
 	       BITS(reg, 4, 0x7), BITS(reg, 8, 0x3),
 	       re(reg), we(reg),

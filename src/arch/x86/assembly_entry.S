@@ -1,9 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright 2016 Google Inc.
- * Copyright (C) 2016 Intel Corp.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -16,7 +13,7 @@
 
 #include <rules.h>
 
-#if IS_ENABLED(CONFIG_C_ENVIRONMENT_BOOTBLOCK)
+#if CONFIG(C_ENVIRONMENT_BOOTBLOCK)
 
 /*
  * This path is for stages that are post bootblock when employing
@@ -35,16 +32,17 @@ _start:
 	/* reset stack pointer to CAR stack */
 	mov	$_car_stack_end, %esp
 
-	/* clear CAR_GLOBAL area as it is not shared */
+	/* clear .bss section as it is not shared */
 	cld
 	xor	%eax, %eax
-	movl	$(_car_global_end), %ecx
-	movl	$(_car_global_start), %edi
+	movl	$(_ebss), %ecx
+	movl	$(_bss), %edi
 	sub	%edi, %ecx
+	shrl	$2, %ecx
 	rep	stosl
 
-#if ((ENV_VERSTAGE && IS_ENABLED(CONFIG_VERSTAGE_DEBUG_SPINLOOP)) \
-	|| (ENV_ROMSTAGE && IS_ENABLED(CONFIG_ROMSTAGE_DEBUG_SPINLOOP)))
+#if ((ENV_VERSTAGE && CONFIG(VERSTAGE_DEBUG_SPINLOOP)) \
+	|| (ENV_ROMSTAGE && CONFIG(ROMSTAGE_DEBUG_SPINLOOP)))
 
 	/* Wait for a JTAG debugger to break in and set EBX non-zero */
 	xor	%ebx, %ebx
@@ -55,14 +53,12 @@ debug_spinloop:
 #endif
 
 	andl	$0xfffffff0, %esp
-#if IS_ENABLED(CONFIG_IDT_IN_EVERY_STAGE)
+#if CONFIG(IDT_IN_EVERY_STAGE)
 	call	exception_init
 #endif
 	call	car_stage_entry
 
-/* This is here for linking purposes. */
-.weak car_stage_entry
-car_stage_entry:
+	/* Expect to never return. */
 1:
 	jmp	1b
 
@@ -75,7 +71,7 @@ car_stage_entry:
 #include <arch/x86/prologue.inc>
 #include <cpu/x86/32bit/entry32.inc>
 #include <cpu/x86/fpu_enable.inc>
-#if IS_ENABLED(CONFIG_SSE)
+#if CONFIG(SSE)
 #include <cpu/x86/sse_enable.inc>
 #endif
 

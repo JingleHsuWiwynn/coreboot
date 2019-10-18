@@ -14,12 +14,10 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/byteorder.h>
 #include <cbfs.h>
 #include <console/console.h>
 #include <gpio.h>
 #include <soc/gpio.h>
-#include <soc/pei_data.h>
 #include <soc/romstage.h>
 #include <string.h>
 

@@ -15,13 +15,12 @@
  * GNU General Public License for more details.
  */
 
-#include "chip.h"
-#include <delay.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <pc80/isa-dma.h>
 #include <pc80/i8259.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <arch/ioapic.h>
 #include <intelblocks/itss.h>
 #include <intelblocks/lpc_lib.h>
@@ -32,6 +31,8 @@
 #include <soc/lpc.h>
 #include <soc/pci_devs.h>
 #include <soc/pcr_ids.h>
+
+#include "chip.h"
 
 /*
 * As per the BWG, Chapter 5.9.1. "PCH BIOS component will reserve
@@ -50,7 +51,7 @@ const struct lpc_mmio_range *soc_get_fixed_mmio_ranges()
 
 void soc_get_gen_io_dec_range(const struct device *dev, uint32_t *gen_io_dec)
 {
-	const config_t *config = dev->chip_info;
+	const config_t *config = config_of(dev);
 
 	gen_io_dec[0] = config->gen1_dec;
 	gen_io_dec[1] = config->gen2_dec;
@@ -70,19 +71,25 @@ void soc_setup_dmi_pcr_io_dec(uint32_t *gen_io_dec)
 uint8_t get_pch_series(void)
 {
 	uint16_t lpc_did_hi_byte;
-
+	uint8_t pch_series = PCH_UNKNOWN_SERIES;
 	/*
 	 * Fetch upper 8 bits on LPC device ID to determine PCH type
 	 * Adding 1 to the offset to fetch upper 8 bits
 	 */
 	lpc_did_hi_byte = pci_read_config8(PCH_DEV_LPC, PCI_DEVICE_ID + 1);
 
-	if (lpc_did_hi_byte == 0x9D)
-		return PCH_LP;
-	else if (lpc_did_hi_byte == 0xA3)
-		return PCH_H;
-	else
-		return PCH_UNKNOWN_SERIES;
+	switch (lpc_did_hi_byte) {
+	case 0x9D: /* CNL-LP */
+	case 0x02: /* CML-LP */
+		pch_series = PCH_LP;
+		break;
+	case 0xA3:
+		pch_series = PCH_H;
+		break;
+	default:
+		break;
+	}
+	return pch_series;
 }
 
 #if ENV_RAMSTAGE
@@ -194,21 +201,11 @@ static void pch_misc_init(void)
 
 	/* Setup NMI on errors, disable SERR */
 	reg8 = (inb(0x61)) & 0xf0;
-	outb(0x61, (reg8 | (1 << 2)));
+	outb((reg8 | (1 << 2)), 0x61);
 
 	/* Disable NMI sources */
-	outb(0x70, (1 << 7));
+	outb((1 << 7), 0x70);
 };
-
-static void clock_gate_8254(const struct device *dev)
-{
-	const config_t *config = dev->chip_info;
-
-	if (!config->clock_gate_8254)
-		return;
-
-	itss_clock_gate_8254();
-}
 
 void lpc_soc_init(struct device *dev)
 {
@@ -220,7 +217,7 @@ void lpc_soc_init(struct device *dev)
 	lpc_enable_pci_clk_cntl();
 
 	/* Set LPC Serial IRQ mode */
-	if (IS_ENABLED(CONFIG_SERIRQ_CONTINUOUS_MODE))
+	if (CONFIG(SERIRQ_CONTINUOUS_MODE))
 		lpc_set_serirq_mode(SERIRQ_CONTINUOUS);
 	else
 		lpc_set_serirq_mode(SERIRQ_QUIET);
@@ -230,7 +227,6 @@ void lpc_soc_init(struct device *dev)
 	soc_pch_pirq_init(dev);
 	setup_i8259();
 	i8259_configure_irq_trigger(9, 1);
-	clock_gate_8254(dev);
 	soc_mirror_dmi_pcr_io_dec();
 }
 

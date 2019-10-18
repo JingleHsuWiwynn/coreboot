@@ -20,12 +20,18 @@
 #include <stdint.h>
 #include <commonlib/helpers.h>
 #include <drivers/i2c/designware/dw_i2c.h>
-#include <soc/gpio.h>
+#include <soc/i2c.h>
 #include <arch/acpi_device.h>
 
+/* Merlin Falcon supports 2 channels, Prairie Falcon only 1 (channel B) */
 #define MAX_NODES 1
+#if CONFIG(SOC_AMD_MERLINFALCON) &&  CONFIG(HAVE_MERLINFALCON_BINARIES)
+#define MAX_DRAM_CH 2
+#define MAX_DIMMS_PER_CH 2
+#else
 #define MAX_DRAM_CH 1
 #define MAX_DIMMS_PER_CH 2
+#endif
 
 #define STONEY_I2C_DEV_MAX 4
 

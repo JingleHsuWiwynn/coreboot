@@ -17,15 +17,16 @@
  * so this one is named with prefix mainboard.
  */
 
-#include <lib.h>
 #include <timestamp.h>
 #include <console/console.h>
+#include <device/pci_ops.h>
 #include <cbmem.h>
+#include <cf9_reset.h>
 #include <romstage_handoff.h>
 #include <southbridge/intel/i82801gx/i82801gx.h>
 #include <southbridge/intel/common/gpio.h>
-#include <cpu/intel/romstage.h>
-#include <cpu/x86/bist.h>
+#include <southbridge/intel/common/pmclib.h>
+#include <arch/romstage.h>
 #include <cpu/x86/lapic.h>
 #include "raminit.h"
 #include "pineview.h"
@@ -46,31 +47,19 @@ __weak void mb_pirq_setup(void)
 
 #define LPC_DEV PCI_DEV(0x0, 0x1f, 0x0)
 
-void mainboard_romstage_entry(unsigned long bist)
+void mainboard_romstage_entry(void)
 {
 	u8 spd_addrmap[4] = {};
 	int boot_path, cbmem_was_initted;
 	int s3resume = 0;
 
-	if (bist == 0)
-		enable_lapic();
-
-	/* Disable watchdog timer */
-	RCBA32(GCS) = RCBA32(GCS) | 0x20;
+	enable_lapic();
 
 	/* Enable GPIOs */
 	pci_write_config32(LPC_DEV, GPIO_BASE, DEFAULT_GPIOBASE | 1);
 	pci_write_config8(LPC_DEV, GPIO_CNTL, 0x10);
 
 	setup_pch_gpios(&mainboard_gpio_map);
-
-	mb_enable_lpc(); // nm10_enable_lpc
-
-	/* Initialize console device(s) */
-	console_init();
-
-	/* Halt if there was a built in self test failure */
-	report_bist_failure(bist);
 
 	enable_smbus();
 
@@ -102,8 +91,6 @@ void mainboard_romstage_entry(unsigned long bist)
 
 	post_code(0x31);
 
-	quick_ram_check();
-
 	mb_pirq_setup();
 
 	rcba_config();
@@ -112,8 +99,7 @@ void mainboard_romstage_entry(unsigned long bist)
 
 	if (!cbmem_was_initted && s3resume) {
 		/* Failed S3 resume, reset to come up cleanly */
-		outb(0x6, 0xcf9);
-		halt();
+		system_reset();
 	}
 
 	romstage_handoff_init(s3resume);

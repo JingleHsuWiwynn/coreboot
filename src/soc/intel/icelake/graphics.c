@@ -14,14 +14,16 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/acpigen.h>
+#include <arch/acpi.h>
 #include <console/console.h>
 #include <fsp/util.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <drivers/intel/gma/i915_reg.h>
 #include <drivers/intel/gma/opregion.h>
 #include <intelblocks/graphics.h>
+#include <types.h>
 
 uintptr_t fsp_soc_get_igd_bar(void)
 {
@@ -31,6 +33,10 @@ uintptr_t fsp_soc_get_igd_bar(void)
 void graphics_soc_init(struct device *dev)
 {
 	uint32_t ddi_buf_ctl;
+
+	/* Skip IGD GT programming */
+	if (CONFIG(SKIP_GRAPHICS_ENABLING))
+		return;
 
 	/*
 	 * Enable DDI-A (eDP) 4-lane operation if the link is not up yet.
@@ -53,7 +59,7 @@ void graphics_soc_init(struct device *dev)
 	 * In case of non-FSP solution, SoC need to select VGA_ROM_RUN
 	 * Kconfig to perform GFX initialization through VGA OpRom.
 	 */
-	if (IS_ENABLED(CONFIG_INTEL_GMA_ADD_VBT))
+	if (CONFIG(INTEL_GMA_ADD_VBT))
 		return;
 
 	/* IGD needs to Bus Master */

@@ -24,7 +24,6 @@
 #include <pc80/i8254.h>
 #include <pc80/i8259.h>
 #include <pc80/isa-dma.h>
-#include <arch/io.h>
 #include <arch/acpi.h>
 #include "sb800.h"
 
@@ -221,11 +220,13 @@ static void sb800_lpc_enable_childrens_resources(struct device *dev)
 	pci_write_config32(dev, 0x48, reg_x);
 	/* Set WideIO for as many IOs found (fall through is on purpose) */
 	switch (var_num) {
-	case 2:
+	case 3:
 		pci_write_config16(dev, 0x90, reg_var[2]);
-	case 1:
+		/* fall through */
+	case 2:
 		pci_write_config16(dev, 0x66, reg_var[1]);
-	case 0:
+		/* fall through */
+	case 1:
 		pci_write_config16(dev, 0x64, reg_var[0]);
 		break;
 	}
@@ -246,11 +247,11 @@ static struct device_operations lpc_ops = {
 	.read_resources = sb800_lpc_read_resources,
 	.set_resources = sb800_lpc_set_resources,
 	.enable_resources = sb800_lpc_enable_resources,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.write_acpi_tables      = acpi_write_hpet,
 #endif
 	.init = lpc_init,
-	.scan_bus = scan_lpc_bus,
+	.scan_bus = scan_static_bus,
 	.ops_pci = &lops_pci,
 };
 static const struct pci_driver lpc_driver __pci_driver = {

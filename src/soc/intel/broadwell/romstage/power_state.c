@@ -14,6 +14,7 @@
  */
 
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <cbmem.h>
 #include <console/console.h>
 #include <device/device.h>
@@ -56,7 +57,7 @@ static int prev_sleep_state(struct chipset_power_state *ps)
 	if (ps->pm1_sts & WAK_STS) {
 		switch (acpi_sleep_from_pm1(ps->pm1_cnt)) {
 		case ACPI_S3:
-			if (IS_ENABLED(CONFIG_HAVE_ACPI_RESUME))
+			if (CONFIG(HAVE_ACPI_RESUME))
 				prev_sleep_state = ACPI_S3;
 			break;
 		case ACPI_S5:

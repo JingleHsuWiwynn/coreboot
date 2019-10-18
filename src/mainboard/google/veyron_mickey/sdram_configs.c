@@ -12,12 +12,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include <arch/io.h>
 #include <boardid.h>
 #include <console/console.h>
 #include <gpio.h>
 #include <soc/sdram.h>
-#include <string.h>
 #include <types.h>
 
 static struct rk3288_sdram_params sdram_configs[] = {

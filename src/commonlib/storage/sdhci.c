@@ -1,10 +1,5 @@
 /*
- * Copyright 2011, Marvell Semiconductor Inc.
- * Lei Wen <leiwen@marvell.com>
- *
- * Copyright 2017 Intel Corporation
- *
- * Secure Digital (SD) Host Controller interface specific code
+ * This file is part of the coreboot project.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -15,26 +10,25 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
+ * Secure Digital (SD) Host Controller interface specific code
  */
 
-#include <assert.h>
 #include "bouncebuf.h"
 #include <commonlib/sd_mmc_ctrlr.h>
 #include <commonlib/sdhci.h>
 #include <commonlib/storage.h>
 #include <delay.h>
 #include <endian.h>
-#include <halt.h>
 #include "sdhci.h"
 #include "sd_mmc.h"
 #include "storage.h"
-#include <string.h>
 #include <timer.h>
 #include <commonlib/stdlib.h>
 
-#define DMA_AVAILABLE	((CONFIG_SDHCI_ADMA_IN_BOOTBLOCK && ENV_BOOTBLOCK) \
-			|| (CONFIG_SDHCI_ADMA_IN_VERSTAGE && ENV_VERSTAGE) \
-			|| (CONFIG_SDHCI_ADMA_IN_ROMSTAGE && ENV_ROMSTAGE) \
+#define DMA_AVAILABLE	((CONFIG(SDHCI_ADMA_IN_BOOTBLOCK) && ENV_BOOTBLOCK) \
+			|| (CONFIG(SDHCI_ADMA_IN_VERSTAGE) && ENV_VERSTAGE) \
+			|| (CONFIG(SDHCI_ADMA_IN_ROMSTAGE) && ENV_ROMSTAGE) \
 			|| ENV_POSTCAR || ENV_RAMSTAGE)
 
 __weak void *dma_malloc(size_t length_in_bytes)
@@ -318,7 +312,7 @@ static int sdhci_send_command(struct sd_mmc_ctrlr *ctrlr,
 
 	sdhc_log_command(cmd);
 
-	if (IS_ENABLED(CONFIG_SDHCI_BOUNCE_BUFFER) && data) {
+	if (CONFIG(SDHCI_BOUNCE_BUFFER) && data) {
 		if (data->flags & DATA_FLAG_READ) {
 			buf = data->dest;
 			bbflags = GEN_BB_WRITE;
@@ -348,7 +342,7 @@ static int sdhci_send_command(struct sd_mmc_ctrlr *ctrlr,
 	sdhci_led_control(ctrlr, 0);
 	sdhc_log_ret(ret);
 
-	if (IS_ENABLED(CONFIG_SDHCI_BOUNCE_BUFFER) && bbstate)
+	if (CONFIG(SDHCI_BOUNCE_BUFFER) && bbstate)
 		bounce_buffer_stop(bbstate);
 
 	return ret;
@@ -594,7 +588,7 @@ static void sdhci_set_ios(struct sd_mmc_ctrlr *ctrlr)
 	}
 
 	/* Set the new bus width */
-	if (IS_ENABLED(CONFIG_SDHC_DEBUG)
+	if (CONFIG(SDHC_DEBUG)
 		&& ((ctrl ^ previous_ctrl) & (SDHCI_CTRL_4BITBUS
 		| ((version >= SDHCI_SPEC_300) ? SDHCI_CTRL_8BITBUS : 0))))
 		sdhc_debug("SDHCI bus width: %d bit%s\n", bus_width,

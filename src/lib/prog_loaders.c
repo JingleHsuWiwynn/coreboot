@@ -68,20 +68,16 @@ void run_romstage(void)
 	prog_run(&romstage);
 
 fail:
-	if (IS_ENABLED(CONFIG_BOOTBLOCK_CONSOLE))
-		die("Couldn't load romstage.\n");
+	if (CONFIG(BOOTBLOCK_CONSOLE))
+		die_with_post_code(POST_INVALID_ROM,
+				   "Couldn't load romstage.\n");
 	halt();
 }
-
-void __weak stage_cache_add(int stage_id,
-						const struct prog *stage) {}
-void __weak stage_cache_load_stage(int stage_id,
-							struct prog *stage) {}
 
 static void ramstage_cache_invalid(void)
 {
 	printk(BIOS_ERR, "ramstage cache invalid.\n");
-	if (IS_ENABLED(CONFIG_RESET_ON_INVALID_RAMSTAGE_CACHE)) {
+	if (CONFIG(RESET_ON_INVALID_RAMSTAGE_CACHE)) {
 		board_reset();
 	}
 }
@@ -111,31 +107,24 @@ static int load_relocatable_ramstage(struct prog *ramstage)
 	return rmodule_stage_load(&rmod_ram);
 }
 
-static int load_nonrelocatable_ramstage(struct prog *ramstage)
-{
-	if (IS_ENABLED(CONFIG_HAVE_ACPI_RESUME)) {
-		uintptr_t base = 0;
-		size_t size = cbfs_prog_stage_section(ramstage, &base);
-		if (size)
-			backup_ramstage_section(base, size);
-	}
-
-	return cbfs_prog_stage_load(ramstage);
-}
-
 void run_ramstage(void)
 {
 	struct prog ramstage =
 		PROG_INIT(PROG_RAMSTAGE, CONFIG_CBFS_PREFIX "/ramstage");
 
-	timestamp_add_now(TS_END_ROMSTAGE);
+	if (ENV_POSTCAR)
+		timestamp_add_now(TS_END_POSTCAR);
+
+	/* Call "end of romstage" here if postcar stage doesn't exist */
+	if (ENV_ROMSTAGE)
+		timestamp_add_now(TS_END_ROMSTAGE);
 
 	/*
 	 * Only x86 systems using ramstage stage cache currently take the same
 	 * firmware path on resume.
 	 */
-	if (IS_ENABLED(CONFIG_ARCH_X86) &&
-	    !IS_ENABLED(CONFIG_NO_STAGE_CACHE))
+	if (CONFIG(ARCH_X86) &&
+	    !CONFIG(NO_STAGE_CACHE))
 		run_ramstage_from_resume(&ramstage);
 
 	if (prog_locate(&ramstage))
@@ -143,24 +132,23 @@ void run_ramstage(void)
 
 	timestamp_add_now(TS_START_COPYRAM);
 
-	if (IS_ENABLED(CONFIG_RELOCATABLE_RAMSTAGE)) {
+	if (CONFIG(RELOCATABLE_RAMSTAGE)) {
 		if (load_relocatable_ramstage(&ramstage))
 			goto fail;
-	} else if (load_nonrelocatable_ramstage(&ramstage))
+	} else if (cbfs_prog_stage_load(&ramstage))
 		goto fail;
 
-	if (!IS_ENABLED(CONFIG_NO_STAGE_CACHE))
-		stage_cache_add(STAGE_RAMSTAGE, &ramstage);
+	stage_cache_add(STAGE_RAMSTAGE, &ramstage);
 
 	timestamp_add_now(TS_END_COPYRAM);
 
 	prog_run(&ramstage);
 
 fail:
-	die("Ramstage was not loaded!\n");
+	die_with_post_code(POST_INVALID_ROM, "Ramstage was not loaded!\n");
 }
 
-#ifdef __RAMSTAGE__ // gc-sections should take care of this
+#if ENV_PAYLOAD_LOADER // gc-sections should take care of this
 
 static struct prog global_payload =
 	PROG_INIT(PROG_PAYLOAD, CONFIG_CBFS_PREFIX "/payload");
@@ -185,18 +173,19 @@ void payload_load(void)
 		selfload_check(payload, BM_MEM_RAM);
 		break;
 	case CBFS_TYPE_FIT: /* Flattened image tree */
-		if (IS_ENABLED(CONFIG_PAYLOAD_FIT_SUPPORT)) {
+		if (CONFIG(PAYLOAD_FIT_SUPPORT)) {
 			fit_payload(payload);
 			break;
 		} /* else fall-through */
 	default:
-		die("Unsupported payload type.\n");
+		die_with_post_code(POST_INVALID_ROM,
+				   "Unsupported payload type.\n");
 		break;
 	}
 
 out:
 	if (prog_entry(payload) == NULL)
-		die("Payload not loaded.\n");
+		die_with_post_code(POST_INVALID_ROM, "Payload not loaded.\n");
 }
 
 void payload_run(void)

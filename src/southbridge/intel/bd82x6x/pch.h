@@ -47,36 +47,36 @@
 
 #include <southbridge/intel/common/rcba.h>
 
-#if IS_ENABLED(CONFIG_SOUTHBRIDGE_INTEL_BD82X6X)
+#if CONFIG(SOUTHBRIDGE_INTEL_BD82X6X)
 #define CROS_GPIO_DEVICE_NAME	"CougarPoint"
-#elif IS_ENABLED(CONFIG_SOUTHBRIDGE_INTEL_C216)
+#elif CONFIG(SOUTHBRIDGE_INTEL_C216)
 #define CROS_GPIO_DEVICE_NAME	"PantherPoint"
 #endif
 
 #ifndef __ACPI__
 #define DEBUG_PERIODIC_SMIS 0
 
-#if !defined(__ASSEMBLER__)
-#if !defined(__PRE_RAM__)
-#if !defined(__SIMPLE_DEVICE__)
-#include "chip.h"
-void pch_enable(struct device *dev);
-#endif
+
 int pch_silicon_revision(void);
 int pch_silicon_type(void);
 int pch_silicon_supported(int type, int rev);
 void pch_iobp_update(u32 address, u32 andvalue, u32 orvalue);
-#else /* __PRE_RAM__ */
+
 void enable_smbus(void);
 void enable_usb_bar(void);
+
+#if ENV_ROMSTAGE
 int smbus_read_byte(unsigned device, unsigned address);
-int early_spi_read(u32 offset, u32 size, u8 *buffer);
+#endif
+
 void early_thermal_init(void);
 void southbridge_configure_default_intmap(void);
 void southbridge_rcba_config(void);
 void mainboard_rcba_config(void);
 void early_pch_init_native(void);
-int southbridge_detect_s3_resume(void);
+void early_pch_init(void);
+void early_pch_init_native_dmi_pre(void);
+void early_pch_init_native_dmi_post(void);
 
 struct southbridge_usb_port
 {
@@ -86,14 +86,11 @@ struct southbridge_usb_port
 };
 
 #ifndef __ROMCC__
+void pch_enable(struct device *dev);
 extern const struct southbridge_usb_port mainboard_usb_ports[14];
 #endif
 
-void
-early_usb_init (const struct southbridge_usb_port *portmap);
-
-#endif
-#endif
+void early_usb_init(const struct southbridge_usb_port *portmap);
 
 /* PM I/O Space */
 #define UPRWC			0x3c
@@ -104,10 +101,6 @@ early_usb_init (const struct southbridge_usb_port *portmap);
 #define SMLT	0x1b
 #define SECSTS	0x1e
 #define INTR	0x3c
-#define BCTRL	0x3e
-#define   SBR	(1 << 6)
-#define   SEE	(1 << 1)
-#define   PERE	(1 << 0)
 
 #define PCH_EHCI1_DEV		PCI_DEV(0, 0x1d, 0)
 #define PCH_EHCI2_DEV		PCI_DEV(0, 0x1a, 0)
@@ -255,19 +248,8 @@ early_usb_init (const struct southbridge_usb_port *portmap);
 
 #define PMBASE		0x40
 
-#define VCH		0x0000	/* 32bit */
-#define VCAP1		0x0004	/* 32bit */
-#define VCAP2		0x0008	/* 32bit */
-#define PVC		0x000c	/* 16bit */
-#define PVS		0x000e	/* 16bit */
-
-#define V0CAP		0x0010	/* 32bit */
-#define V0CTL		0x0014	/* 32bit */
-#define V0STS		0x001a	/* 16bit */
-
-#define V1CAP		0x001c	/* 32bit */
-#define V1CTL		0x0020	/* 32bit */
-#define V1STS		0x0026	/* 16bit */
+#define CIR0		0x0050	/* 32bit */
+#define  TCLOCKDN	(1u << 31)
 
 #define RCTCL		0x0100	/* 32bit */
 #define ESD		0x0104	/* 32bit */
@@ -292,6 +274,10 @@ early_usb_init (const struct southbridge_usb_port *portmap);
 #define RPC		0x0400	/* 32bit */
 #define RPFN		0x0404	/* 32bit */
 
+#define CIR2		0x900	/* 16bit */
+#define CIR3		0x1100	/* 16bit */
+#define UPDCR		0x1114	/* 32bit */
+
 /* Root Port configuratinon space hide */
 #define RPFN_HIDE(port)         (1 << (((port) * 4) + 3))
 /* Get the function number assigned to a Root Port */
@@ -309,6 +295,8 @@ early_usb_init (const struct southbridge_usb_port *portmap);
 #define IOTR1		0x1e88	/* 64bit */
 #define IOTR2		0x1e90	/* 64bit */
 #define IOTR3		0x1e98	/* 64bit */
+
+#define  VCNEGPND	2
 
 #define TCTL		0x3000	/*  8bit */
 
@@ -331,6 +319,27 @@ early_usb_init (const struct southbridge_usb_port *portmap);
 #define PIRQF		5
 #define PIRQG		6
 #define PIRQH		7
+
+/* DMI control */
+#define V0CTL		0x2014	/* 32bit */
+#define V0STS		0x201a	/* 16bit */
+#define V1CTL		0x2020	/* 32bit */
+#define V1STS		0x2026	/* 16bit */
+#define CIR31		0x2030	/* 32bit */
+#define CIR32		0x2040	/* 32bit */
+#define CIR1		0x2088	/* 32bit */
+#define REC		0x20ac	/* 32bit */
+#define LCAP		0x21a4	/* 32bit */
+#define LCTL		0x21a8	/* 16bit */
+#define LSTS		0x21aa	/* 16bit */
+#define DLCTL2		0x21b0	/* 16bit */
+#define DMIC		0x2234	/* 32bit */
+#define CIR30		0x2238	/* 32bit */
+#define CIR5		0x228c	/* 32bit */
+#define DMC		0x2304	/* 32bit */
+#define CIR6		0x2314	/* 32bit */
+#define CIR9		0x2320	/* 32bit */
+#define DMC2		0x2324	/* 32bit - name guessed */
 
 /* IO Buffer Programming */
 #define IOBPIRI		0x2330
@@ -388,6 +397,26 @@ early_usb_init (const struct southbridge_usb_port *portmap);
   RCBA16(x) = (((d) << DIR_IDR) | ((c) << DIR_ICR) | \
                ((b) << DIR_IBR) | ((a) << DIR_IAR))
 
+#define PRSTS		0x3310	/* 32bit */
+#define CIR7		0x3314	/* 32bit */
+#define PM_CFG		0x3318	/* 32bit */
+#define CIR8		0x3324	/* 32bit */
+#define CIR10		0x3340	/* 32bit */
+#define CIR11		0x3344	/* 32bit */
+#define CIR12		0x3360	/* 32bit */
+#define CIR14		0x3368	/* 32bit */
+#define CIR15		0x3378	/* 32bit */
+#define CIR13		0x337c	/* 32bit */
+#define CIR16		0x3388	/* 32bit */
+#define CIR18		0x3390	/* 32bit */
+#define CIR17		0x33a0	/* 32bit */
+#define CIR23		0x33b0	/* 32bit */
+#define CIR19		0x33c0	/* 32bit */
+#define PMSYNC_CFG	0x33c8	/* 32bit */
+#define CIR20		0x33cc	/* 32bit */
+#define CIR21		0x33d0	/* 32bit */
+#define CIR22		0x33d4	/* 32bit */
+
 #define RC		0x3400	/* 32bit */
 #define HPTC		0x3404	/* 32bit */
 #define GCS		0x3410	/* 32bit */
@@ -419,11 +448,38 @@ early_usb_init (const struct southbridge_usb_port *portmap);
 #define PCH_DISABLE_MEI1	(1 << 1)
 #define PCH_ENABLE_DBDF		(1 << 0)
 
+/* USB Initialization Registers[13:0] */
+#define USBIR0		0x3500	/* 32bit */
+#define USBIR1		0x3504	/* 32bit */
+#define USBIR2		0x3508	/* 32bit */
+#define USBIR3		0x350c	/* 32bit */
+#define USBIR4		0x3510	/* 32bit */
+#define USBIR5		0x3514	/* 32bit */
+#define USBIR6		0x3518	/* 32bit */
+#define USBIR7		0x351c	/* 32bit */
+#define USBIR8		0x3520	/* 32bit */
+#define USBIR9		0x3524	/* 32bit */
+#define USBIR10		0x3528	/* 32bit */
+#define USBIR11		0x352c	/* 32bit */
+#define USBIR12		0x3530	/* 32bit */
+#define USBIR13		0x3534	/* 32bit */
+
+/* Miscellaneous Control Register */
+#define MISCCTL		0x3590	/* 32bit */
 /* USB Port Disable Override */
 #define USBPDO		0x359c	/* 32bit */
 /* USB Overcurrent MAP Register */
 #define USBOCM1		0x35a0	/* 32bit */
 #define USBOCM2		0x35a4	/* 32bit */
+/* Rate Matching Hub Wake Control Register */
+#define RMHWKCTL	0x35b0	/* 32bit */
+
+#define CIR24		0x3a28	/* 32bit */
+#define CIR25		0x3a2c	/* 32bit */
+#define CIR26		0x3a6c	/* 32bit */
+#define CIR27		0x3a80	/* 32bit */
+#define CIR28		0x3a84	/* 32bit */
+#define CIR29		0x3a88	/* 32bit */
 
 /* XHCI USB 3.0 */
 #define XOCM		0xc0	/* 32bit */
@@ -500,47 +556,6 @@ early_usb_init (const struct southbridge_usb_port *portmap);
 #define   TCO_TMR_HLT	(1 << 11)
 #define   TCO_LOCK	(1 << 12)
 #define TCO2_CNT	0x6a
-
-/*
- * SPI Opcode Menu setup for SPIBAR lockdown
- * should support most common flash chips.
- */
-
-#define SPI_OPMENU_0 0x01 /* WRSR: Write Status Register */
-#define SPI_OPTYPE_0 0x01 /* Write, no address */
-
-#define SPI_OPMENU_1 0x02 /* BYPR: Byte Program */
-#define SPI_OPTYPE_1 0x03 /* Write, address required */
-
-#define SPI_OPMENU_2 0x03 /* READ: Read Data */
-#define SPI_OPTYPE_2 0x02 /* Read, address required */
-
-#define SPI_OPMENU_3 0x05 /* RDSR: Read Status Register */
-#define SPI_OPTYPE_3 0x00 /* Read, no address */
-
-#define SPI_OPMENU_4 0x20 /* SE20: Sector Erase 0x20 */
-#define SPI_OPTYPE_4 0x03 /* Write, address required */
-
-#define SPI_OPMENU_5 0x9f /* RDID: Read ID */
-#define SPI_OPTYPE_5 0x00 /* Read, no address */
-
-#define SPI_OPMENU_6 0xd8 /* BED8: Block Erase 0xd8 */
-#define SPI_OPTYPE_6 0x03 /* Write, address required */
-
-#define SPI_OPMENU_7 0x0b /* FAST: Fast Read */
-#define SPI_OPTYPE_7 0x02 /* Read, address required */
-
-#define SPI_OPMENU_UPPER ((SPI_OPMENU_7 << 24) | (SPI_OPMENU_6 << 16) | \
-			  (SPI_OPMENU_5 << 8) | SPI_OPMENU_4)
-#define SPI_OPMENU_LOWER ((SPI_OPMENU_3 << 24) | (SPI_OPMENU_2 << 16) | \
-			  (SPI_OPMENU_1 << 8) | SPI_OPMENU_0)
-
-#define SPI_OPTYPE ((SPI_OPTYPE_7 << 14) | (SPI_OPTYPE_6 << 12) | \
-		    (SPI_OPTYPE_5 << 10) | (SPI_OPTYPE_4 << 8) |  \
-		    (SPI_OPTYPE_3 << 6) | (SPI_OPTYPE_2 << 4) |	  \
-		    (SPI_OPTYPE_1 << 2) | (SPI_OPTYPE_0))
-
-#define SPI_OPPREFIX ((0x50 << 8) | 0x06) /* EWSR and WREN */
 
 #define SPIBAR_HSFS                 0x3804   /* SPI hardware sequence status */
 #define  SPIBAR_HSFS_SCIP           (1 << 5) /* SPI Cycle In Progress */

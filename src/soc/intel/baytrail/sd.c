@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
@@ -32,10 +32,7 @@
 
 static void sd_init(struct device *dev)
 {
-	struct soc_intel_baytrail_config *config = dev->chip_info;
-
-	if (config == NULL)
-		return;
+	struct soc_intel_baytrail_config *config = config_of(dev);
 
 	if (config->sdcard_cap_low != 0 || config->sdcard_cap_high != 0) {
 		printk(BIOS_DEBUG, "Overriding SD Card controller caps.\n");

@@ -15,9 +15,9 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <console/console.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <soc/addressmap.h>
 #include <soc/dma.h>
 #include <stddef.h>

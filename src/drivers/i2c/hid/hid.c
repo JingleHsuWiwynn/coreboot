@@ -18,8 +18,10 @@
 #include <stdint.h>
 #include <string.h>
 #include "chip.h"
+#include <gpio.h>
+#include <console/console.h>
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 static void i2c_hid_fill_dsm(struct device *dev)
 {
 	struct drivers_i2c_hid_config *config = dev->chip_info;
@@ -50,7 +52,7 @@ static struct device_operations i2c_hid_ops = {
 	.read_resources		  = DEVICE_NOOP,
 	.set_resources		  = DEVICE_NOOP,
 	.enable_resources	  = DEVICE_NOOP,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_name		  = i2c_hid_acpi_name,
 	.acpi_fill_ssdt_generator = i2c_hid_fill_ssdt_generator,
 #endif
@@ -59,6 +61,23 @@ static struct device_operations i2c_hid_ops = {
 static void i2c_hid_enable(struct device *dev)
 {
 	struct drivers_i2c_hid_config *config = dev->chip_info;
+
+	if (!config)
+		return;
+
+	/* Check if device is present by reading GPIO */
+	if (config->generic.device_present_gpio) {
+		int present = gpio_get(config->generic.device_present_gpio);
+		present ^= config->generic.device_present_gpio_invert;
+
+		printk(BIOS_INFO, "%s is %spresent\n",
+		       dev->chip_ops->name, present ? "" : "not ");
+
+		if (!present) {
+			dev->enabled = 0;
+			return;
+		}
+	}
 
 	dev->ops = &i2c_hid_ops;
 

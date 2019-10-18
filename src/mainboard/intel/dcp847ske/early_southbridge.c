@@ -17,28 +17,18 @@
  */
 
 #include <stdint.h>
-#include <halt.h>
-#include <arch/io.h>
+#include <cf9_reset.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
-#include <arch/acpi.h>
 #include <console/console.h>
 #include <northbridge/intel/sandybridge/raminit_native.h>
+#include <southbridge/intel/bd82x6x/pch.h>
 
 #include "superio.h"
 #include "thermal.h"
 
-#if IS_ENABLED(CONFIG_DISABLE_UART_ON_TESTPADS)
-#define DEBUG_UART_EN 0
-#else
-#define DEBUG_UART_EN COMA_LPC_EN
-#endif
-
 void pch_enable_lpc(void)
 {
-	pci_write_config16(PCI_DEV(0, 0x1f, 0), LPC_EN,
-			CNF2_LPC_EN | DEBUG_UART_EN);
-	/* Decode SuperIO 0x0a00 */
-	pci_write_config32(PCI_DEV(0, 0x1f, 0), LPC_GEN1_DEC, 0x00fc0a01);
 }
 
 void mainboard_rcba_config(void)
@@ -46,14 +36,13 @@ void mainboard_rcba_config(void)
 	/* Disable devices */
 	RCBA32(FD) |= PCH_DISABLE_P2P | PCH_DISABLE_XHCI;
 
-#if IS_ENABLED(CONFIG_USE_NATIVE_RAMINIT)
+#if CONFIG(USE_NATIVE_RAMINIT)
 	/* Enable Gigabit Ethernet */
 	if (RCBA32(BUC) & PCH_DISABLE_GBE) {
 		RCBA32(BUC) &= ~PCH_DISABLE_GBE;
 		/* Datasheet says clearing the bit requires a reset after */
 		printk(BIOS_DEBUG, "Enabled gigabit ethernet, reset once.\n");
-		outb(0xe, 0xcf9);
-		halt();
+		full_reset();
 	}
 #endif
 
@@ -125,7 +114,7 @@ static const u16 superio_initvals[] = {
 	SUPERIO_INITVAL(0x1a, 0x02),
 	SUPERIO_INITVAL(0x1b, 0x6a),
 	SUPERIO_INITVAL(0x27, 0x80),
-#if IS_ENABLED(CONFIG_DISABLE_UART_ON_TESTPADS)
+#if CONFIG(DISABLE_UART_ON_TESTPADS)
 	SUPERIO_INITVAL(0x2a, 0x80),
 #else
 	SUPERIO_INITVAL(0x2a, 0x00),

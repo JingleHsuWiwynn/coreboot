@@ -19,6 +19,7 @@
 #include <console/console.h>
 #include <elog.h>
 #include <intelblocks/pmclib.h>
+#include <intelblocks/xhci.h>
 #include <soc/pm.h>
 #include <soc/pci_devs.h>
 #include <soc/smbus.h>
@@ -53,6 +54,10 @@ static void pch_log_wake_source(struct chipset_power_state *ps)
 	/* PME */
 	if (ps->gpe0_sts[GPE0_A] & CSE_PME_STS)
 		elog_add_event_wake(ELOG_WAKE_SOURCE_PME, 0);
+
+	/* XHCI */
+	if (ps->gpe0_sts[GPE0_A] & XHCI_PME_STS)
+		pch_xhci_update_wake_event(soc_get_xhci_usb_info());
 
 	/* SMBUS Wake */
 	if (ps->gpe0_sts[GPE0_A] & SMB_WAK_STS)

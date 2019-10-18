@@ -19,11 +19,11 @@
 
 static void early_config_gpio(void)
 {
-	const struct pad_config *early_gpio_table;
-	size_t num_gpios = 0;
+	const struct pad_config *variant_early_table;
+	size_t variant_gpios;
 
-	early_gpio_table = variant_early_gpio_table(&num_gpios);
-	gpio_configure_pads(early_gpio_table, num_gpios);
+	variant_early_table = variant_early_gpio_table(&variant_gpios);
+	gpio_configure_pads(variant_early_table, variant_gpios);
 }
 
 void bootblock_mainboard_init(void)

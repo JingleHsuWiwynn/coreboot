@@ -44,6 +44,7 @@
 #include <libbdk-hal/bdk-config.h>
 #include <libbdk-hal/bdk-twsi.h>
 #include <assert.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -409,7 +410,7 @@ const char *ddr3_dimm_types[16] = {
     /* 0111 */ "Mini-CDIMM",
     /* 1000 */ "72b-SO-UDIMM",
     /* 1001 */ "72b-SO-RDIMM",
-    /* 1010 */ "72b-SO-CDIMM"
+    /* 1010 */ "72b-SO-CDIMM",
     /* 1011 */ "LRDIMM",
     /* 1100 */ "16b-SO-DIMM",
     /* 1101 */ "32b-SO-DIMM",
@@ -423,7 +424,7 @@ void report_ddr3_dimm(bdk_node_t node, const dimm_config_t *dimm_config,
                       int dram_width, int dimm_size_mb)
 {
     int spd_voltage;
-    const char *volt_str;
+    const char *volt_str = "unknown voltage";
 
     spd_voltage = read_spd(node, dimm_config, DDR3_SPD_NOMINAL_VOLTAGE);
     if ((spd_voltage == 0) || (spd_voltage & 3))
@@ -463,7 +464,7 @@ void report_ddr4_dimm(bdk_node_t node, const dimm_config_t *dimm_config,
                       int dram_width, int dimm_size_mb)
 {
     int spd_voltage;
-    const char *volt_str;
+    const char *volt_str = "unknown voltage";
 
     spd_voltage = read_spd(node, dimm_config, DDR4_SPD_MODULE_NOMINAL_VOLTAGE);
     if ((spd_voltage == 0x01) || (spd_voltage & 0x02))

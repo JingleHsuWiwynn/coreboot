@@ -16,7 +16,7 @@
 #include <multiboot_tables.h>
 #include "coreinfo.h"
 
-#if IS_ENABLED(CONFIG_MODULE_MULTIBOOT)
+#if CONFIG(MODULE_MULTIBOOT)
 
 #define MAX_MEMORY_COUNT  10
 
@@ -32,7 +32,7 @@ static struct {
 
 static int tables_good = 0;
 
-int multiboot_module_redraw(WINDOW *win)
+static int multiboot_module_redraw(WINDOW *win)
 {
 	int row = 2;
 	int i;

@@ -177,7 +177,7 @@ static uint8_t board_oem_id(void)
 	return oem_id;
 }
 
-const char *smbios_mainboard_sku(void)
+const char *smbios_system_sku(void)
 {
 	static char sku_str[5]; /* sku{0..7} */
 
@@ -221,8 +221,7 @@ static unsigned long mainboard_write_acpi_tables(
 
 static void mainboard_enable(struct device *dev)
 {
-	struct device *root = SA_DEV_ROOT;
-	config_t *conf = root->chip_info;
+	config_t *conf = config_of_soc();
 
 	mainboard_set_power_limits(conf);
 

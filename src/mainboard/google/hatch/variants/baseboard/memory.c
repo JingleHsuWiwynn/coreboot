@@ -15,25 +15,15 @@
 
 #include <baseboard/variants.h>
 #include <baseboard/gpio.h>
-#include <gpio.h>
 #include <soc/cnl_memcfg_init.h>
+#include <string.h>
 
 static const struct cnl_mb_cfg baseboard_memcfg = {
-	/*
-	 * The dqs_map arrays map the ddr4 pins to the SoC pins
-	 * for both channels.
-	 *
-	 * the index = pin number on ddr4 part
-	 * the value = pin number on SoC
-	 */
-	.dqs_map[DDR_CH0] = { 0, 1, 4, 5, 2, 3, 6, 7 },
-	.dqs_map[DDR_CH1] = { 0, 1, 4, 5, 2, 3, 6, 7 },
-
-	/* Baseboard uses 120, 81 and 100 rcomp resistors */
-	.rcomp_resistor = { 120, 81, 100 },
+	/* Baseboard uses 121, 81 and 100 rcomp resistors */
+	.rcomp_resistor = {121, 81, 100},
 
 	/* Baseboard Rcomp target values */
-	.rcomp_targets = { 100, 40, 20, 20, 26 },
+	.rcomp_targets = {100, 40, 20, 20, 26},
 
 	/* Set CaVref config to 2 */
 	.vref_ca_config = 2,
@@ -42,19 +32,7 @@ static const struct cnl_mb_cfg baseboard_memcfg = {
 	.ect = 1,
 };
 
-const struct cnl_mb_cfg *__weak variant_memory_params(void)
+void __weak variant_memory_params(struct cnl_mb_cfg *bcfg)
 {
-	return &baseboard_memcfg;
-}
-
-int __weak variant_memory_sku(void)
-{
-	const gpio_t spd_gpios[] = {
-		GPIO_MEM_CONFIG_0,
-		GPIO_MEM_CONFIG_1,
-		GPIO_MEM_CONFIG_2,
-		GPIO_MEM_CONFIG_3,
-	};
-
-	return gpio_base2_value(spd_gpios, ARRAY_SIZE(spd_gpios));
+	memcpy(bcfg, &baseboard_memcfg, sizeof(baseboard_memcfg));
 }

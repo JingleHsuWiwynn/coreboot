@@ -247,6 +247,8 @@ static void free_qh_and_tds(ehci_qh_t *qh, qtd_t *cur)
 	free((void *)qh);
 }
 
+#define EHCI_SLEEP_TIME_US	50
+
 static int wait_for_tds(qtd_t *head)
 {
 	/* returns the amount of bytes *not* transmitted, or -1 for error */
@@ -256,18 +258,10 @@ static int wait_for_tds(qtd_t *head)
 		if (0) dump_td(virt_to_phys(cur));
 
 		/* wait for results */
-		/* how long to wait?
-		 * tested with some USB2.0 flash sticks:
-		 * TUR turn around took
-		 *   about 2.2s for the slowest (13fe:3800)
-		 *   max. 250ms for the others
-		 * slowest non-TUR turn around took about 1.3s
-		 * set to 3s to be safe as a failed TUR can be fatal
-		 */
-		int timeout = 60000; /* time out after 60000 * 50us == 3s */
+		int timeout = USB_MAX_PROCESSING_TIME_US / EHCI_SLEEP_TIME_US;
 		while ((cur->token & QTD_ACTIVE) && !(cur->token & QTD_HALTED)
 				&& timeout--)
-			udelay(50);
+			udelay(EHCI_SLEEP_TIME_US);
 		if (timeout < 0) {
 			usb_debug("Error: ehci: queue transfer "
 				"processing timed out.\n");
@@ -634,6 +628,8 @@ static void *ehci_create_intr_queue(
 
 	/* create #reqcount transfer descriptors (qTDs) */
 	intrq->head = (intr_qtd_t *)dma_memalign(64, sizeof(intr_qtd_t));
+	if (!intrq->head)
+		fatal("Not enough DMA memory to create #reqcount TD.\n");
 	intr_qtd_t *cur_td = intrq->head;
 	for (i = 0; i < reqcount; ++i) {
 		fill_intr_queue_td(intrq, cur_td, data);
@@ -642,6 +638,8 @@ static void *ehci_create_intr_queue(
 			/* create one more qTD */
 			intr_qtd_t *const next_td =
 				(intr_qtd_t *)dma_memalign(64, sizeof(intr_qtd_t));
+			if (!next_td)
+				fatal("Not enough DMA memory to create TD.\n");
 			cur_td->td.next_qtd = virt_to_phys(&next_td->td);
 			cur_td->next = next_td;
 			cur_td = next_td;
@@ -651,6 +649,8 @@ static void *ehci_create_intr_queue(
 
 	/* create spare qTD */
 	intrq->spare = (intr_qtd_t *)dma_memalign(64, sizeof(intr_qtd_t));
+	if (!intrq->spare)
+		fatal("Not enough DMA memory to create spare qTD.\n");
 	intrq->spare->data = data;
 
 	/* initialize QH */
@@ -824,14 +824,17 @@ ehci_init (unsigned long physical_bar)
 	 * and doesn't violate the standard.
 	 */
 	EHCI_INST(controller)->dummy_qh = (ehci_qh_t *)dma_memalign(64, sizeof(ehci_qh_t));
+	if (!EHCI_INST(controller)->dummy_qh)
+		fatal("Not enough DMA memory for EHCI dummy TD.\n");
 	memset((void *)EHCI_INST(controller)->dummy_qh, 0,
 		sizeof(*EHCI_INST(controller)->dummy_qh));
 	EHCI_INST(controller)->dummy_qh->horiz_link_ptr = QH_TERMINATE;
 	EHCI_INST(controller)->dummy_qh->td.next_qtd = QH_TERMINATE;
 	EHCI_INST(controller)->dummy_qh->td.alt_next_qtd = QH_TERMINATE;
 	for (i = 0; i < 1024; ++i)
-		periodic_list[i] = virt_to_phys(EHCI_INST(controller)->dummy_qh)
-				   | PS_TYPE_QH;
+		periodic_list[i] =
+			virt_to_phys(EHCI_INST(controller)->dummy_qh)
+				| PS_TYPE_QH;
 
 	/* Make sure periodic schedule is disabled */
 	ehci_set_periodic_schedule(EHCI_INST(controller), 0);
@@ -850,7 +853,7 @@ ehci_init (unsigned long physical_bar)
 	return controller;
 }
 
-#if IS_ENABLED(CONFIG_LP_USB_PCI)
+#if CONFIG(LP_USB_PCI)
 hci_t *
 ehci_pci_init (pcidev_t addr)
 {

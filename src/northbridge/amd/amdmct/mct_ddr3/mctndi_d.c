@@ -14,9 +14,9 @@
  * GNU General Public License for more details.
  */
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <console/console.h>
-#include <string.h>
+
 #include "mct_d.h"
 #include "mct_d_gcc.h"
 

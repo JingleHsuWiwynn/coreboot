@@ -16,7 +16,12 @@
 #ifndef _DRAMC_COMMON_MT8183_H_
 #define _DRAMC_COMMON_MT8183_H_
 
-#define DRAM_DFS_SHUFFLE_MAX 3
+enum {
+	DRAM_DFS_SHUFFLE_1 = 0,
+	DRAM_DFS_SHUFFLE_2,
+	DRAM_DFS_SHUFFLE_3,
+	DRAM_DFS_SHUFFLE_MAX
+};
 
 enum {
 	CHANNEL_A = 0,
@@ -32,7 +37,8 @@ enum {
 
 enum dram_odt_type {
 	ODT_OFF = 0,
-	ODT_ON
+	ODT_ON,
+	ODT_MAX
 };
 
 enum {

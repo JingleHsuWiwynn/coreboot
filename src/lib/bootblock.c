@@ -21,6 +21,7 @@
 #include <pc80/mc146818rtc.h>
 #include <program_loading.h>
 #include <symbols.h>
+#include <timestamp.h>
 
 DECLARE_OPTIONAL_REGION(timestamp);
 
@@ -29,11 +30,20 @@ __weak void bootblock_soc_early_init(void) { /* do nothing */ }
 __weak void bootblock_soc_init(void) { /* do nothing */ }
 __weak void bootblock_mainboard_init(void) { /* do nothing */ }
 
-asmlinkage void bootblock_main_with_timestamp(uint64_t base_timestamp,
+/*
+ * This is a the same as the bootblock main(), with the difference that it does
+ * not collect a timestamp. Instead it accepts the initial timestamp and
+ * possibly additional timestamp entries as arguments. This can be used in cases
+ * where earlier stamps are available. Note that this function is designed to be
+ * entered from C code. This function assumes that the timer has already been
+ * initialized, so it does not call init_timer().
+ */
+static void bootblock_main_with_timestamp(uint64_t base_timestamp,
 	struct timestamp_entry *timestamps, size_t num_timestamps)
 {
 	/* Initialize timestamps if we have TIMESTAMP region in memlayout.ld. */
-	if (IS_ENABLED(CONFIG_COLLECT_TIMESTAMPS) && _timestamp_size > 0) {
+	if (CONFIG(COLLECT_TIMESTAMPS) &&
+	    REGION_SIZE(timestamp) > 0) {
 		int i;
 		timestamp_init(base_timestamp);
 		for (i = 0; i < num_timestamps; i++)
@@ -41,13 +51,13 @@ asmlinkage void bootblock_main_with_timestamp(uint64_t base_timestamp,
 				      timestamps[i].entry_stamp);
 	}
 
-	sanitize_cmos();
-	cmos_post_init();
-
 	bootblock_soc_early_init();
 	bootblock_mainboard_early_init();
 
-	if (IS_ENABLED(CONFIG_BOOTBLOCK_CONSOLE)) {
+	sanitize_cmos();
+	cmos_post_init();
+
+	if (CONFIG(BOOTBLOCK_CONSOLE)) {
 		console_init();
 		exception_init();
 	}
@@ -58,19 +68,24 @@ asmlinkage void bootblock_main_with_timestamp(uint64_t base_timestamp,
 	run_romstage();
 }
 
+void bootblock_main_with_basetime(uint64_t base_timestamp)
+{
+	bootblock_main_with_timestamp(base_timestamp, NULL, 0);
+}
+
 void main(void)
 {
 	uint64_t base_timestamp = 0;
 
 	init_timer();
 
-	if (IS_ENABLED(CONFIG_COLLECT_TIMESTAMPS))
+	if (CONFIG(COLLECT_TIMESTAMPS))
 		base_timestamp = timestamp_get();
 
 	bootblock_main_with_timestamp(base_timestamp, NULL, 0);
 }
 
-#if IS_ENABLED(CONFIG_COMPRESS_BOOTBLOCK)
+#if CONFIG(COMPRESS_BOOTBLOCK)
 /*
  * This is the bootblock entry point when it is run after a decompressor stage.
  * For non-decompressor builds, _start is generally defined in architecture-

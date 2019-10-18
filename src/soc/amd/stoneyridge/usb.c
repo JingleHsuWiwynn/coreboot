@@ -19,11 +19,10 @@
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
 #include <device/pci_ehci.h>
-#include <arch/io.h>
 #include <soc/acpi.h>
 #include <soc/pci_devs.h>
 #include <soc/southbridge.h>
-
+#include <amdblocks/acpimmio.h>
 
 static void set_usb_over_current(struct device *dev)
 {
@@ -64,7 +63,7 @@ static struct device_operations usb_ops = {
 	.set_resources = pci_dev_set_resources,
 	.enable_resources = pci_dev_enable_resources,
 	.init = set_usb_over_current,
-	.scan_bus = scan_usb_bus,
+	.scan_bus = scan_static_bus,
 	.acpi_name = soc_acpi_name,
 	.ops_pci = &lops_pci,
 };

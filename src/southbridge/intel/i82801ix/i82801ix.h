@@ -18,17 +18,11 @@
 #ifndef SOUTHBRIDGE_INTEL_I82801GX_I82801IX_H
 #define SOUTHBRIDGE_INTEL_I82801GX_I82801IX_H
 
-#ifndef __ACPI__
-#ifndef __ASSEMBLER__
-#include "chip.h"
-#endif
-#endif
-
 #define DEFAULT_TBAR		((u8 *)0xfed1b000)
 
 #include <southbridge/intel/common/rcba.h>
 
-#if IS_ENABLED(CONFIG_BOARD_EMULATION_QEMU_X86_Q35)
+#if CONFIG(BOARD_EMULATION_QEMU_X86_Q35)
 /*
  * Qemu has the fw_cfg interface at 0x510.  Move the pmbase to a
  * non-conflicting address.  No need to worry about speedstep, it
@@ -204,18 +198,24 @@
 #ifndef __ACPI__
 #ifndef __ASSEMBLER__
 
+#include <device/pci_ops.h>
+
 static inline int lpc_is_mobile(const u16 devid)
 {
 	return (devid == 0x2917) || (devid == 0x2919);
 }
 #define LPC_IS_MOBILE(dev) lpc_is_mobile(pci_read_config16(dev, PCI_DEVICE_ID))
 
-#if defined(__PRE_RAM__)
+void aseg_smm_lock(void);
+
 void enable_smbus(void);
-int smbus_read_byte(unsigned device, unsigned address);
 void i82801ix_early_init(void);
+void i82801ix_lpc_decode(void);
 void i82801ix_dmi_setup(void);
 void i82801ix_dmi_poll_vc1(void);
+
+#if ENV_ROMSTAGE
+int smbus_read_byte(unsigned device, unsigned address);
 #endif
 
 #endif

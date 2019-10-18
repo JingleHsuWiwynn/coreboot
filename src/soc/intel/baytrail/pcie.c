@@ -16,6 +16,7 @@
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <device/pciexp.h>
 #include <device/pci_ids.h>
 #include <reg_script.h>
@@ -107,11 +108,11 @@ static void byt_pcie_init(struct device *dev)
 	reg_script_run_on_dev(dev, init_script);
 
 	if (is_first_port(dev)) {
-		struct soc_intel_baytrail_config *config = dev->chip_info;
+		struct soc_intel_baytrail_config *config = config_of(dev);
 		uint32_t reg = pci_read_config32(dev, RPPGEN);
 		reg |= SRDLCGEN | SRDBCGEN;
 
-		if (config && config->clkreq_enable)
+		if (config->clkreq_enable)
 			reg |= LCLKREQEN | BBCLKREQEN;
 
 		pci_write_config32(dev, RPPGEN, reg);
@@ -207,14 +208,14 @@ static void check_device_present(struct device *dev)
 static void byt_pcie_enable(struct device *dev)
 {
 	if (is_first_port(dev)) {
-		struct soc_intel_baytrail_config *config = dev->chip_info;
+		struct soc_intel_baytrail_config *config = config_of(dev);
 		uint32_t reg = pci_read_config32(dev, PHYCTL2_IOSFBCTL);
 		pll_en_off = !!(reg & PLL_OFF_EN);
 
 		strpfusecfg = pci_read_config32(dev, STRPFUSECFG);
 
-		if (config && config->pcie_wake_enable)
-			southcluster_smm_save_param(
+		if (config->pcie_wake_enable)
+			smm_southcluster_save_param(
 				SMM_SAVE_PARAM_PCIE_WAKE_ENABLE, 1);
 	}
 
@@ -239,18 +240,8 @@ static void byt_pciexp_scan_bridge(struct device *dev)
 	do_pci_scan_bridge(dev, pciexp_scan_bus);
 }
 
-static void pcie_root_set_subsystem(struct device *dev, unsigned vid,
-				    unsigned did)
-{
-	uint32_t didvid = ((did & 0xffff) << 16) | (vid & 0xffff);
-
-	if (!didvid)
-		didvid = pci_read_config32(dev, PCI_VENDOR_ID);
-	pci_write_config32(dev, 0x94, didvid);
-}
-
 static struct pci_operations pcie_root_ops = {
-	.set_subsystem = &pcie_root_set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 };
 
 static struct device_operations device_ops = {

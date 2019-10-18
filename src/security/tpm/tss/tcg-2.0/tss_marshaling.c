@@ -1,5 +1,6 @@
 /*
  * Copyright 2016 The Chromium OS Authors. All rights reserved.
+ * Copyright (c) 2018 Eltan B.V.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -12,6 +13,7 @@
 
 #include "tss_marshaling.h"
 #include <security/tpm/tss/vendor/cr50/cr50.h>
+#include <security/tpm/tss.h>
 
 static uint16_t tpm_tag CAR_GLOBAL;  /* Depends on the command type. */
 
@@ -81,9 +83,30 @@ static int marshal_TPMT_HA(struct obuf *ob, TPMT_HA *tpmtha)
 	int rc = 0;
 
 	rc |= marshal_TPMI_ALG_HASH(ob, tpmtha->hashAlg);
-	rc |= obuf_write(ob, tpmtha->digest.sha256,
-			sizeof(tpmtha->digest.sha256));
-
+	switch (tpmtha->hashAlg) {
+	case TPM_ALG_SHA1:
+		rc |= obuf_write(ob, tpmtha->digest.sha1,
+			 tlcl_get_hash_size_from_algo(tpmtha->hashAlg));
+		break;
+	case TPM_ALG_SHA256:
+		rc |= obuf_write(ob, tpmtha->digest.sha256,
+			 tlcl_get_hash_size_from_algo(tpmtha->hashAlg));
+		break;
+	case TPM_ALG_SM3_256:
+		rc |= obuf_write(ob, tpmtha->digest.sm3_256,
+			 tlcl_get_hash_size_from_algo(tpmtha->hashAlg));
+		break;
+	case TPM_ALG_SHA384:
+		rc |= obuf_write(ob, tpmtha->digest.sha384,
+			 tlcl_get_hash_size_from_algo(tpmtha->hashAlg));
+		break;
+	case TPM_ALG_SHA512:
+		rc |= obuf_write(ob, tpmtha->digest.sha512,
+			 tlcl_get_hash_size_from_algo(tpmtha->hashAlg));
+		break;
+	default:
+		rc = -1;
+	}
 	return rc;
 }
 
@@ -421,6 +444,22 @@ static int unmarshal_get_capability(struct ibuf *ib,
 			rc |= ibuf_read_be32(ib, &pp->value);
 		}
 		break;
+	case TPM_CAP_PCRS:
+		if (ibuf_read_be32(ib, &gcr->cd.data.assignedPCR.count))
+			return -1;
+		if (gcr->cd.data.assignedPCR.count >
+		    ARRAY_SIZE(gcr->cd.data.assignedPCR.pcrSelections)) {
+			printk(BIOS_INFO, "%s:%s:%d - %d - too many properties\n",
+			       __FILE__, __func__, __LINE__,
+			      gcr->cd.data.assignedPCR.count);
+			return -1;
+		}
+		for (i = 0; i < gcr->cd.data.assignedPCR.count; i++) {
+			TPMS_PCR_SELECTION *pp =
+				&gcr->cd.data.assignedPCR.pcrSelections[i];
+			rc |= ibuf_read(ib, pp, sizeof(TPMS_PCR_SELECTION));
+		}
+		break;
 	default:
 		printk(BIOS_ERR,
 		       "%s:%d - unable to unmarshal capability response",
@@ -471,12 +510,12 @@ static int unmarshal_nv_read(struct ibuf *ib, struct nv_read_response *nvr)
 	}
 
 	/*
-	 * Let's ignore the authorisation section. It should be 5 bytes total,
+	 * Let's ignore the authorization section. It should be 5 bytes total,
 	 * just confirm that this is the case and report any discrepancy.
 	 */
 	if (ibuf_remaining(ib) != 5)
 		printk(BIOS_ERR,
-		       "%s:%d - unexpected authorisation seciton size %zd\n",
+		       "%s:%d - unexpected authorization section size %zd\n",
 		       __func__, __LINE__, ibuf_remaining(ib));
 
 	ibuf_oob_drain(ib, ibuf_remaining(ib));

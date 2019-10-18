@@ -20,13 +20,13 @@
  */
 
 #include <arch/acpi.h>
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_def.h>
 #include <console/console.h>
 #include <intelblocks/pmclib.h>
-#include <halt.h>
 #include <intelblocks/lpc_lib.h>
 #include <intelblocks/tco.h>
 #include <stdlib.h>
@@ -37,8 +37,8 @@
 #include <soc/pm.h>
 #include <soc/pmc.h>
 #include <soc/smbus.h>
-#include <timer.h>
 #include <security/vboot/vbnv.h>
+
 #include "chip.h"
 
 /*
@@ -177,13 +177,7 @@ void soc_get_gpi_gpe_configs(uint8_t *dw0, uint8_t *dw1, uint8_t *dw2)
 {
 	DEVTREE_CONST struct soc_intel_skylake_config *config;
 
-	/* Look up the device in devicetree */
-	DEVTREE_CONST struct device *dev = dev_find_slot(0, PCH_DEVFN_PMC);
-	if (!dev || !dev->chip_info) {
-		printk(BIOS_ERR, "BUG! Could not find SOC devicetree config\n");
-		return;
-	}
-	config = dev->chip_info;
+	config = config_of_soc();
 
 	/* Assign to out variable */
 	*dw0 = config->gpe0_dw0;

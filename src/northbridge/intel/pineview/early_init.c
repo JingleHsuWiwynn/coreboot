@@ -14,17 +14,16 @@
  * GNU General Public License for more details.
  */
 
-#include <stdint.h>
 #include <stdlib.h>
 #include <console/console.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <device/pci.h>
-#include <halt.h>
-#include <string.h>
 #include <northbridge/intel/pineview/pineview.h>
 #include <northbridge/intel/pineview/chip.h>
 #include <pc80/mc146818rtc.h>
+#include <types.h>
 
 #define LPC PCI_DEV(0, 0x1f, 0)
 #define D0F0 PCI_DEV(0, 0, 0)
@@ -120,9 +119,7 @@ static void early_graphics_setup(void)
 
 static void early_misc_setup(void)
 {
-	u32 reg32;
-
-	reg32 = MCHBAR32(0x30);
+	MCHBAR32(0x30);
 	MCHBAR32(0x30) = 0x21800;
 	DMIBAR32(0x2c) = 0x86000040;
 	pci_write_config32(PCI_DEV(0, 0x1e, 0), 0x18, 0x00020200);
@@ -130,34 +127,16 @@ static void early_misc_setup(void)
 
 	early_graphics_setup();
 
-	reg32 = MCHBAR32(0x40);
+	MCHBAR32(0x40);
 	MCHBAR32(0x40) = 0x0;
-	reg32 = MCHBAR32(0x40);
+	MCHBAR32(0x40);
 	MCHBAR32(0x40) = 0x8;
 
 	pci_write_config8(LPC, 0x8, 0x1d);
 	pci_write_config8(LPC, 0x8, 0x0);
 	RCBA32(0x3410) = 0x00020465;
-	RCBA32(0x88) = 0x0011d000;
-	RCBA32(0x1fc) = 0x60f;
-	RCBA32(0x1f4) = 0x86000040;
-	RCBA32(0x214) = 0x10030509;
-	RCBA32(0x218) = 0x00020504;
-	RCBA32(0x220) = 0xc5;
-	RCBA32(0x3430) = 0x1;
-	RCBA32(0x2027) = 0x38f6a70d;
-	RCBA16(0x3e08) = 0x0080;
-	RCBA16(0x3e48) = 0x0080;
-	RCBA32(0x3e0e) = 0x00000080;
-	RCBA32(0x3e4e) = 0x00000080;
-	RCBA32(0x2034) = 0xb24577cc;
-	RCBA32(0x1c) = 0x03128010;
-	RCBA32(0x2010) = 0x400;
-	RCBA32(0x3400) = 0x4;
-	RCBA32(0x2080) = 0x18006007;
-	RCBA32(0x20a0) = 0x18006007;
-	RCBA32(0x20c0) = 0x18006007;
-	RCBA32(0x20e0) = 0x18006007;
+
+	ich7_setup_cir();
 
 	pci_write_config32(PCI_DEV(0, 0x1d, 0), 0xca, 0x1);
 	pci_write_config32(PCI_DEV(0, 0x1d, 1), 0xca, 0x1);

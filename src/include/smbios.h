@@ -19,12 +19,23 @@
 #define SMBIOS_H
 
 #include <types.h>
+#include <memory_info.h>
 
 unsigned long smbios_write_tables(unsigned long start);
 int smbios_add_string(u8 *start, const char *str);
 int smbios_string_table_len(u8 *start);
 
 /* Used by mainboard to add an on-board device */
+enum misc_slot_type;
+enum misc_slot_length;
+enum misc_slot_usage;
+enum slot_data_bus_bandwidth;
+int smbios_write_type9(unsigned long *current, int *handle,
+			const char *name, const enum misc_slot_type type,
+			const enum slot_data_bus_bandwidth bandwidth,
+			const enum misc_slot_usage usage,
+			const enum misc_slot_length length,
+			u8 slot_char1, u8 slot_char2, u8 bus, u8 dev_func);
 enum smbios_bmc_interface_type;
 int smbios_write_type38(unsigned long *current, int *handle,
 			const enum smbios_bmc_interface_type interface_type,
@@ -33,24 +44,25 @@ int smbios_write_type38(unsigned long *current, int *handle,
 			const u8 irq);
 int smbios_write_type41(unsigned long *current, int *handle,
 			const char *name, u8 instance, u16 segment,
-			u8 bus, u8 device, u8 function);
+			u8 bus, u8 device, u8 function, u8 device_type);
+
+const char *smbios_system_manufacturer(void);
+const char *smbios_system_product_name(void);
+const char *smbios_system_serial_number(void);
+const char *smbios_system_version(void);
+void smbios_system_set_uuid(u8 *uuid);
+const char *smbios_system_sku(void);
 
 const char *smbios_mainboard_manufacturer(void);
 const char *smbios_mainboard_product_name(void);
-
 const char *smbios_mainboard_serial_number(void);
 const char *smbios_mainboard_version(void);
-void smbios_mainboard_set_uuid(u8 *uuid);
+
 const char *smbios_mainboard_bios_version(void);
 const char *smbios_mainboard_asset_tag(void);
 u8 smbios_mainboard_feature_flags(void);
 const char *smbios_mainboard_location_in_chassis(void);
-
-const char *smbios_mainboard_sku(void);
 u8 smbios_mainboard_enclosure_type(void);
-#ifdef CONFIG_MAINBOARD_FAMILY
-const char *smbios_mainboard_family(void);
-#endif
 
 #define BIOS_CHARACTERISTICS_PCI_SUPPORTED	(1 << 7)
 #define BIOS_CHARACTERISTICS_PC_CARD		(1 << 8)
@@ -127,6 +139,7 @@ typedef enum {
 	MEMORY_FORMFACTOR_SODIMM = 0x0d,
 	MEMORY_FORMFACTOR_SRIMM = 0x0e,
 	MEMORY_FORMFACTOR_FBDIMM = 0x0f,
+	MEMORY_FORMFACTOR_DIE = 0x10,
 } smbios_memory_form_factor;
 
 typedef enum {
@@ -158,6 +171,8 @@ typedef enum {
 	MEMORY_TYPE_LPDDR3 = 0x1d,
 	MEMORY_TYPE_LPDDR4 = 0x1e,
 	MEMORY_TYPE_LOGICAL_NON_VOLATILE_DEVICE = 0x1f,
+	MEMORY_TYPE_HBM = 0x20,
+	MEMORY_TYPE_HBM2 = 0x21,
 } smbios_memory_type;
 
 typedef enum {
@@ -392,6 +407,239 @@ struct smbios_type4 {
 	u8 eos[2];
 } __packed;
 
+/* defines for supported_sram_type/current_sram_type */
+
+#define SMBIOS_CACHE_SRAM_TYPE_OTHER			(1 << 0)
+#define SMBIOS_CACHE_SRAM_TYPE_UNKNOWN			(1 << 1)
+#define SMBIOS_CACHE_SRAM_TYPE_NON_BURST		(1 << 2)
+#define SMBIOS_CACHE_SRAM_TYPE_BURST			(1 << 3)
+#define SMBIOS_CACHE_SRAM_TYPE_PIPELINE_BURST		(1 << 4)
+#define SMBIOS_CACHE_SRAM_TYPE_SYNCHRONOUS		(1 << 5)
+#define SMBIOS_CACHE_SRAM_TYPE_ASYNCHRONOUS		(1 << 6)
+
+/* enum for error_correction_type */
+
+enum smbios_cache_error_corr {
+	SMBIOS_CACHE_ERROR_CORRECTION_OTHER = 1,
+	SMBIOS_CACHE_ERROR_CORRECTION_UNKNOWN,
+	SMBIOS_CACHE_ERROR_CORRECTION_NONE,
+	SMBIOS_CACHE_ERROR_CORRECTION_PARITY,
+	SMBIOS_CACHE_ERROR_CORRECTION_SINGLE_BIT,
+	SMBIOS_CACHE_ERROR_CORRECTION_MULTI_BIT,
+};
+
+/* enum for system_cache_type */
+
+enum smbios_cache_type {
+	SMBIOS_CACHE_TYPE_OTHER = 1,
+	SMBIOS_CACHE_TYPE_UNKNOWN,
+	SMBIOS_CACHE_TYPE_INSTRUCTION,
+	SMBIOS_CACHE_TYPE_DATA,
+	SMBIOS_CACHE_TYPE_UNIFIED,
+};
+
+/* enum for associativity */
+
+enum smbios_cache_associativity {
+	SMBIOS_CACHE_ASSOCIATIVITY_OTHER = 1,
+	SMBIOS_CACHE_ASSOCIATIVITY_UNKNOWN,
+	SMBIOS_CACHE_ASSOCIATIVITY_DIRECT,
+	SMBIOS_CACHE_ASSOCIATIVITY_2WAY,
+	SMBIOS_CACHE_ASSOCIATIVITY_4WAY,
+	SMBIOS_CACHE_ASSOCIATIVITY_FULL,
+	SMBIOS_CACHE_ASSOCIATIVITY_8WAY,
+	SMBIOS_CACHE_ASSOCIATIVITY_16WAY,
+	SMBIOS_CACHE_ASSOCIATIVITY_12WAY,
+	SMBIOS_CACHE_ASSOCIATIVITY_24WAY,
+	SMBIOS_CACHE_ASSOCIATIVITY_32WAY,
+	SMBIOS_CACHE_ASSOCIATIVITY_48WAY,
+	SMBIOS_CACHE_ASSOCIATIVITY_64WAY,
+	SMBIOS_CACHE_ASSOCIATIVITY_20WAY,
+};
+
+/* defines for cache_configuration */
+
+#define SMBIOS_CACHE_CONF_LEVEL(x) ((((x) - 1) & 0x7) << 0)
+#define SMBIOS_CACHE_CONF_LOCATION(x) (((x) & 0x3) << 5)
+#define SMBIOS_CACHE_CONF_ENABLED(x) (((x) & 0x1) << 7)
+#define SMBIOS_CACHE_CONF_OPERATION_MODE(x) (((x) & 0x3) << 8)
+
+/* defines for max_cache_size and installed_size */
+
+#define SMBIOS_CACHE_SIZE_UNIT_1KB		(0 << 15)
+#define SMBIOS_CACHE_SIZE_UNIT_64KB		(1 << 15)
+#define SMBIOS_CACHE_SIZE_MASK			0x7fff
+#define SMBIOS_CACHE_SIZE_OVERFLOW		0xffff
+
+#define SMBIOS_CACHE_SIZE2_UNIT_1KB		(0 << 31)
+#define SMBIOS_CACHE_SIZE2_UNIT_64KB		(1UL << 31)
+#define SMBIOS_CACHE_SIZE2_MASK			0x7fffffff
+
+struct smbios_type7 {
+	u8 type;
+	u8 length;
+	u16 handle;
+	u8 socket_designation;
+	u16 cache_configuration;
+	u16 max_cache_size;
+	u16 installed_size;
+	u16 supported_sram_type;
+	u16 current_sram_type;
+	u8 cache_speed;
+	u8 error_correction_type;
+	u8 system_cache_type;
+	u8 associativity;
+	u32 max_cache_size2;
+	u32 installed_size2;
+	u8 eos[2];
+} __packed;
+
+/* System Slots - Slot Type */
+enum misc_slot_type {
+	SlotTypeOther = 0x01,
+	SlotTypeUnknown = 0x02,
+	SlotTypeIsa = 0x03,
+	SlotTypeMca = 0x04,
+	SlotTypeEisa = 0x05,
+	SlotTypePci = 0x06,
+	SlotTypePcmcia = 0x07,
+	SlotTypeVlVesa = 0x08,
+	SlotTypeProprietary = 0x09,
+	SlotTypeProcessorCardSlot = 0x0A,
+	SlotTypeProprietaryMemoryCardSlot = 0x0B,
+	SlotTypeIORiserCardSlot = 0x0C,
+	SlotTypeNuBus = 0x0D,
+	SlotTypePci66MhzCapable = 0x0E,
+	SlotTypeAgp = 0x0F,
+	SlotTypeApg2X = 0x10,
+	SlotTypeAgp4X = 0x11,
+	SlotTypePciX = 0x12,
+	SlotTypeAgp8X = 0x13,
+	SlotTypeM2Socket1_DP = 0x14,
+	SlotTypeM2Socket1_SD = 0x15,
+	SlotTypeM2Socket2 = 0x16,
+	SlotTypeM2Socket3 = 0x17,
+	SlotTypeMxmTypeI = 0x18,
+	SlotTypeMxmTypeII = 0x19,
+	SlotTypeMxmTypeIIIStandard = 0x1A,
+	SlotTypeMxmTypeIIIHe = 0x1B,
+	SlotTypeMxmTypeIV = 0x1C,
+	SlotTypeMxm30TypeA = 0x1D,
+	SlotTypeMxm30TypeB = 0x1E,
+	SlotTypePciExpressGen2Sff_8639 = 0x1F,
+	SlotTypePciExpressGen3Sff_8639 = 0x20,
+	SlotTypePciExpressMini52pinWithBSKO = 0x21,
+	SlotTypePciExpressMini52pinWithoutBSKO = 0x22,
+	SlotTypePciExpressMini76pin = 0x23,
+	SlotTypePC98C20 = 0xA0,
+	SlotTypePC98C24 = 0xA1,
+	SlotTypePC98E = 0xA2,
+	SlotTypePC98LocalBus = 0xA3,
+	SlotTypePC98Card = 0xA4,
+	SlotTypePciExpress = 0xA5,
+	SlotTypePciExpressX1 = 0xA6,
+	SlotTypePciExpressX2 = 0xA7,
+	SlotTypePciExpressX4 = 0xA8,
+	SlotTypePciExpressX8 = 0xA9,
+	SlotTypePciExpressX16 = 0xAA,
+	SlotTypePciExpressGen2 = 0xAB,
+	SlotTypePciExpressGen2X1 = 0xAC,
+	SlotTypePciExpressGen2X2 = 0xAD,
+	SlotTypePciExpressGen2X4 = 0xAE,
+	SlotTypePciExpressGen2X8 = 0xAF,
+	SlotTypePciExpressGen2X16 = 0xB0,
+	SlotTypePciExpressGen3 = 0xB1,
+	SlotTypePciExpressGen3X1 = 0xB2,
+	SlotTypePciExpressGen3X2 = 0xB3,
+	SlotTypePciExpressGen3X4 = 0xB4,
+	SlotTypePciExpressGen3X8 = 0xB5,
+	SlotTypePciExpressGen3X16 = 0xB6,
+	SlotTypePciExpressGen4 = 0xB8,
+	SlotTypePciExpressGen4x1 = 0xB9,
+	SlotTypePciExpressGen4x2 = 0xBA,
+	SlotTypePciExpressGen4x4 = 0xBB,
+	SlotTypePciExpressGen4x8 = 0xBC,
+	SlotTypePciExpressGen4x16 = 0xBD
+};
+
+/* System Slots - Slot Data Bus Width. */
+enum slot_data_bus_bandwidth {
+	SlotDataBusWidthOther = 0x01,
+	SlotDataBusWidthUnknown = 0x02,
+	SlotDataBusWidth8Bit = 0x03,
+	SlotDataBusWidth16Bit = 0x04,
+	SlotDataBusWidth32Bit = 0x05,
+	SlotDataBusWidth64Bit = 0x06,
+	SlotDataBusWidth128Bit = 0x07,
+	SlotDataBusWidth1X = 0x08,
+	SlotDataBusWidth2X = 0x09,
+	SlotDataBusWidth4X = 0x0A,
+	SlotDataBusWidth8X = 0x0B,
+	SlotDataBusWidth12X = 0x0C,
+	SlotDataBusWidth16X = 0x0D,
+	SlotDataBusWidth32X = 0x0E
+};
+
+/* System Slots - Current Usage. */
+enum misc_slot_usage {
+	SlotUsageOther        = 0x01,
+	SlotUsageUnknown      = 0x02,
+	SlotUsageAvailable    = 0x03,
+	SlotUsageInUse        = 0x04,
+	SlotUsageUnavailable  = 0x05
+};
+
+/* System Slots - Slot Length.*/
+enum misc_slot_length {
+	SlotLengthOther = 0x01,
+	SlotLengthUnknown = 0x02,
+	SlotLengthShort = 0x03,
+	SlotLengthLong = 0x04
+};
+
+/* System Slots - Slot Characteristics 1. */
+#define SMBIOS_SLOT_UNKNOWN		(1 << 0)
+#define SMBIOS_SLOT_5V			(1 << 1)
+#define SMBIOS_SLOT_3P3V		(1 << 2)
+#define SMBIOS_SLOT_SHARED		(1 << 3)
+#define SMBIOS_SLOT_PCCARD_16		(1 << 4)
+#define SMBIOS_SLOT_PCCARD_CARDBUS	(1 << 5)
+#define SMBIOS_SLOT_PCCARD_ZOOM		(1 << 6)
+#define SMBIOS_SLOT_PCCARD_MODEM_RING	(1 << 7)
+/* System Slots - Slot Characteristics 2. */
+#define SMBIOS_SLOT_PME		(1 << 0)
+#define SMBIOS_SLOT_HOTPLUG	(1 << 1)
+#define SMBIOS_SLOT_SMBUS	(1 << 2)
+#define SMBIOS_SLOT_BIFURCATION	(1 << 3)
+
+struct slot_peer_groups {
+	u16 peer_seg_num;
+	u8 peer_bus_num;
+	u8 peer_dev_fn_num;
+	u8 peer_data_bus_width;
+} __packed;
+
+struct smbios_type9 {
+	u8 type;
+	u8 length;
+	u16 handle;
+	u8 slot_designation;
+	u8 slot_type;
+	u8 slot_data_bus_width;
+	u8 current_usage;
+	u8 slot_length;
+	u16 slot_id;
+	u8 slot_characteristics_1;
+	u8 slot_characteristics_2;
+	u16 segment_group_number;
+	u8 bus_number;
+	u8 device_function_number;
+	u8 data_bus_width;
+	u8 peer_group_count;
+	struct slot_peer_groups peer[0];
+	u8 eos[2];
+} __packed;
+
 struct smbios_type11 {
 	u8 type;
 	u8 length;
@@ -493,6 +741,7 @@ struct smbios_type38 {
 	u64 base_address;
 	u8 base_address_modifier;
 	u8 irq;
+	u8 eos[2];
 } __packed;
 
 enum smbios_bmc_interface_type {
@@ -515,6 +764,8 @@ typedef enum {
 	SMBIOS_DEVICE_TYPE_SATA,
 	SMBIOS_DEVICE_TYPE_SAS,
 } smbios_onboard_device_type;
+
+#define SMBIOS_DEVICE_TYPE_COUNT 10
 
 struct smbios_type41 {
 	u8 type;
@@ -539,6 +790,8 @@ struct smbios_type127 {
 } __packed;
 
 void smbios_fill_dimm_manufacturer_from_id(uint16_t mod_id,
+	struct smbios_type17 *t);
+void smbios_fill_dimm_locator(const struct dimm_info *dimm,
 	struct smbios_type17 *t);
 
 smbios_board_type smbios_mainboard_board_type(void);

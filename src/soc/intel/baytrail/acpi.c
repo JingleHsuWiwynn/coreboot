@@ -16,7 +16,7 @@
 
 #include <arch/acpi.h>
 #include <arch/acpigen.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <arch/smp/mpspec.h>
 #include <cbmem.h>
 #include <console/console.h>
@@ -83,15 +83,15 @@ void acpi_init_gnvs(global_nvs_t *gnvs)
 	/* Top of Low Memory (start of resource allocation) */
 	gnvs->tolm = nc_read_top_of_low_memory();
 
-#if IS_ENABLED(CONFIG_CONSOLE_CBMEM)
+#if CONFIG(CONSOLE_CBMEM)
 	/* Update the mem console pointer. */
 	gnvs->cbmc = (u32)cbmem_find(CBMEM_ID_CONSOLE);
 #endif
 
-#if IS_ENABLED(CONFIG_CHROMEOS)
+#if CONFIG(CHROMEOS)
 	/* Initialize Verified Boot data */
 	chromeos_init_chromeos_acpi(&(gnvs->chromeos));
-#if IS_ENABLED(CONFIG_EC_GOOGLE_CHROMEEC)
+#if CONFIG(EC_GOOGLE_CHROMEEC)
 	gnvs->chromeos.vbt2 = google_ec_running_ro() ?
 		ACTIVE_ECFW_RO : ACTIVE_ECFW_RW;
 #endif
@@ -216,7 +216,7 @@ void acpi_fill_in_fadt(acpi_fadt_t *fadt)
 	fadt->reset_reg.space_id = 1;
 	fadt->reset_reg.bit_width = 8;
 	fadt->reset_reg.bit_offset = 0;
-	fadt->reset_reg.resv = 0;
+	fadt->reset_reg.access_size = 0;
 	fadt->reset_reg.addrl = 0xcf9;
 	fadt->reset_reg.addrh = 0;
 	fadt->reset_value = 6;
@@ -224,56 +224,56 @@ void acpi_fill_in_fadt(acpi_fadt_t *fadt)
 	fadt->x_pm1a_evt_blk.space_id = 1;
 	fadt->x_pm1a_evt_blk.bit_width = fadt->pm1_evt_len * 8;
 	fadt->x_pm1a_evt_blk.bit_offset = 0;
-	fadt->x_pm1a_evt_blk.resv = 0;
+	fadt->x_pm1a_evt_blk.access_size = 0;
 	fadt->x_pm1a_evt_blk.addrl = pmbase + PM1_STS;
 	fadt->x_pm1a_evt_blk.addrh = 0x0;
 
 	fadt->x_pm1b_evt_blk.space_id = 1;
 	fadt->x_pm1b_evt_blk.bit_width = 0;
 	fadt->x_pm1b_evt_blk.bit_offset = 0;
-	fadt->x_pm1b_evt_blk.resv = 0;
+	fadt->x_pm1b_evt_blk.access_size = 0;
 	fadt->x_pm1b_evt_blk.addrl = 0x0;
 	fadt->x_pm1b_evt_blk.addrh = 0x0;
 
 	fadt->x_pm1a_cnt_blk.space_id = 1;
 	fadt->x_pm1a_cnt_blk.bit_width = fadt->pm1_cnt_len * 8;
 	fadt->x_pm1a_cnt_blk.bit_offset = 0;
-	fadt->x_pm1a_cnt_blk.resv = 0;
+	fadt->x_pm1a_cnt_blk.access_size = 0;
 	fadt->x_pm1a_cnt_blk.addrl = pmbase + PM1_CNT;
 	fadt->x_pm1a_cnt_blk.addrh = 0x0;
 
 	fadt->x_pm1b_cnt_blk.space_id = 1;
 	fadt->x_pm1b_cnt_blk.bit_width = 0;
 	fadt->x_pm1b_cnt_blk.bit_offset = 0;
-	fadt->x_pm1b_cnt_blk.resv = 0;
+	fadt->x_pm1b_cnt_blk.access_size = 0;
 	fadt->x_pm1b_cnt_blk.addrl = 0x0;
 	fadt->x_pm1b_cnt_blk.addrh = 0x0;
 
 	fadt->x_pm2_cnt_blk.space_id = 1;
 	fadt->x_pm2_cnt_blk.bit_width = fadt->pm2_cnt_len * 8;
 	fadt->x_pm2_cnt_blk.bit_offset = 0;
-	fadt->x_pm2_cnt_blk.resv = 0;
+	fadt->x_pm2_cnt_blk.access_size = 0;
 	fadt->x_pm2_cnt_blk.addrl = pmbase + PM2A_CNT_BLK;
 	fadt->x_pm2_cnt_blk.addrh = 0x0;
 
 	fadt->x_pm_tmr_blk.space_id = 1;
 	fadt->x_pm_tmr_blk.bit_width = fadt->pm_tmr_len * 8;
 	fadt->x_pm_tmr_blk.bit_offset = 0;
-	fadt->x_pm_tmr_blk.resv = 0;
+	fadt->x_pm_tmr_blk.access_size = 0;
 	fadt->x_pm_tmr_blk.addrl = pmbase + PM1_TMR;
 	fadt->x_pm_tmr_blk.addrh = 0x0;
 
 	fadt->x_gpe0_blk.space_id = 1;
 	fadt->x_gpe0_blk.bit_width = fadt->gpe0_blk_len * 8;
 	fadt->x_gpe0_blk.bit_offset = 0;
-	fadt->x_gpe0_blk.resv = 0;
+	fadt->x_gpe0_blk.access_size = 0;
 	fadt->x_gpe0_blk.addrl = pmbase + GPE0_STS;
 	fadt->x_gpe0_blk.addrh = 0x0;
 
 	fadt->x_gpe1_blk.space_id = 1;
 	fadt->x_gpe1_blk.bit_width = 0;
 	fadt->x_gpe1_blk.bit_offset = 0;
-	fadt->x_gpe1_blk.resv = 0;
+	fadt->x_gpe1_blk.access_size = 0;
 	fadt->x_gpe1_blk.addrl = 0x0;
 	fadt->x_gpe1_blk.addrh = 0x0;
 }

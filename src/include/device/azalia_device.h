@@ -17,12 +17,8 @@
 #define DEVICE_AZALIA_H
 
 #include <types.h>
-#include <string.h>
-#include <console/console.h>
 #include <arch/acpi.h>
-#include <arch/io.h>
-#include <arch/interrupt.h>
-
+#include <device/mmio.h>
 #include <device/device.h>
 
 void azalia_audio_init(struct device *dev);

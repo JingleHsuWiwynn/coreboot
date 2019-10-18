@@ -34,21 +34,17 @@ __attribute__((weak)) void bootblock_mainboard_init(void) { /* do nothing */ }
 void bootblock_main(const uint64_t reg_x0,
 		    const uint64_t reg_pc)
 {
-	uint64_t base_timestamp = 0;
 
 	init_timer();
 
-	if (IS_ENABLED(CONFIG_COLLECT_TIMESTAMPS))
-		base_timestamp = timestamp_get();
-
 	/* Initialize timestamps if we have TIMESTAMP region in memlayout.ld. */
-	if (IS_ENABLED(CONFIG_COLLECT_TIMESTAMPS) && _timestamp_size > 0)
-		timestamp_init(base_timestamp);
+	if (CONFIG(COLLECT_TIMESTAMPS) && REGION_SIZE(timestamp) > 0)
+		timestamp_init(timestamp_get());
 
 	bootblock_soc_early_init();
 	bootblock_mainboard_early_init();
 
-	if (IS_ENABLED(CONFIG_BOOTBLOCK_CONSOLE)) {
+	if (CONFIG(BOOTBLOCK_CONSOLE)) {
 		console_init();
 		exception_init();
 

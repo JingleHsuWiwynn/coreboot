@@ -15,7 +15,9 @@
  */
 
 #include <console/console.h>
+#include <device/mmio.h>
 #include <device/device.h>
+#include <device/pci_ops.h>
 #include <intelblocks/fast_spi.h>
 #include <intelblocks/gspi.h>
 #include <intelblocks/lpc_lib.h>
@@ -118,7 +120,8 @@ static void soc_config_acpibase(void)
 
 	pmc_base_reg = get_pmc_reg_base();
 	if (!pmc_base_reg)
-		die("Invalid PMC base address\n");
+		die_with_post_code(POST_HW_INIT_FAILURE,
+				   "Invalid PMC base address\n");
 
 	pmc_reg_value = pcr_read32(PID_PSF3, pmc_base_reg +
 					PCR_PSFX_TO_SHDW_BAR4);
@@ -156,11 +159,11 @@ static int pch_check_decode_enable(void)
 
 void pch_early_iorange_init(void)
 {
-	uint16_t io_enables = LPC_IOE_SUPERIO_2E_2F | LPC_IOE_KBC_60_64 |
+	uint16_t io_enables = LPC_IOE_EC_4E_4F | LPC_IOE_SUPERIO_2E_2F | LPC_IOE_KBC_60_64 |
 		LPC_IOE_EC_62_66 | LPC_IOE_LGE_200;
 
 	/* IO Decode Range */
-	if (IS_ENABLED(CONFIG_DRIVERS_UART_8250IO))
+	if (CONFIG(DRIVERS_UART_8250IO))
 		lpc_io_setup_comm_a_b();
 
 	/* IO Decode Enable */

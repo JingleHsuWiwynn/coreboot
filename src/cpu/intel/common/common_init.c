@@ -1,9 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2007-2009 coresystems GmbH
- * Copyright (C) 2011 The ChromiumOS Authors.  All rights reserved.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2 of
@@ -31,7 +28,7 @@ void set_feature_ctrl_vmx(void)
 {
 	msr_t msr;
 	uint32_t feature_flag;
-	int enable = IS_ENABLED(CONFIG_ENABLE_VMX);
+	int enable = CONFIG(ENABLE_VMX);
 
 	feature_flag = cpu_get_feature_flags_ecx();
 	/* Check that the VMX is supported before reading or writing the MSR. */
@@ -71,7 +68,7 @@ void set_feature_ctrl_vmx(void)
 void set_feature_ctrl_lock(void)
 {
 	msr_t msr;
-	int lock = IS_ENABLED(CONFIG_SET_IA32_FC_LOCK_BIT);
+	int lock = CONFIG(SET_IA32_FC_LOCK_BIT);
 	uint32_t feature_flag = cpu_get_feature_flags_ecx();
 
 	/* Check if VMX is supported before reading or writing the MSR */
@@ -83,7 +80,7 @@ void set_feature_ctrl_lock(void)
 	msr = rdmsr(IA32_FEATURE_CONTROL);
 
 	if (msr.lo & (1 << 0)) {
-		printk(BIOS_DEBUG, "IA32_FEATURE_CONTROL already locked; ");
+		printk(BIOS_DEBUG, "IA32_FEATURE_CONTROL already locked\n");
 		/* IA32_FEATURE_CONTROL locked. If we set it again we get an
 		 * illegal instruction
 		 */
@@ -113,9 +110,7 @@ void cpu_init_cppc_config(struct cppc_config *config, u32 version)
 		.space_id   = ACPI_ADDRESS_SPACE_FIXED,
 		.bit_width  = 8,
 		.bit_offset = 0,
-		{
-			.access_size = 4
-		},
+		.access_size = 4,
 		.addrl      = 0,
 		.addrh      = 0,
 	};
@@ -123,9 +118,7 @@ void cpu_init_cppc_config(struct cppc_config *config, u32 version)
 		.space_id   = ACPI_ADDRESS_SPACE_MEMORY,
 		.bit_width  = 0,
 		.bit_offset = 0,
-		{
-			.resv = 0
-		},
+		.access_size = 0,
 		.addrl      = 0,
 		.addrh      = 0,
 	};

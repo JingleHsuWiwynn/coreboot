@@ -21,6 +21,7 @@ bootblock-y += spi.c
 bootblock-y += uart.c
 
 romstage-y += car.c
+romstage-y += ../../../cpu/intel/car/romstage.c
 romstage-$(CONFIG_PLATFORM_USES_FSP2_0) += romstage.c
 romstage-y += gspi.c
 romstage-y += heci.c
@@ -39,11 +40,13 @@ romstage-y += reset.c
 romstage-y += spi.c
 
 smm-y += mmap_boot.c
+smm-y += pmc.c
 smm-y += pmutil.c
 smm-y += smihandler.c
 smm-y += spi.c
 smm-y += uart.c
 smm-y += elog.c
+smm-y += xhci.c
 
 ramstage-$(CONFIG_HAVE_ACPI_TABLES) += acpi.c
 ramstage-y += cpu.c
@@ -67,6 +70,7 @@ ramstage-y += pmc.c
 ramstage-y += reset.c
 ramstage-y += xdci.c
 ramstage-y += sd.c
+ramstage-y += xhci.c
 
 postcar-y += memmap.c
 postcar-y += mmap_boot.c
@@ -177,10 +181,10 @@ $(RT5682_RENDER_CAPTURE)-type := raw
 
 ifeq ($(CONFIG_SOC_INTEL_GLK),y)
 # Gemini Lake B0 (706a1) only atm.
-cpu_microcode_bins += 3rdparty/blobs/cpu/intel/model_706ax/microcode.bin
+cpu_microcode_bins += $(wildcard 3rdparty/intel-microcode/intel-ucode/06-7a-*)
 else
 # Apollo Lake 506c2, B0 (506c9) and E0 (506ca) only atm.
-cpu_microcode_bins += 3rdparty/blobs/cpu/intel/model_506cx/microcode.bin
+cpu_microcode_bins += $(wildcard 3rdparty/intel-microcode/intel-ucode/06-5c-*)
 endif
 
 endif # if CONFIG_SOC_INTEL_APOLLOLAKE

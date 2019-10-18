@@ -18,15 +18,14 @@
 #include <string.h>
 #include <assert.h>
 #include <commonlib/endian.h>
+#include <console/console.h>
 #include <delay.h>
 #include <device/i2c_simple.h>
 #include <endian.h>
 #include <lib.h>
 #include <security/tpm/tis.h>
-#include "tpm.h"
-#include <timer.h>
 
-#include <console/console.h>
+#include "tpm.h"
 
 /* global structure for tpm chip data */
 static struct tpm_chip g_chip CAR_GLOBAL;
@@ -143,7 +142,7 @@ int tis_sendrecv(const uint8_t *sendbuf, size_t sbuf_size,
 	ASSERT(sbuf_size >= 10);
 
 	/* Display the TPM command */
-	if (IS_ENABLED(CONFIG_DRIVER_TPM_DISPLAY_TIS_BYTES)) {
+	if (CONFIG(DRIVER_TPM_DISPLAY_TIS_BYTES)) {
 		printk(BIOS_DEBUG, "TPM Command: 0x%08x\n",
 			read_at_be32(sendbuf, sizeof(uint16_t)
 				+ sizeof(uint32_t)));
@@ -165,7 +164,7 @@ int tis_sendrecv(const uint8_t *sendbuf, size_t sbuf_size,
 	*rbuf_len = len;
 
 	/* Display the TPM response */
-	if (IS_ENABLED(CONFIG_DRIVER_TPM_DISPLAY_TIS_BYTES)) {
+	if (CONFIG(DRIVER_TPM_DISPLAY_TIS_BYTES)) {
 		printk(BIOS_DEBUG, "TPM Response: 0x%08x\n",
 			read_at_be32(recvbuf, sizeof(uint16_t)
 				+ sizeof(uint32_t)));

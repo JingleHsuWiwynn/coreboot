@@ -34,7 +34,7 @@
 unsigned long loader_eax;  /**< The value of EAX passed from the loader */
 unsigned long loader_ebx;  /**< The value of EBX passed from the loader */
 
-unsigned int main_argc;    /**< The argc value to pass to main() */
+int main_argc;    /**< The argc value to pass to main() */
 
 /** The argv value to pass to main() */
 char *main_argv[MAX_ARGC_COUNT];
@@ -52,13 +52,13 @@ int start_main(void)
 	lib_get_sysinfo();
 
 	/* Optionally set up the consoles. */
-#if !IS_ENABLED(CONFIG_LP_SKIP_CONSOLE_INIT)
+#if !CONFIG(LP_SKIP_CONSOLE_INIT)
 	console_init();
 #endif
 
 	exception_init();
 
-	if (IS_ENABLED(CONFIG_LP_ENABLE_APIC)) {
+	if (CONFIG(LP_ENABLE_APIC)) {
 		apic_init();
 
 		enable_interrupts();

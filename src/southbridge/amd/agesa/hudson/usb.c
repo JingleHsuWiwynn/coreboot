@@ -16,9 +16,7 @@
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
-#include <device/pci_ops.h>
 #include <device/pci_ehci.h>
-#include <arch/io.h>
 #include "hudson.h"
 
 static struct pci_operations lops_pci = {

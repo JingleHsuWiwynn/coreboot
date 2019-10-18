@@ -267,7 +267,7 @@ _free_ic_return:
 static int
 xhci_finish_hub_config(usbdev_t *const dev, inputctx_t *const ic)
 {
-	int type = dev->speed == SUPER_SPEED ? 0x2a : 0x29; /* similar enough */
+	int type = is_usb_speed_ss(dev->speed) ? 0x2a : 0x29; /* similar enough */
 	hub_descriptor_t desc;
 
 	if (get_descriptor(dev, gen_bmRequestType(device_to_host, class_type,
@@ -353,7 +353,7 @@ xhci_finish_ep_config(const endpoint_t *const ep, inputctx_t *const ic)
 	EC_SET(AVRTRB,	epctx, avrtrb);
 	EC_SET(MXESIT,  epctx, EC_GET(MPS, epctx) * EC_GET(MBS, epctx));
 
-	if (IS_ENABLED(CONFIG_LP_USB_XHCI_MTK_QUIRK)) {
+	if (CONFIG(LP_USB_XHCI_MTK_QUIRK)) {
 		/* The MTK xHCI defines some extra SW parameters which are
 		 * put into reserved DWs in Slot and Endpoint Contexts for
 		 * synchronous endpoints. But for non-isochronous transfers,

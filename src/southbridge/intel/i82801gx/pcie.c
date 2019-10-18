@@ -17,7 +17,10 @@
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_def.h>
+#include <device/pci_ops.h>
 #include <device/pci_ids.h>
+#include "chip.h"
 #include "i82801gx.h"
 
 /* Low Power variant has 6 root ports. */
@@ -65,11 +68,10 @@ static void pci_init(struct device *dev)
 	// This has no effect but the OS might expect it
 	pci_write_config8(dev, 0x0c, 0x10);
 
-	reg16 = pci_read_config16(dev, 0x3e);
-	reg16 &= ~(1 << 0); /* disable parity error response */
-	// reg16 &= ~(1 << 1); /* disable SERR */
-	reg16 |= (1 << 2); /* ISA enable */
-	pci_write_config16(dev, 0x3e, reg16);
+	reg16 = pci_read_config16(dev, PCI_BRIDGE_CONTROL);
+	reg16 &= ~PCI_BRIDGE_CTL_PARITY;
+	reg16 |= PCI_BRIDGE_CTL_NO_ISA;
+	pci_write_config16(dev, PCI_BRIDGE_CONTROL, reg16);
 
 	/* Enable IO xAPIC on this PCIe port */
 	reg32 = pci_read_config32(dev, 0xd8);
@@ -194,7 +196,7 @@ static void root_port_commit_config(struct device *dev)
 
 		pcie_dev = rpc.ports[i];
 
-		if (dev == NULL) {
+		if (pcie_dev == NULL) {
 			printk(BIOS_ERR, "Root Port %d device is NULL?\n",
 			       i + 1);
 			continue;
@@ -251,22 +253,8 @@ static void ich_pcie_enable(struct device *dev)
 		root_port_commit_config(dev);
 }
 
-
-static void pcie_set_subsystem(struct device *dev, unsigned int vendor,
-			       unsigned int device)
-{
-	/* NOTE: This is not the default position! */
-	if (!vendor || !device) {
-		pci_write_config32(dev, 0x94,
-				pci_read_config32(dev, 0));
-	} else {
-		pci_write_config32(dev, 0x94,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
-}
-
 static struct pci_operations pci_ops = {
-	.set_subsystem = pcie_set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 };
 
 static struct device_operations device_ops = {

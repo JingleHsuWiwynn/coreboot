@@ -14,17 +14,15 @@
  */
 
 #include <device/device.h>
-#include <delay.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
-#include <arch/io.h>
-#include "hudson.h"
 
+#include "hudson.h"
 
 static void sata_init(struct device *dev)
 {
-#if IS_ENABLED(CONFIG_SOUTHBRIDGE_AMD_AGESA_YANGTZE)
+#if CONFIG(SOUTHBRIDGE_AMD_AGESA_YANGTZE)
 	/**************************************
 	 * Configure the SATA port multiplier *
 	 **************************************/

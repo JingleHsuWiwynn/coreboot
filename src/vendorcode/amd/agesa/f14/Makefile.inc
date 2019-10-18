@@ -40,26 +40,10 @@ AGESA_INC += -I$(src)/mainboard/$(MAINBOARDDIR)	# OptionsIds.h
 
 BUILDOPTS_INCLUDES = -I$(AGESA_ROOT)/Config $(AGESA_INC) $(AGESA_AUTOINCLUDES)
 
-CFLAGS_x86_32 += -march=k8-sse3 -mtune=k8-sse3 -fno-zero-initialized-in-bss -fno-strict-aliasing
-CFLAGS_x86_64 += -march=k8-sse3 -mtune=k8-sse3 -fno-zero-initialized-in-bss -fno-strict-aliasing
-
-# These are invalid, coreboot proper should not require
-# use of AGESA internal header files.
-CPPFLAGS_x86_ANY =
-CPPFLAGS_x86_ANY += -I$(AGESA_ROOT)/Proc/CPU			# heapManager.h
-CPPFLAGS_x86_ANY += -I$(AGESA_ROOT)/Proc/CPU/Family
-
-CPPFLAGS_x86_32 += $(AGESA_INC) $(CPPFLAGS_x86_ANY)
-CPPFLAGS_x86_64 += $(AGESA_INC) $(CPPFLAGS_x86_ANY)
+CPPFLAGS_x86_32 += $(AGESA_INC)
+CPPFLAGS_x86_64 += $(AGESA_INC)
 
 #######################################################################
 
 subdirs-y += Legacy/Proc
 subdirs-y += $(dir $(shell cd $(dir); find Proc -name Makefile.inc))
-
-$(obj)/libagesa.fam14.a: $$(libagesa-objs)
-	@printf " AGESA $(subst $(obj)/,,$(@))\n"
-	$(AR_libagesa) rcsDT $@ $+
-
-romstage-libs += $(obj)/libagesa.fam14.a
-ramstage-libs += $(obj)/libagesa.fam14.a

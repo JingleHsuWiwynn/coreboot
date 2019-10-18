@@ -19,6 +19,7 @@
 #include <device/device.h>
 #include <device/path.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <device/pci_ids.h>
 #include "chip.h"
 #include "bh720.h"
@@ -81,12 +82,6 @@ static const struct pci_driver bayhub_bh720 __pci_driver = {
 	.devices	= pci_device_ids,
 };
 
-static void bh720_enable(struct device *dev)
-{
-	dev->ops = &bh720_ops;
-}
-
-struct chip_operations bayhub_bh720_ops = {
+struct chip_operations drivers_generic_bayhub_ops = {
 	CHIP_NAME("BayHub Technology BH720 PCI to eMMC 5.0 HS200 bridge")
-	.enable_dev = bh720_enable,
 };

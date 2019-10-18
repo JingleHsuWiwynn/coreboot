@@ -56,7 +56,7 @@ uint8_t variant_board_sku(void)
 
 	board_sku_num = sku_strapping_value();
 
-	if (!IS_ENABLED(CONFIG_CHROMEOS))
+	if (!CONFIG(CHROMEOS))
 		return board_sku_num;
 
 	if (!vpd_gets(vpd_skuid, vpd_buffer, ARRAY_SIZE(vpd_buffer), VPD_ANY))
@@ -70,8 +70,8 @@ uint8_t variant_board_sku(void)
 		if ((ch < '0') || (ch > '9')) {
 			vpd_sku_num = -1;
 			break;
-		} else
-			vpd_sku_num = vpd_sku_num * 10 + (ch - '0');
+		}
+		vpd_sku_num = vpd_sku_num * 10 + (ch - '0');
 	}
 
 	if (vpd_sku_num != -1)

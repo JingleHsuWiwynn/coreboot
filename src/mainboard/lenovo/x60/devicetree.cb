@@ -30,7 +30,7 @@ chip northbridge/intel/i945
 	register "gpu_panel_power_cycle_delay" = "2"
 
 	device cpu_cluster 0 on
-		chip cpu/intel/socket_mFCPGA478
+		chip cpu/intel/socket_m
 			device lapic 0 on end
 		end
 	end
@@ -65,7 +65,6 @@ chip northbridge/intel/i945
 			register "gpi12_routing" = "1"
 			register "gpi8_routing" = "2"
 
-			register "sata_ahci" = "0x1"
 			register "sata_ports_implemented" = "0x01"
 
 			register "gpe0_en" = "0x11000006"

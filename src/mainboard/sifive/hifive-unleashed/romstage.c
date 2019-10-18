@@ -27,16 +27,10 @@ void main(void)
 
 	/* TODO: Follow Section 6.3 (FSBL) of the FU540 manual */
 
-	/*
-	 * Flush console before changing clock/UART divisor to prevent garbage
-	 * being printed.
-	 */
-	console_tx_flush();
-
 	clock_init();
 
 	// re-initialize UART
-	if (IS_ENABLED(CONFIG_CONSOLE_SERIAL))
+	if (CONFIG(CONSOLE_SERIAL))
 		uart_init(CONFIG_UART_FOR_CONSOLE);
 
 	sdram_init();

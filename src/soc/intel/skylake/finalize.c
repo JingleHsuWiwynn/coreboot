@@ -15,17 +15,19 @@
  */
 
 #include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <bootstate.h>
-#include <chip.h>
 #include <console/console.h>
 #include <console/post_codes.h>
-#include <cpu/x86/mp.h>
 #include <cpu/x86/smm.h>
 #include <device/pci.h>
 #include <intelblocks/cpulib.h>
 #include <intelblocks/lpc_lib.h>
 #include <intelblocks/p2sb.h>
 #include <intelblocks/pcr.h>
+#include <intelblocks/tco.h>
+#include <intelblocks/thermal.h>
 #include <reg_script.h>
 #include <spi-generic.h>
 #include <soc/me.h>
@@ -35,21 +37,14 @@
 #include <soc/pm.h>
 #include <soc/smbus.h>
 #include <soc/systemagent.h>
-#include <soc/thermal.h>
 #include <stdlib.h>
 #include <timer.h>
+
+#include "chip.h"
 
 #define PSF_BASE_ADDRESS	0xA00
 #define PCR_PSFX_T0_SHDW_PCIEN	0x1C
 #define PCR_PSFX_T0_SHDW_PCIEN_FUNDIS	(1 << 8)
-
-static void disable_sideband_access(void)
-{
-	p2sb_disable_sideband_access();
-
-	/* hide p2sb device */
-	p2sb_hide();
-}
 
 static void pch_disable_heci(void)
 {
@@ -60,7 +55,7 @@ static void pch_disable_heci(void)
 	pcr_or32(PID_PSF1, PSF_BASE_ADDRESS + PCR_PSFX_T0_SHDW_PCIEN,
 		PCR_PSFX_T0_SHDW_PCIEN_FUNDIS);
 
-	disable_sideband_access();
+	p2sb_disable_sideband_access();
 }
 
 static void pch_finalize_script(struct device *dev)
@@ -70,11 +65,13 @@ static void pch_finalize_script(struct device *dev)
 	config_t *config;
 	u8 reg8;
 
+	tco_lockdown();
+
 	/* Display me status before we hide it */
 	intel_me_status();
 
 	pmcbase = pmc_mmio_regs();
-	config = dev->chip_info;
+	config = config_of(dev);
 
 	/*
 	 * Set low maximum temp value used for dynamic thermal sensor
@@ -108,6 +105,9 @@ static void pch_finalize_script(struct device *dev)
 	/* we should disable Heci1 based on the devicetree policy */
 	if (config->HeciEnabled == 0)
 		pch_disable_heci();
+
+	/* Hide p2sb device as the OS must not change BAR0. */
+	p2sb_hide();
 }
 
 static void soc_lockdown(struct device *dev)
@@ -115,7 +115,7 @@ static void soc_lockdown(struct device *dev)
 	struct soc_intel_skylake_config *config;
 	u8 reg8;
 
-	config = dev->chip_info;
+	config = config_of(dev);
 
 	/* Global SMI Lock */
 	if (config->LockDownConfigGlobalSmi == 0) {
@@ -132,15 +132,12 @@ static void soc_finalize(void *unused)
 	dev = PCH_DEV_PMC;
 
 	/* Check if PMC is enabled, else return */
-	if (dev == NULL || dev->chip_info == NULL)
+	if (dev == NULL)
 		return;
 
 	printk(BIOS_DEBUG, "Finalizing chipset.\n");
 
 	pch_finalize_script(dev);
-
-	printk(BIOS_DEBUG, "Clearing MCA.\n");
-	mp_run_on_all_cpus(mca_configure, NULL, 17 * USECS_PER_SEC);
 
 	soc_lockdown(dev);
 

@@ -16,10 +16,8 @@
 #ifndef __SOC_CAVIUM_CN81XX_TIMER_H__
 #define __SOC_CAVIUM_CN81XX_TIMER_H__
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <types.h>
-#include <timer.h>
-#include <delay.h>
 
 /* Watchdog functions */
 void watchdog_set(const size_t index, unsigned int timeout_ms);

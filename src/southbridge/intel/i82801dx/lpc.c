@@ -26,6 +26,7 @@
 #include <pc80/isa-dma.h>
 #include <arch/io.h>
 #include <arch/ioapic.h>
+#include "chip.h"
 #include "i82801dx.h"
 
 #define NMI_OFF 0
@@ -299,6 +300,12 @@ static void lpc_init(struct device *dev)
 
 	/* Initialize the High Precision Event Timers */
 	enable_hpet(dev);
+
+	/* Don't allow evil boot loaders, kernels, or
+	 * userspace applications to deceive us:
+	 */
+	if (CONFIG(HAVE_SMI_HANDLER))
+		aseg_smm_lock();
 }
 
 static void i82801dx_lpc_read_resources(struct device *dev)
@@ -332,7 +339,7 @@ static struct device_operations lpc_ops = {
 	.set_resources		= pci_dev_set_resources,
 	.enable_resources	= pci_dev_enable_resources,
 	.init			= lpc_init,
-	.scan_bus		= scan_lpc_bus,
+	.scan_bus		= scan_static_bus,
 	.enable			= i82801dx_enable,
 };
 

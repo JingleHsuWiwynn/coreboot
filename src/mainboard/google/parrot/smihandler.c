@@ -13,7 +13,6 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <console/console.h>
 #include <cpu/x86/smm.h>
 #include <southbridge/intel/bd82x6x/nvs.h>
@@ -30,7 +29,7 @@
 static u8 mainboard_smi_ec(void)
 {
 	u8 src;
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 	static int battery_critical_logged;
 #endif
 
@@ -40,7 +39,7 @@ static u8 mainboard_smi_ec(void)
 
 	switch (src) {
 	case EC_BATTERY_CRITICAL:
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 		if (!battery_critical_logged)
 			elog_add_event_byte(ELOG_TYPE_EC_EVENT,
 					    EC_EVENT_BATTERY_CRITICAL);
@@ -50,7 +49,7 @@ static u8 mainboard_smi_ec(void)
 	case EC_LID_CLOSE:
 		printk(BIOS_DEBUG, "LID CLOSED, SHUTDOWN\n");
 
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 		elog_add_event_byte(ELOG_TYPE_EC_EVENT, EC_EVENT_LID_CLOSED);
 #endif
 		/* Go to S5 */
@@ -71,7 +70,7 @@ void mainboard_smi_gpi(u32 gpi_sts)
 	else if (gpi_sts & (1 << EC_LID_GPI)) {
 		printk(BIOS_DEBUG, "LID CLOSED, SHUTDOWN\n");
 
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 		elog_add_event_byte(ELOG_TYPE_EC_EVENT, EC_EVENT_LID_CLOSED);
 #endif
 		/* Go to S5 */

@@ -18,15 +18,12 @@
 //#define SYSTEM_TYPE 2	/* MOBILE */
 
 #include <stdint.h>
-#include <string.h>
 #include <device/pci_def.h>
-#include <arch/io.h>
 #include <arch/cpu.h>
 #include <cpu/x86/lapic.h>
 #include <console/console.h>
 #include <timestamp.h>
 #include <cpu/amd/model_10xxx_rev.h>
-#include <commonlib/loglevel.h>
 #include <cpu/x86/bist.h>
 #include <superio/ite/common/ite.h>
 #include <superio/ite/it8721f/it8721f.h>
@@ -48,13 +45,8 @@
 
 #define SERIAL_DEV PNP_DEV(0x4e, IT8721F_SP1)
 
-void activate_spd_rom(const struct mem_controller *ctrl);
 int spd_read_byte(unsigned int device, unsigned int address);
-extern struct sys_info sysinfo_car;
 
-void activate_spd_rom(const struct mem_controller *ctrl)
-{
-}
 
 int spd_read_byte(u32 device, u32 address)
 {
@@ -64,7 +56,7 @@ int spd_read_byte(u32 device, u32 address)
 
 void cache_as_ram_main(unsigned long bist, unsigned long cpu_init_detectedx)
 {
-	struct sys_info *sysinfo = &sysinfo_car;
+	struct sys_info *sysinfo = get_sysinfo();
 	static const u8 spd_addr[] = {RC00, DIMM0, DIMM2, 0, 0, DIMM1, DIMM3, 0, 0, };
 	u32 bsp_apicid = 0, val;
 	msr_t msr;
@@ -138,7 +130,7 @@ void cache_as_ram_main(unsigned long bist, unsigned long cpu_init_detectedx)
 	 */
 	wait_all_core0_started();
 
-#if IS_ENABLED(CONFIG_LOGICAL_CPUS)
+#if CONFIG(LOGICAL_CPUS)
 	/* Core0 on each node is configured. Now setup any additional cores. */
 	printk(BIOS_DEBUG, "start_other_cores()\n");
 	start_other_cores(bsp_apicid);
@@ -152,7 +144,7 @@ void cache_as_ram_main(unsigned long bist, unsigned long cpu_init_detectedx)
 	rs780_early_setup();
 	sb800_early_setup();
 
-#if IS_ENABLED(CONFIG_SET_FIDVID)
+#if CONFIG(SET_FIDVID)
 	msr = rdmsr(MSR_COFVID_STS);
 	printk(BIOS_DEBUG, "\nBegin FIDVID MSR 0xc0010071 0x%08x 0x%08x\n", msr.hi, msr.lo);
 	post_code(0x39);

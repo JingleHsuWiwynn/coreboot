@@ -13,11 +13,16 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#define __SIMPLE_DEVICE__
+
 #include <cbmem.h>
+#include <cpu/x86/smm.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <soc/pci_devs.h>
 #include <soc/systemagent.h>
+#include <soc/smm.h>
+#include <stdint.h>
 
 static uintptr_t dpr_region_start(void)
 {
@@ -39,4 +44,15 @@ static uintptr_t dpr_region_start(void)
 void *cbmem_top(void)
 {
 	return (void *) dpr_region_start();
+}
+
+void smm_region(uintptr_t *start, size_t *size)
+{
+	uintptr_t tseg = pci_read_config32(PCI_DEV(0, 0, 0), TSEG);
+	uintptr_t bgsm = pci_read_config32(PCI_DEV(0, 0, 0), BGSM);
+
+	tseg = ALIGN_DOWN(tseg, 1 * MiB);
+	bgsm = ALIGN_DOWN(bgsm, 1 * MiB);
+	*start = tseg;
+	*size = bgsm - tseg;
 }

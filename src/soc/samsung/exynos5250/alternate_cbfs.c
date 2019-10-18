@@ -13,16 +13,12 @@
  * GNU General Public License for more details.
  */
 
-
-#include <assert.h>
 #include <boot_device.h>
-#include <cbfs.h>  /* This driver serves as a CBFS media source. */
 #include <console/console.h>
 #include <soc/alternate_cbfs.h>
 #include <soc/power.h>
 #include <soc/spi.h>
 #include <stdlib.h>
-#include <string.h>
 #include <symbols.h>
 
 /* This allows USB A-A firmware upload from a compatible host in four parts:
@@ -39,12 +35,14 @@
  * should contain all available stages/payloads/etc. It is loaded when this
  * function is called a second time at the end of the romstage, and copied to
  * the romstage/ramstage CBFS cache in DRAM. It will reside there for the
- * rest of the firmware's lifetime and all subsequent stages (which will not
- * have __PRE_RAM__ defined) can just directly reference it there.
+ * rest of the firmware's lifetime and all subsequent stages can just directly
+ * reference it there.
  */
 static int usb_cbfs_open(void)
 {
-#ifdef __PRE_RAM__
+	if (!ENV_ROMSTAGE_OR_BEFORE)
+		return 0;
+
 	static int first_run = 1;
 	int (*irom_load_usb)(void) = *irom_load_image_from_usb_ptr;
 
@@ -65,7 +63,6 @@ static int usb_cbfs_open(void)
 	printk(BIOS_DEBUG, "USB A-A transfer successful, CBFS image should now"
 		" be at %p\n", _cbfs_cache);
 	first_run = 0;
-#endif
 	return 0;
 }
 
@@ -79,7 +76,9 @@ static int usb_cbfs_open(void)
  */
 static int sdmmc_cbfs_open(void)
 {
-#ifdef __PRE_RAM__
+	if (!ENV_ROMSTAGE_OR_BEFORE)
+		return 0;
+
 	/*
 	 * In the bootblock, we just copy the small part that fits in the buffer
 	 * and hope that it's enough (since the romstage is currently always the
@@ -88,7 +87,7 @@ static int sdmmc_cbfs_open(void)
 	 * figuring out the true image size from in here. Since this is mainly a
 	 * developer/debug boot mode, those shortcomings should be bearable.
 	 */
-	const u32 count = _cbfs_cache_size / 512;
+	const u32 count = REGION_SIZE(cbfs_cache) / 512;
 	static int first_run = 1;
 	int (*irom_load_sdmmc)(u32 start, u32 count, void *dst) =
 		*irom_sdmmc_read_blocks_ptr;
@@ -104,7 +103,6 @@ static int sdmmc_cbfs_open(void)
 	printk(BIOS_DEBUG, "SDMMC read successful, CBFS image should now be"
 		" at %p\n", _cbfs_cache);
 	first_run = 0;
-#endif
 	return 0;
 }
 
@@ -131,7 +129,7 @@ const struct region_device *boot_device_ro(void)
 void boot_device_init(void)
 {
 	mem_region_device_ro_init(&alternate_rdev, _cbfs_cache,
-			_cbfs_cache_size);
+			REGION_SIZE(cbfs_cache));
 
 	if (*iram_secondary_base == SECONDARY_BASE_BOOT_USB) {
 		printk(BIOS_DEBUG, "Using Exynos alternate boot mode USB A-A\n");

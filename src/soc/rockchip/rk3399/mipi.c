@@ -13,21 +13,20 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
-#include <assert.h>
+#include <device/mmio.h>
 #include <console/console.h>
 #include <delay.h>
 #include <device/device.h>
 #include <edid.h>
 #include <gpio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include <soc/addressmap.h>
 #include <soc/clock.h>
 #include <soc/display.h>
 #include <soc/mipi.h>
 #include <soc/soc.h>
+#include <types.h>
 #include <timer.h>
 
 static struct rk_mipi_dsi rk_mipi[2] = {
@@ -306,7 +305,7 @@ static int rk_mipi_dsi_get_lane_bps(struct rk_mipi_dsi *dsi,
 		       dsi->format);
 		return bpp;
 	}
-	pclk = edid->mode.pixel_clock * MSECS_PER_SEC;
+	pclk = (u64)edid->mode.pixel_clock * MSECS_PER_SEC;
 
 	/* take 1 / 0.8, since mbps must bigger than bandwidth of RGB */
 	target_bps = pclk / panel_data->lanes * bpp / 8 * 10;

@@ -15,19 +15,20 @@
  */
 
 #include <stdint.h>
-#include <string.h>
 #include <arch/io.h>
+#include <cf9_reset.h>
+#include <delay.h>
+#include <device/pnp_ops.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <cpu/x86/lapic.h>
-#include <arch/acpi.h>
 #include <pc80/mc146818rtc.h>
 #include <console/console.h>
-#include <cpu/x86/bist.h>
-#include <cpu/intel/romstage.h>
-#include <halt.h>
+#include <arch/romstage.h>
 #include <northbridge/intel/i945/i945.h>
 #include <northbridge/intel/i945/raminit.h>
 #include <southbridge/intel/i82801gx/i82801gx.h>
+#include <southbridge/intel/common/pmclib.h>
 #include "option_table.h"
 
 static void setup_special_ich7_gpios(void)
@@ -89,13 +90,6 @@ static void pnp_exit_ext_func_mode(pnp_devfn_t dev)
 	outb(0xaa, port);
 }
 
-static void pnp_write_register(pnp_devfn_t dev, int reg, int val)
-{
-	unsigned int port = dev >> 8;
-	outb(reg, port);
-	outb(val, port+1);
-}
-
 static void early_superio_config(void)
 {
 	pnp_devfn_t dev;
@@ -103,40 +97,40 @@ static void early_superio_config(void)
 	dev = PNP_DEV(0x4e, 0x00);
 
 	pnp_enter_ext_func_mode(dev);
-	pnp_write_register(dev, 0x02, 0x0e); // UART power
-	pnp_write_register(dev, 0x1b, (0x3e8 >> 2)); // UART3 base
-	pnp_write_register(dev, 0x1c, (0x2e8 >> 2)); // UART4 base
-	pnp_write_register(dev, 0x1d, (5 << 4) | 11); // UART3,4 IRQ
-	pnp_write_register(dev, 0x1e, 1); // no 32khz clock
-	pnp_write_register(dev, 0x24, (0x3f8 >> 2)); // UART1 base
-	pnp_write_register(dev, 0x28, (4 << 4) | 0); // UART1,2 IRQ
-	pnp_write_register(dev, 0x2c, 0); // DMA0 FIR
-	pnp_write_register(dev, 0x30, (0x600 >> 4)); // Runtime Register Block Base
+	pnp_write_config(dev, 0x02, 0x0e); // UART power
+	pnp_write_config(dev, 0x1b, (0x3e8 >> 2)); // UART3 base
+	pnp_write_config(dev, 0x1c, (0x2e8 >> 2)); // UART4 base
+	pnp_write_config(dev, 0x1d, (5 << 4) | 11); // UART3,4 IRQ
+	pnp_write_config(dev, 0x1e, 1); // no 32khz clock
+	pnp_write_config(dev, 0x24, (0x3f8 >> 2)); // UART1 base
+	pnp_write_config(dev, 0x28, (4 << 4) | 0); // UART1,2 IRQ
+	pnp_write_config(dev, 0x2c, 0); // DMA0 FIR
+	pnp_write_config(dev, 0x30, (0x600 >> 4)); // Runtime Register Block Base
 
-	pnp_write_register(dev, 0x31, 0xce); // GPIO1 DIR
-	pnp_write_register(dev, 0x32, 0x00); // GPIO1 POL
-	pnp_write_register(dev, 0x33, 0x0f); // GPIO2 DIR
-	pnp_write_register(dev, 0x34, 0x00); // GPIO2 POL
-	pnp_write_register(dev, 0x35, 0xa8); // GPIO3 DIR
-	pnp_write_register(dev, 0x36, 0x00); // GPIO3 POL
-	pnp_write_register(dev, 0x37, 0xa8); // GPIO4 DIR
-	pnp_write_register(dev, 0x38, 0x00); // GPIO4 POL
+	pnp_write_config(dev, 0x31, 0xce); // GPIO1 DIR
+	pnp_write_config(dev, 0x32, 0x00); // GPIO1 POL
+	pnp_write_config(dev, 0x33, 0x0f); // GPIO2 DIR
+	pnp_write_config(dev, 0x34, 0x00); // GPIO2 POL
+	pnp_write_config(dev, 0x35, 0xa8); // GPIO3 DIR
+	pnp_write_config(dev, 0x36, 0x00); // GPIO3 POL
+	pnp_write_config(dev, 0x37, 0xa8); // GPIO4 DIR
+	pnp_write_config(dev, 0x38, 0x00); // GPIO4 POL
 
-	pnp_write_register(dev, 0x39, 0x00); // GPIO1 OUT
-	pnp_write_register(dev, 0x40, 0x80); // GPIO2/MISC OUT
-	pnp_write_register(dev, 0x41, 0x00); // GPIO5 OUT
-	pnp_write_register(dev, 0x42, 0xa8); // GPIO5 DIR
-	pnp_write_register(dev, 0x43, 0x00); // GPIO5 POL
-	pnp_write_register(dev, 0x44, 0x00); // GPIO ALT1
-	pnp_write_register(dev, 0x45, 0x50); // GPIO ALT2
-	pnp_write_register(dev, 0x46, 0x00); // GPIO ALT3
+	pnp_write_config(dev, 0x39, 0x00); // GPIO1 OUT
+	pnp_write_config(dev, 0x40, 0x80); // GPIO2/MISC OUT
+	pnp_write_config(dev, 0x41, 0x00); // GPIO5 OUT
+	pnp_write_config(dev, 0x42, 0xa8); // GPIO5 DIR
+	pnp_write_config(dev, 0x43, 0x00); // GPIO5 POL
+	pnp_write_config(dev, 0x44, 0x00); // GPIO ALT1
+	pnp_write_config(dev, 0x45, 0x50); // GPIO ALT2
+	pnp_write_config(dev, 0x46, 0x00); // GPIO ALT3
 
-	pnp_write_register(dev, 0x48, 0x55); // GPIO ALT5
-	pnp_write_register(dev, 0x49, 0x55); // GPIO ALT6
-	pnp_write_register(dev, 0x4a, 0x55); // GPIO ALT7
-	pnp_write_register(dev, 0x4b, 0x55); // GPIO ALT8
-	pnp_write_register(dev, 0x4c, 0x55); // GPIO ALT9
-	pnp_write_register(dev, 0x4d, 0x55); // GPIO ALT10
+	pnp_write_config(dev, 0x48, 0x55); // GPIO ALT5
+	pnp_write_config(dev, 0x49, 0x55); // GPIO ALT6
+	pnp_write_config(dev, 0x4a, 0x55); // GPIO ALT7
+	pnp_write_config(dev, 0x4b, 0x55); // GPIO ALT8
+	pnp_write_config(dev, 0x4c, 0x55); // GPIO ALT9
+	pnp_write_config(dev, 0x4d, 0x55); // GPIO ALT10
 
 	pnp_exit_ext_func_mode(dev);
 }
@@ -145,7 +139,6 @@ static void rcba_config(void)
 {
 	/* Set up virtual channel 0 */
 	//RCBA32(0x0014) = 0x80000001;
-	//RCBA32(0x001c) = 0x03128010;
 
 	/* Device 1f interrupt pin register */
 	RCBA32(D31IP) = 0x00042220;
@@ -204,46 +197,14 @@ static void early_ich7_init(void)
 	reg32 |= (1 << 31) | (1 << 27);
 	pci_write_config32(PCI_DEV(0, 0x1d, 7), 0xdc, reg32);
 
-	RCBA32(0x0088) = 0x0011d000;
-	RCBA16(0x01fc) = 0x060f;
-	RCBA32(0x01f4) = 0x86000040;
-	RCBA32(0x0214) = 0x10030549;
-	RCBA32(0x0218) = 0x00020504;
-	RCBA8(0x0220) = 0xc5;
-	reg32 = RCBA32(0x3410);
-	reg32 |= (1 << 6);
-	RCBA32(0x3410) = reg32;
-	reg32 = RCBA32(0x3430);
-	reg32 &= ~(3 << 0);
-	reg32 |= (1 << 0);
-	RCBA32(0x3430) = reg32;
-	RCBA16(0x0200) = 0x2008;
-	RCBA8(0x2027) = 0x0d;
-	RCBA16(0x3e08) |= (1 << 7);
-	RCBA16(0x3e48) |= (1 << 7);
-	RCBA32(0x3e0e) |= (1 << 7);
-	RCBA32(0x3e4e) |= (1 << 7);
-
-	// next step only on ich7m b0 and later:
-	reg32 = RCBA32(0x2034);
-	reg32 &= ~(0x0f << 16);
-	reg32 |= (5 << 16);
-	RCBA32(0x2034) = reg32;
+	ich7_setup_cir();
 }
 
-void mainboard_romstage_entry(unsigned long bist)
+void mainboard_romstage_entry(void)
 {
 	int s3resume = 0;
 
-	if (bist == 0)
-		enable_lapic();
-
-#if 0
-	/* Force PCIRST# */
-	pci_write_config16(PCI_DEV(0, 0x1e, 0), BCTRL, SBR);
-	udelay(200 * 1000);
-	pci_write_config16(PCI_DEV(0, 0x1e, 0), BCTRL, 0);
-#endif
+	enable_lapic();
 
 	ich7_enable_lpc();
 	early_superio_config();
@@ -251,13 +212,9 @@ void mainboard_romstage_entry(unsigned long bist)
 	/* Set up the console */
 	console_init();
 
-	/* Halt if there was a built in self test failure */
-	report_bist_failure(bist);
-
 	if (MCHBAR16(SSKPD) == 0xCAFE) {
 		printk(BIOS_DEBUG, "soft reset detected, rebooting properly\n");
-		outb(0x6, 0xcf9);
-		halt();
+		system_reset();
 	}
 
 	/* Perform some early chipset initialization required
@@ -272,9 +229,8 @@ void mainboard_romstage_entry(unsigned long bist)
 	/* Enable SPD ROMs and DDR-II DRAM */
 	enable_smbus();
 
-#if CONFIG_DEFAULT_CONSOLE_LOGLEVEL > 8
-	dump_spd_registers();
-#endif
+	if (CONFIG(DEBUG_RAM_SETUP))
+		dump_spd_registers();
 
 	sdram_initialize(s3resume ? 2 : 0, NULL);
 

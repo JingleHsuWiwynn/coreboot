@@ -19,15 +19,13 @@
  * Designware High-Definition Multimedia Interface (HDMI) driveG
  */
 
-#include <arch/io.h>
-#include <assert.h>
+#include <device/mmio.h>
 #include <console/console.h>
 #include <delay.h>
 #include <edid.h>
 #include <gpio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
 #include <soc/addressmap.h>
 #include <soc/hdmi.h>
 #include <soc/grf.h>

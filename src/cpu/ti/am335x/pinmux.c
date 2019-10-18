@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2013 Texas Instruments Incorporated - http://www.ti.com/
- * Copyright (C) 2013 Google Inc.
+ * This file is part of the coreboot project.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -15,7 +14,7 @@
 
 #include "pinmux.h"
 
-#include <arch/io.h>
+#include <device/mmio.h>
 
 static struct am335x_pinmux_regs *regs =
 	(struct am335x_pinmux_regs *)(uintptr_t)AM335X_PINMUX_REG_ADDR;

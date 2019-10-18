@@ -15,8 +15,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
-#include <delay.h>
+#include <device/pci_ops.h>
 #include <device/device.h>
 #include <string.h>
 #include <device/pci.h>
@@ -60,7 +59,7 @@ static size_t generate_vbt(const struct i915_gpu_controller_info *const conf,
 	genfeat->flexaim = 1;
 	genfeat->download_ext_vbt = 1;
 	genfeat->enable_ssc = conf->use_spread_spectrum_clock;
-	genfeat->ssc_freq = IS_ENABLED(CONFIG_INTEL_GMA_SSC_ALTERNATE_REF);
+	genfeat->ssc_freq = CONFIG(INTEL_GMA_SSC_ALTERNATE_REF);
 	genfeat->rsvd10 = 0x4;
 	genfeat->legacy_monitor_detect = 1;
 	genfeat->int_crt_support = 1;

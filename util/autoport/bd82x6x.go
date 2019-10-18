@@ -28,7 +28,7 @@ func (b bd82x6x) writeGPIOSet(ctx Context, sb *os.File,
 	}
 
 	for i := uint(0); i < max; i++ {
-		if ((constraint>>i)&1 == 1) {
+		if (constraint>>i)&1 == 1 {
 			fmt.Fprintf(sb, "	.gpio%d = %s,\n",
 				(set-1)*32+i,
 				bits[partno][(val>>i)&1])
@@ -181,12 +181,6 @@ func (b bd82x6x) Scan(ctx Context, addr PCIDevData) {
 	}
 	KconfigComment["DRAM_RESET_GATE_GPIO"] = "FIXME: check this"
 
-	/* Not strictly speaking correct. These subsys/subvendor referer to PCI devices.
-	   But most systems don't have any of those. But the config needs to be set
-	   nevertheless. So set it to southbridge subsys/subvendor.  */
-	KconfigHex["MAINBOARD_PCI_SUBSYSTEM_VENDOR_ID"] = uint32(GetLE16(addr.ConfigDump[0x2c:0x2e]))
-	KconfigHex["MAINBOARD_PCI_SUBSYSTEM_DEVICE_ID"] = uint32(GetLE16(addr.ConfigDump[0x2e:0x30]))
-
 	ich9GetFlashSize(ctx)
 
 	DSDTDefines = append(DSDTDefines,
@@ -239,11 +233,10 @@ func (b bd82x6x) Scan(ctx Context, addr PCIDevData) {
 
 			"sata_port_map": fmt.Sprintf("0x%x", PCIMap[PCIAddr{Bus: 0, Dev: 0x1f, Func: 2}].ConfigDump[0x92]&0x3f),
 
-			"p_cnt_throttling_supported": (FormatBool(FADT[104] == 1 && FADT[105] == 3)),
 			"c2_latency":                 FormatHexLE16(FADT[96:98]),
 			"docking_supported":          (FormatBool((FADT[113] & (1 << 1)) != 0)),
-			"spi_uvscc": fmt.Sprintf("0x%x", inteltool.RCBA[0x38c8]),
-			"spi_lvscc": fmt.Sprintf("0x%x", inteltool.RCBA[0x38c4] &^ (1 << 23)),
+			"spi_uvscc":                  fmt.Sprintf("0x%x", inteltool.RCBA[0x38c8]),
+			"spi_lvscc":                  fmt.Sprintf("0x%x", inteltool.RCBA[0x38c4]&^(1<<23)),
 		},
 		PCISlots: []PCISlot{
 			PCISlot{PCIAddr: PCIAddr{Dev: 0x14, Func: 0}, writeEmpty: false, additionalComment: "USB 3.0 Controller"},
@@ -302,32 +295,25 @@ func (b bd82x6x) Scan(ctx Context, addr PCIDevData) {
 	sb := Create(ctx, "romstage.c")
 	defer sb.Close()
 	Add_gpl(sb)
-	sb.WriteString(`#include <stdint.h>
+	sb.WriteString(`/* FIXME: Check if all includes are needed. */
+
+#include <stdint.h>
 #include <string.h>
-#include <lib.h>
 #include <timestamp.h>
 #include <arch/byteorder.h>
-#include <arch/io.h>
-#include <device/pci_def.h>
-#include <device/pnp_def.h>
-#include <cpu/x86/lapic.h>
-#include <arch/acpi.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
+#include <device/pnp_ops.h>
 #include <console/console.h>
 #include <northbridge/intel/sandybridge/sandybridge.h>
 #include <northbridge/intel/sandybridge/raminit_native.h>
 #include <southbridge/intel/bd82x6x/pch.h>
 #include <southbridge/intel/common/gpio.h>
-#include <arch/cpu.h>
-#include <cpu/x86/msr.h>
 
 void pch_enable_lpc(void)
 {
 `)
 	RestorePCI16Simple(sb, addr, 0x82)
-	RestorePCI32Simple(sb, addr, 0x84)
-	RestorePCI32Simple(sb, addr, 0x88)
-	RestorePCI32Simple(sb, addr, 0x8c)
-	RestorePCI32Simple(sb, addr, 0x90)
 
 	RestorePCI16Simple(sb, addr, 0x80)
 
@@ -430,12 +416,11 @@ func init() {
 
 	/* PCIe bridge */
 	for _, id := range []uint16{
-		0x0151, 0x0155, 0x1c10, 0x1c12,
-		0x1c14, 0x1c16, 0x1c18, 0x1c1a,
-		0x1c1c, 0x1c1e, 0x1e10, 0x1e12,
-		0x1e14, 0x1e16, 0x1e18, 0x1e1a,
-		0x1e1c, 0x1e1e, 0x1e25, 0x244e,
-		0x2448,
+		0x1c10, 0x1c12, 0x1c14, 0x1c16,
+		0x1c18, 0x1c1a, 0x1c1c, 0x1c1e,
+		0x1e10, 0x1e12, 0x1e14, 0x1e16,
+		0x1e18, 0x1e1a, 0x1e1c, 0x1e1e,
+		0x1e25, 0x244e, 0x2448,
 	} {
 		RegisterPCI(0x8086, id, GenericPCI{})
 	}

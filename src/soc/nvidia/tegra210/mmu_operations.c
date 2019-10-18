@@ -17,13 +17,12 @@
 #include <assert.h>
 #include <soc/addressmap.h>
 #include <soc/mmu_operations.h>
-#include <stdlib.h>
-#include <stdint.h>
 #include <symbols.h>
+#include <types.h>
 
 static void tegra210_mmu_config(void)
 {
-	uint64_t start,end;
+	uintptr_t start, end;
 	const unsigned long devmem = MA_DEV | MA_S | MA_RW;
 	const unsigned long cachedmem = MA_MEM | MA_NS | MA_RW;
 	const unsigned long secure_mem = MA_MEM | MA_S | MA_RW;
@@ -45,7 +44,7 @@ static void tegra210_mmu_config(void)
 	mmu_config_range((void *)(start * MiB), (end-start) * MiB, cachedmem);
 
 	/* SRAM */
-	mmu_config_range(_sram, _sram_size, cachedmem);
+	mmu_config_range(_sram, REGION_SIZE(sram), cachedmem);
 
 	/* Add TZ carveout. */
 	carveout_range(CARVEOUT_TZ, &tz_base_mib, &tz_size_mib);
@@ -89,8 +88,8 @@ void tegra210_mmu_init(void)
 	 *
 	 */
 	carveout_range(CARVEOUT_TZ, &tz_base_mib, &tz_size_mib);
-	assert((uintptr_t)_ttb + _ttb_size == (tz_base_mib + tz_size_mib) * MiB
-		&& _ttb_size <= tz_size_mib * MiB);
+	assert((uintptr_t)_ttb + REGION_SIZE(ttb) == (tz_base_mib + tz_size_mib)
+		* MiB && REGION_SIZE(ttb) <= tz_size_mib * MiB);
 
 	mmu_enable();
 }

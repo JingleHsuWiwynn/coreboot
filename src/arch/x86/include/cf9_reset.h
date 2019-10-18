@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2017 Intel Corp.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -27,7 +25,7 @@ void do_system_reset(void);
 void do_full_reset(void);
 
 /* Called by functions below before reset. */
-#if IS_ENABLED(CONFIG_HAVE_CF9_RESET_PREPARE)
+#if CONFIG(HAVE_CF9_RESET_PREPARE)
 void cf9_reset_prepare(void);
 #else
 static inline void cf9_reset_prepare(void) {}

@@ -15,13 +15,10 @@
  */
 
 #include <stdint.h>
-#include <string.h>
-#include <timestamp.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <cpu/x86/lapic.h>
 #include <pc80/mc146818rtc.h>
-#include <arch/acpi.h>
 #include <console/console.h>
 #include <bootmode.h>
 #include <superio/ite/common/ite.h>
@@ -31,13 +28,12 @@
 #include <northbridge/intel/sandybridge/raminit_native.h>
 #include <southbridge/intel/bd82x6x/pch.h>
 #include <southbridge/intel/common/gpio.h>
-#include <halt.h>
-#if IS_ENABLED(CONFIG_DRIVERS_UART_8250IO)
+#if CONFIG(DRIVERS_UART_8250IO)
 #include <superio/smsc/lpc47n207/lpc47n207.h>
 #endif
 
 /* Stumpy USB Reset Disable defined in cmos.layout */
-#if IS_ENABLED(CONFIG_USE_OPTION_TABLE)
+#if CONFIG(USE_OPTION_TABLE)
 #include "option_table.h"
 #define CMOS_USB_RESET_DISABLE  (CMOS_VSTART_stumpy_usb_reset_disable >> 3)
 #else
@@ -54,13 +50,10 @@ void pch_enable_lpc(void)
 	/* Set COM1/COM2 decode range */
 	pci_write_config16(PCH_LPC_DEV, LPC_IO_DEC, 0x0010);
 
-#if IS_ENABLED(CONFIG_DRIVERS_UART_8250IO)
+#if CONFIG(DRIVERS_UART_8250IO)
 	/* Enable SuperIO + PS/2 Keyboard/Mouse + COM1 + lpc47n207 config*/
 	pci_write_config16(PCH_LPC_DEV, LPC_EN, CNF1_LPC_EN | KBC_LPC_EN |\
 			   CNF2_LPC_EN | COMA_LPC_EN);
-
-	/* map full 256 bytes at 0x1600 to the LPC bus */
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN1_DEC, 0xfc1601);
 
 	try_enabling_LPC47N207_uart();
 #else

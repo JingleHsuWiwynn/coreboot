@@ -1,8 +1,6 @@
 ##
 ## This file is part of the coreboot project.
 ##
-## Copyright (C) 2009-2010 coresystems GmbH
-##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
 ## the Free Software Foundation; version 2 of the License.
@@ -80,6 +78,13 @@ config AP_IN_SIPI_WAIT
 	bool
 	default n
 	depends on ARCH_X86 && SMP
+
+config RESET_VECTOR_IN_RAM
+	bool
+	depends on ARCH_X86
+	help
+	  Select this option if the x86 soc implements custom code to handle the
+	  reset vector in RAM instead of the traditional 0xfffffff0 location.
 
 # Aligns 16bit entry code in bootblock so that hyper-threading CPUs
 # can boot AP CPUs to enable their shared caches.
@@ -222,8 +227,9 @@ config VERSTAGE_ADDR
 # Use the post CAR infrastructure for tearing down cache-as-ram
 # from a program loaded in RAM and subsequently loading ramstage.
 config POSTCAR_STAGE
-	def_bool n
-	select NO_CAR_GLOBAL_MIGRATION
+	def_bool y
+	depends on ARCH_X86
+	depends on !CAR_GLOBAL_MIGRATION
 
 config VERSTAGE_DEBUG_SPINLOOP
 	bool
@@ -239,14 +245,17 @@ config ROMSTAGE_DEBUG_SPINLOOP
 	  Add a spin (JMP .) in assembly_entry.S during early romstage to wait
 	  for a JTAG debugger to break into the execution sequence.
 
+# Selecting a cbfs prefix from the bootblock is only implemented with romcc
 choice
 	prompt "Bootblock behaviour"
 	default BOOTBLOCK_SIMPLE
+	depends on !C_ENVIRONMENT_BOOTBLOCK
 
 config BOOTBLOCK_SIMPLE
 	bool "Always load fallback"
 
 config BOOTBLOCK_NORMAL
+	select CONFIGURABLE_CBFS_PREFIX
 	bool "Switch to normal if CMOS says so"
 
 endchoice
@@ -264,6 +273,14 @@ config SKIP_MAX_REBOOT_CNT_CLEAR
 	  Set to allow the payload to control normal/fallback image recovery.
 	  Note that it is the responsibility of the payload to reset the
 	  normal boot bit to 1 after each successful boot.
+
+config ACPI_NO_PCAT_8259
+	bool
+	help
+	  Selected by platforms that don't expose a PC/AT 8259 PIC pair.
+
+config ACPI_HAVE_PCAT_8259
+	def_bool y if !ACPI_NO_PCAT_8259
 
 config ACPI_CPU_STRING
 	string
@@ -318,3 +335,19 @@ config HAVE_CF9_RESET
 config HAVE_CF9_RESET_PREPARE
 	bool
 	depends on HAVE_CF9_RESET
+
+config PIRQ_ROUTE
+	bool
+	default n
+
+config MAX_PIRQ_LINKS
+	int
+	default 4
+	depends on PIRQ_ROUTE
+	help
+	  This variable specifies the number of PIRQ interrupt links which are
+	  routable. On most chipsets, this is 4, INTA through INTD. Some
+	  chipsets offer more than four links, commonly up to INTH. They may
+	  also have a separate link for ATA or IOAPIC interrupts. When the PIRQ
+	  table specifies links greater than 4, pirq_route_irqs will not
+	  function properly, unless this variable is correctly set.

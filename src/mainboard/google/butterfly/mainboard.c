@@ -15,7 +15,6 @@
  */
 
 #include <types.h>
-#include <string.h>
 #include <cbfs.h>
 #include <device/device.h>
 #include <device/pci_def.h>
@@ -25,7 +24,6 @@
 #include <fmap.h>
 #include <arch/acpi.h>
 #include <arch/io.h>
-#include <arch/interrupt.h>
 #include <boot/coreboot_tables.h>
 #include "onboard.h"
 #include "ec.h"
@@ -188,7 +186,7 @@ static void mainboard_init(struct device *dev)
 	struct device *ethernet_dev = NULL;
 	void *vpd_file;
 
-	if (IS_ENABLED(CONFIG_CHROMEOS)) {
+	if (CONFIG(CHROMEOS)) {
 		struct region_device rdev;
 
 		if (fmap_locate_area_as_rdev("RO_VPD", &rdev) == 0) {
@@ -265,7 +263,8 @@ static int butterfly_onboard_smbios_data(struct device *dev, int *handle,
 		0,				/* segment */
 		BOARD_TRACKPAD_I2C_ADDR,	/* bus */
 		0,				/* device */
-		0);				/* function */
+		0,				/* function */
+		SMBIOS_DEVICE_TYPE_OTHER);	/* device type */
 
 	return len;
 }

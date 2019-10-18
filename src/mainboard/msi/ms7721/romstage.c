@@ -16,6 +16,8 @@
  */
 
 #include <arch/io.h>
+#include <device/pnp_ops.h>
+#include <device/pci_ops.h>
 #include <device/pnp.h>
 #include <stdint.h>
 
@@ -115,9 +117,9 @@ void board_BeforeAgesa(struct sysinfo *cb)
 	u8 byte;
 	pci_devfn_t dev;
 
-	if (IS_ENABLED(CONFIG_POST_DEVICE_PCI_PCIE))
+	if (CONFIG(POST_DEVICE_PCI_PCIE))
 		hudson_pci_port80();
-	else if (IS_ENABLED(CONFIG_POST_DEVICE_LPC))
+	else if (CONFIG(POST_DEVICE_LPC))
 		hudson_lpc_port80();
 
 	/* enable SIO LPC decode */

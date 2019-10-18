@@ -15,9 +15,7 @@
  */
 
 #include <stdint.h>
-#include <string.h>
-#include <timestamp.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <cpu/x86/lapic.h>
 #include <arch/acpi.h>
@@ -26,8 +24,7 @@
 #include <northbridge/intel/sandybridge/raminit_native.h>
 #include <southbridge/intel/bd82x6x/pch.h>
 #include <southbridge/intel/common/gpio.h>
-#include <halt.h>
-#if IS_ENABLED(CONFIG_CHROMEOS)
+#if CONFIG(CHROMEOS)
 #include <vendorcode/google/chromeos/chromeos.h>
 #endif
 
@@ -36,13 +33,6 @@ void pch_enable_lpc(void)
 	/* EC Decode Range Port60/64 and Port62/66 */
 	/* Enable EC and PS/2 Keyboard/Mouse*/
 	pci_write_config16(PCH_LPC_DEV, LPC_EN, KBC_LPC_EN | MC_LPC_EN);
-
-	/* EC Decode Range Port68/6C */
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN1_DEC, (0x68 & ~3) | 0x40001);
-
-	/* EC Decode Range Port 380-387 */
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN2_DEC, 0x380 | 0x40001);
-
 }
 
 void mainboard_rcba_config(void)

@@ -1,15 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2003-2004 Linux Networx
- * (Written by Eric Biederman <ebiederman@lnxi.com> for Linux Networx)
- * Copyright (C) 2004 David Hendricks <sc@flagen.com>
- * Copyright (C) 2004 Li-Ta Lo <ollie@lanl.gov>
- * Copyright (C) 2005-2006 Tyan
- * (Written by Yinghai Lu <yhlu@tyan.com> for Tyan)
- * Copyright (C) 2005-2006 Stefan Reinauer <stepan@openbios.org>
- * Copyright (C) 2015 Timothy Pearson <tpearson@raptorengineeringinc.com>, Raptor Engineering
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -24,6 +15,7 @@
 #include <device/device.h>
 #include <device/path.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <device/pci_ids.h>
 #include <device/hypertransport.h>
 
@@ -290,7 +282,6 @@ static unsigned int do_hypertransport_scan_chain(struct bus *bus, unsigned min_d
 	prev.freq_cap_off = PCI_HT_CAP_HOST_FREQ_CAP;
 
 	/* If present, assign unitid to a hypertransport chain. */
-	last_unitid = min_unitid -1;
 	max_unitid = next_unitid = min_unitid;
 	do {
 		u8 pos;

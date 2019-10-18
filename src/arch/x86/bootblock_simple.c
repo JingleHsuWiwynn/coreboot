@@ -22,17 +22,12 @@ static void main(unsigned long bist)
 		bootblock_mainboard_init();
 
 		sanitize_cmos();
-#if IS_ENABLED(CONFIG_CMOS_POST)
+#if CONFIG(CMOS_POST)
 		cmos_post_init();
 #endif
 	}
 
-#if IS_ENABLED(CONFIG_VBOOT_SEPARATE_VERSTAGE)
-	const char *target1 = "fallback/verstage";
-#else
 	const char *target1 = "fallback/romstage";
-#endif
-
 	unsigned long entry;
 	entry = findstage(target1);
 	if (entry)

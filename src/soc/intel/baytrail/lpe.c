@@ -13,7 +13,8 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <cbmem.h>
 #include <console/console.h>
 #include <device/device.h>
@@ -90,7 +91,7 @@ static void setup_codec_clock(struct device *dev)
 	struct soc_intel_baytrail_config *config;
 	const char *freq_str;
 
-	config = dev->chip_info;
+	config = config_of(dev);
 	switch (config->lpe_codec_clk_freq) {
 	case 19:
 		freq_str = "19.2";
@@ -149,7 +150,7 @@ static void lpe_stash_firmware_info(struct device *dev)
 
 static void lpe_init(struct device *dev)
 {
-	struct soc_intel_baytrail_config *config = dev->chip_info;
+	struct soc_intel_baytrail_config *config = config_of(dev);
 
 	lpe_stash_firmware_info(dev);
 

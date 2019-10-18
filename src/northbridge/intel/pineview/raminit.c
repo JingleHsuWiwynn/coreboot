@@ -14,11 +14,12 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <cf9_reset.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <cpu/x86/cache.h>
 #include <delay.h>
-#include <halt.h>
 #include <lib.h>
 #include "pineview.h"
 #include "raminit.h"
@@ -26,7 +27,7 @@
 #include <string.h>
 
 /* Debugging macros. */
-#if IS_ENABLED(CONFIG_DEBUG_RAM_SETUP)
+#if CONFIG(DEBUG_RAM_SETUP)
 #define PRINTK_DEBUG(x...)	printk(BIOS_DEBUG, x)
 #else
 #define PRINTK_DEBUG(x...)
@@ -132,7 +133,7 @@ static int decode_spd(struct dimminfo *d, int i)
 	d->tRCD = d->spd_data[29];
 	d->tWR = d->spd_data[36];
 	d->ranks = d->sides; // XXX
-#if IS_ENABLED(CONFIG_DEBUG_RAM_SETUP)
+#if CONFIG(DEBUG_RAM_SETUP)
 	const char *ubso[2] = { "UB", "SO" };
 #endif
 	PRINTK_DEBUG("%s-DIMM %d\n", &ubso[d->type][0], i);
@@ -309,7 +310,7 @@ static void sdram_read_spds(struct sysinfo *s)
 	}
 }
 
-#if IS_ENABLED(CONFIG_DEBUG_RAM_SETUP)
+#if CONFIG(DEBUG_RAM_SETUP)
 static u32 fsb_reg_to_mhz(u32 speed)
 {
 	return (speed * 133) + 667;
@@ -325,18 +326,24 @@ static u32 ddr_reg_to_mhz(u32 speed)
 }
 #endif
 
-static u8 lsbpos(u8 val) //Forward
+// Return the position of the least significant set bit, 0-indexed.
+// 0 does not have a lsb, so return -1 for error.
+static int lsbpos(u8 val)
 {
-	u8 i;
-	for (i = 0; (i < 8) && ((val & (1 << i)) == 0); i++);
-	return i;
+	for (int i = 0; i < 8; i++)
+		if (val & (1 << i))
+			return i;
+	return -1;
 }
 
-static u8 msbpos(u8 val) //Reverse
+// Return the position of the most significant set bit, 0-indexed.
+// 0 does not have a msb, so return -1 for error.
+static int msbpos(u8 val)
 {
-	u8 i;
-	for (i = 7; (i >= 0) && ((val & (1 << i)) == 0); i--);
-	return i;
+	for (int i = 7; i >= 0; i--)
+		if (val & (1 << i))
+			return i;
+	return -1;
 }
 
 static void sdram_detect_smallest_params(struct sysinfo *s)
@@ -442,10 +449,14 @@ static void sdram_detect_ram_speed(struct sysinfo *s)
 		die("No common CAS among dimms\n");
 	}
 
+	// commoncas is nonzero, so these calls will not error
+	u8 msbp = (u8)msbpos(commoncas);
+	u8 lsbp = (u8)lsbpos(commoncas);
+
 	// Start with fastest common CAS
 	cas = 0;
-	highcas = msbpos(commoncas);
-	lowcas = max(lsbpos(commoncas), 5);
+	highcas = msbp;
+	lowcas = max(lsbp, 5);
 
 	while (cas == 0 && highcas >= lowcas) {
 		FOR_EACH_POPULATED_DIMM(s->dimms, i) {
@@ -483,32 +494,16 @@ static void sdram_detect_ram_speed(struct sysinfo *s)
 			die("Timings not supported by MCH\n");
 		}
 		cas = 0;
-		highcas = msbpos(commoncas);
-		lowcas = lsbpos(commoncas);
+		highcas = msbp;
+		lowcas = lsbp;
 		while (cas == 0 && highcas >= lowcas) {
 			FOR_EACH_POPULATED_DIMM(s->dimms, i) {
-				switch (freq) {
-				case MEM_CLOCK_800MHz:
-					if ((s->dimms[i].spd_data[9] > 0x25) ||
-					    (s->dimms[i].spd_data[10] > 0x40)) {
-						// CAS too fast, lower it
-						highcas--;
-						break;
-					} else {
-						cas = highcas;
-					}
-					break;
-				case MEM_CLOCK_667MHz:
-				default:
-					if ((s->dimms[i].spd_data[9] > 0x30) ||
-					    (s->dimms[i].spd_data[10] > 0x45)) {
-						// CAS too fast, lower it
-						highcas--;
-						break;
-					} else {
-						cas = highcas;
-					}
-					break;
+				if ((s->dimms[i].spd_data[9] > 0x30) ||
+				    (s->dimms[i].spd_data[10] > 0x45)) {
+					// CAS too fast, lower it
+					highcas--;
+				} else {
+					cas = highcas;
 				}
 			}
 		}
@@ -557,10 +552,12 @@ static void sdram_detect_ram_speed(struct sysinfo *s)
 static void enable_hpet(void)
 {
 	u32 reg32;
-	reg32 = RCBA32(0x3404);
+	reg32 = RCBA32(HPTC);
 	reg32 &= ~0x3;
 	reg32 |= (1 << 7);
-	RCBA32(0x3404) = reg32;
+	RCBA32(HPTC) = reg32;
+	/* On NM10 this only works if read back */
+	RCBA32(HPTC);
 	HPET32(0x10) = HPET32(0x10) | 1;
 }
 
@@ -1130,16 +1127,7 @@ static void sdram_dlltiming(struct sysinfo *s)
 
 	MCHBAR8(0x1a8) = MCHBAR8(0x1a8) | 1;
 	MCHBAR32(0x1a0) = 0x551803;
-	if (ONLY_DIMMA_IS_POPULATED(s->dimms, 0)) {
-		reg8 = 0x3c;
-	} else if (ONLY_DIMMB_IS_POPULATED(s->dimms, 0)) {
-		reg8 = 0x27;
-	} else if (BOTH_DIMMS_ARE_POPULATED(s->dimms, 0)) {
-		reg8 = 0x24;
-	} else {
-		// None
-		reg8 = 0x3f;
-	}
+
 	reg8 = 0x00; //switch all clocks on anyway
 
 	MCHBAR32(0x5a0) = (MCHBAR32(0x5a0) & ~0x3f000000) | (reg8 << 24);
@@ -1162,7 +1150,7 @@ static void sdram_dlltiming(struct sysinfo *s)
 
 static void sdram_rcomp(struct sysinfo *s)
 {
-	u8 i, j, reg8, f, rcompp, rcompn, srup, srun;
+	u8 i, j, reg8, rcompp, rcompn, srup, srun;
 	u16 reg16;
 	u32 reg32, rcomp1, rcomp2;
 
@@ -1252,10 +1240,8 @@ static void sdram_rcomp(struct sysinfo *s)
 	srun = 0;
 
 	if (s->selected_timings.mem_clock == MEM_CLOCK_667MHz) {
-		f = 0;
 		rcomp1 = 0x00050431;
 	} else {
-		f = 1;
 		rcomp1 = 0x00050542;
 	}
 	if (s->selected_timings.fsb_clock == FSB_CLOCK_667MHz) {
@@ -1735,10 +1721,8 @@ static void sdram_checkreset(void)
 	}
 	pci_write_config8(PCI_DEV(0, 0x1f, 0), 0xa2, pmcon2);
 	pci_write_config8(PCI_DEV(0, 0x1f, 0), 0xa4, pmcon3);
-	if (reset) {
-		printk(BIOS_DEBUG, "Power cycle reset...\n");
-		outb(0xe, 0xcf9);
-	}
+	if (reset)
+		full_reset();
 }
 
 static void sdram_dradrb(struct sysinfo *s)
@@ -1828,7 +1812,6 @@ static void sdram_dradrb(struct sysinfo *s)
 
 static u8 sampledqs(u32 dqshighaddr, u32 strobeaddr, u8 highlow, u8 count)
 {
-	volatile u32 strobedata;
 	u8 dqsmatches = 1;
 	while (count--) {
 		MCHBAR8(0x5d8) = MCHBAR8(0x5d8) & ~0x2;
@@ -1836,7 +1819,7 @@ static u8 sampledqs(u32 dqshighaddr, u32 strobeaddr, u8 highlow, u8 count)
 		MCHBAR8(0x5d8) = MCHBAR8(0x5d8) | 0x2;
 		hpet_udelay(1);
 		barrier();
-		strobedata = read32((void *)strobeaddr);
+		read32((void *)strobeaddr);
 		barrier();
 		hpet_udelay(1);
 
@@ -2114,30 +2097,24 @@ static void sdram_enhancedmode(struct sysinfo *s)
 	reg8 = pci_read_config8(PCI_DEV(0,0,0), 0xf0);
 	pci_write_config8(PCI_DEV(0,0,0), 0xf0, reg8 & ~1);
 
-	u32 nranks, curranksize, maxranksize, maxdra, dra;
-	u8 rankmismatch, dramismatch;
+	u32 nranks, curranksize, maxranksize, dra;
+	u8 rankmismatch;
 	static const u8 drbtab[10] = { 0x4, 0x2, 0x8, 0x4, 0x8, 0x4, 0x10, 0x8,
 				       0x20, 0x10 };
 
 	nranks = 0;
 	curranksize = 0;
 	maxranksize = 0;
-	maxdra = 0;
 	rankmismatch = 0;
-	dramismatch = 0;
 	FOR_EACH_POPULATED_RANK(s->dimms, ch, r) {
 		nranks++;
 		dra = (u8) ((MCHBAR32(0x208) >> (8*r)) & 0x7f);
 		curranksize = drbtab[dra];
 		if (maxranksize == 0) {
 			maxranksize = curranksize;
-			maxdra = dra;
 		}
 		if (curranksize != maxranksize) {
 			rankmismatch = 1;
-		}
-		if (dra != maxdra) {
-			dramismatch = 1;
 		}
 	}
 
@@ -2209,7 +2186,7 @@ static void sdram_periodic_rcomp(void)
 static void sdram_new_trd(struct sysinfo *s)
 {
 	u8 pidelay, i, j, k, cc, trd_perphase[5];
-	u8 bypass, freqgb, trd, reg8, txfifo, cas;
+	u8 bypass, freqgb, trd, reg8, txfifo;
 	u32 reg32, datadelay, tio, rcvendelay, maxrcvendelay;
 	u16 tmclk, thclk, buffertocore, postcalib;
 	static const u8 txfifo_lut[8] = { 0, 7, 6, 5, 2, 1, 4, 3 };
@@ -2225,7 +2202,6 @@ static void sdram_new_trd(struct sysinfo *s)
 
 	freqgb = 110;
 	buffertocore = 5000;
-	cas = s->selected_timings.CAS;
 	postcalib = (s->selected_timings.mem_clock == MEM_CLOCK_667MHz) ? 1250 : 500;
 	tmclk = (s->selected_timings.mem_clock == MEM_CLOCK_667MHz) ? 3000 : 2500;
 	tmclk = tmclk * 100 / freqgb;

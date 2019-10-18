@@ -14,8 +14,8 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
-#include <assert.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <bootstate.h>
 #include <console/console.h>
 #include <device/pci_ids.h>
@@ -24,6 +24,7 @@
 #include <soc/pci_devs.h>
 #include <soc/QuarkNcSocId.h>
 #include <soc/spi.h>
+#include <string.h>
 
 struct spi_context spi_driver_context = {
 	NULL,

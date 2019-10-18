@@ -15,14 +15,14 @@
  */
 
 #include <arch/io.h>
-
+#include <console/console.h>
+#include <device/pnp_type.h>
+#include <device/pci_ops.h>
 #include <northbridge/amd/agesa/state_machine.h>
 #include <southbridge/amd/common/amd_defs.h>
 #include <southbridge/amd/agesa/hudson/hudson.h>
 #include <southbridge/amd/agesa/hudson/smbus.h>
 #include <stdint.h>
-#include <string.h>
-
 #include <superio/ite/common/ite.h>
 #include <superio/ite/it8728f/it8728f.h>
 #include <superio/nuvoton/common/nuvoton.h>
@@ -68,9 +68,9 @@ void board_BeforeAgesa(struct sysinfo *cb)
 	u8 byte;
 	pci_devfn_t dev;
 
-	if (IS_ENABLED(CONFIG_POST_DEVICE_PCI_PCIE))
+	if (CONFIG(POST_DEVICE_PCI_PCIE))
 		hudson_pci_port80();
-	else if (IS_ENABLED(CONFIG_POST_DEVICE_LPC))
+	else if (CONFIG(POST_DEVICE_LPC))
 		hudson_lpc_port80();
 
 	/* enable SIO LPC decode */
@@ -93,7 +93,7 @@ void board_BeforeAgesa(struct sysinfo *cb)
 	/* enable SIO clock */
 	sbxxx_enable_48mhzout();
 
-	if (IS_ENABLED(CONFIG_BOARD_ASUS_F2A85_M_PRO))
+	if (CONFIG(BOARD_ASUS_F2A85_M_PRO))
 		superio_init_m_pro();
 	else
 		superio_init_m();

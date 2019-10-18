@@ -13,23 +13,19 @@
  */
 
 #include <console/console.h>
+#include <ctype.h>
 #include <lib.h>
-
-static int isprint(int c)
-{
-	return (c >= 32 && c <= 126);
-}
+#include <string.h>
 
 void hexdump(const void *memory, size_t length)
 {
-	int i;
+	size_t i, j;
 	uint8_t *line;
 	int all_zero = 0;
 	int all_one = 0;
 	size_t num_bytes;
 
 	for (i = 0; i < length; i += 16) {
-		int j;
 		num_bytes = MIN(length - i, 16);
 		line = ((uint8_t *)memory) + i;
 
@@ -68,7 +64,7 @@ void hexdump(const void *memory, size_t length)
 
 void hexdump32(char LEVEL, const void *d, size_t len)
 {
-	int count = 0;
+	size_t count = 0;
 
 	while (len > 0) {
 		if (count % 8 == 0) {

@@ -13,8 +13,8 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
-#include <assert.h>
+#include <device/mmio.h>
+#include <console/console.h>
 #include <delay.h>
 #include <soc/infracfg.h>
 #include <soc/pmic_wrap.h>

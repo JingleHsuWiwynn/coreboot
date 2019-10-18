@@ -64,6 +64,7 @@ config VARIANT_DIR
 	default "careena" if BOARD_GOOGLE_CAREENA
 	default "grunt" if BOARD_GOOGLE_GRUNT
 	default "liara" if BOARD_GOOGLE_LIARA
+	default "treeya" if BOARD_GOOGLE_TREEYA
 
 config MAINBOARD_PART_NUMBER
 	string
@@ -101,7 +102,6 @@ config ONBOARD_VGA_IS_PRIMARY
 config VBOOT
 	select EC_GOOGLE_CHROMEEC_SWITCHES
 	select VBOOT_LID_SWITCH
-	select VBOOT_EC_SLOW_UPDATE if VBOOT_EC_SOFTWARE_SYNC
 
 config VBOOT_VBNV_OFFSET
 	hex
@@ -109,14 +109,6 @@ config VBOOT_VBNV_OFFSET
 
 config CHROMEOS
 	select LP_DEFCONFIG_OVERRIDE if PAYLOAD_DEPTHCHARGE
-
-config GBB_HWID
-	string
-	depends on CHROMEOS
-	default "ALEENA TEST 7281" if BOARD_GOOGLE_ALEENA
-	default "CAREENA TEST 8777" if BOARD_GOOGLE_CAREENA
-	default "GRUNT TEST 8296" if BOARD_GOOGLE_GRUNT
-	default "LIARA TEST 0464" if BOARD_GOOGLE_LIARA
 
 config AMD_FWM_POSITION_INDEX
 	int
@@ -140,5 +132,9 @@ config OEM_BIN_FILE
 	string "OEM ID table"
 	depends on USE_OEM_BIN
 	default ""
+
+# Don't use AMD's Secure OS
+config USE_PSPSECUREOS
+	def_bool n
 
 endif # BOARD_GOOGLE_BASEBOARD_KAHLEE

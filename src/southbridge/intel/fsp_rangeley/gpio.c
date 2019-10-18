@@ -15,8 +15,9 @@
  */
 
 #include <stdint.h>
-#include <string.h>
 #include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 
 #include "soc.h"
 #include "gpio.h"

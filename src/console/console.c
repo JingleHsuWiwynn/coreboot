@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2003 Eric Biederman
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -79,7 +77,7 @@ void console_write_line(uint8_t *buffer, size_t number_of_bytes)
 }
 
 
-#if IS_ENABLED(CONFIG_GDB_STUB) && (ENV_ROMSTAGE || ENV_RAMSTAGE)
+#if CONFIG(GDB_STUB) && (ENV_ROMSTAGE || ENV_RAMSTAGE)
 void gdb_hw_init(void)
 {
 	__gdb_hw_init();

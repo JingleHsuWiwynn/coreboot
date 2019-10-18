@@ -37,11 +37,12 @@ DefinitionBlock(
 		Device (PCI0)
 		{
 			#include <acpi/southcluster.asl>
-#if IS_ENABLED(CONFIG_BOARD_GOOGLE_TERRA)
+#if CONFIG(BOARD_GOOGLE_TERRA)
 			#include <variant/acpi/cpu.asl>
 #else
 			#include <acpi/dptf/cpu.asl>
 #endif
+			#include <acpi/lpe.asl>
 		}
 
 		/* Dynamic Platform Thermal Framework */

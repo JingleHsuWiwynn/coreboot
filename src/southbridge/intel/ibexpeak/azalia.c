@@ -20,7 +20,7 @@
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <delay.h>
 #include <device/azalia_device.h>
 #include "pch.h"
@@ -313,20 +313,8 @@ static void azalia_init(struct device *dev)
 	pci_write_config8(dev, 0x43, reg8);
 }
 
-static void azalia_set_subsystem(struct device *dev, unsigned vendor,
-				 unsigned device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
-}
-
 static struct pci_operations azalia_pci_ops = {
-	.set_subsystem    = azalia_set_subsystem,
+	.set_subsystem    = pci_dev_set_subsystem,
 };
 
 static struct device_operations azalia_ops = {

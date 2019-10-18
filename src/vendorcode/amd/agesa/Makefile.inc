@@ -10,13 +10,26 @@ subdirs-y += common
 classes-y += libagesa
 libagesa-y =
 libagesa-generic-ccopts += -D__LIBAGESA__
+libagesa-generic-ccopts += -fno-zero-initialized-in-bss
 libagesa-generic-ccopts += $(AGESA_INC) $(AGESA_AUTOINCLUDES)
+
+AGESA_CFLAGS := -march=k8-sse3 -mtune=k8-sse3 -fno-strict-aliasing
+
+CFLAGS_x86_32 += $(AGESA_CFLAGS)
+CFLAGS_x86_64 += $(AGESA_CFLAGS)
 
 ifeq ($(CONFIG_ARCH_ROMSTAGE_X86_32),y)
 $(eval $(call create_class_compiler,libagesa,x86_32))
 else
 $(eval $(call create_class_compiler,libagesa,x86_64))
 endif
+
+$(obj)/libagesa.a: $$(libagesa-objs)
+	@printf "    AGESA        $(subst $(obj)/,,$(@))\n"
+	$(AR_libagesa) rcsDT $@ $+
+
+romstage-libs  += $(obj)/libagesa.a
+ramstage-libs  += $(obj)/libagesa.a
 
 # buildOpts should be in libagesa
 $(obj)/romstage/mainboard/$(MAINBOARDDIR)/buildOpts.o: CPPFLAGS_x86_32 += $(BUILDOPTS_INCLUDES)

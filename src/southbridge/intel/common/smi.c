@@ -21,7 +21,7 @@
 #include <arch/io.h>
 #include <cpu/x86/cache.h>
 #include <cpu/x86/smm.h>
-#include <cpu/intel/smm/gen1/smi.h>
+#include <cpu/intel/smm_reloc.h>
 #include <southbridge/intel/common/pmbase.h>
 #include <southbridge/intel/common/pmutil.h>
 
@@ -34,13 +34,13 @@ u16 get_pmbase(void)
 	return lpc_get_pmbase();
 }
 
-void southbridge_smm_init(void)
+void smm_southbridge_enable_smi(void)
 {
 	u32 smi_en;
 	u16 pm1_en;
 	u32 gpe0_en;
 
-	if (IS_ENABLED(CONFIG_ELOG))
+	if (CONFIG(ELOG))
 	/* Log events from chipset before clearing */
 		pch_log_state();
 
@@ -104,38 +104,6 @@ void southbridge_smm_init(void)
 	write_pmbase32(SMI_EN, smi_en);
 }
 
-void southbridge_trigger_smi(void)
-{
-	/**
-	 * There are several methods of raising a controlled SMI# via
-	 * software, among them:
-	 *  - Writes to io 0xb2 (APMC)
-	 *  - Writes to the Local Apic ICR with Delivery mode SMI.
-	 *
-	 * Using the local apic is a bit more tricky. According to
-	 * AMD Family 11 Processor BKDG no destination shorthand must be
-	 * used.
-	 * The whole SMM initialization is quite a bit hardware specific, so
-	 * I'm not too worried about the better of the methods at the moment
-	 */
-
-	/* raise an SMI interrupt */
-	printk(BIOS_SPEW, "  ... raise SMI#\n");
-	outb(0x00, 0xb2);
-}
-
-void southbridge_clear_smi_status(void)
-{
-	/* Clear SMI status */
-	reset_smi_status();
-
-	/* Clear PM1 status */
-	reset_pm1_status();
-
-	/* Set EOS bit so other SMIs can occur. */
-	smi_set_eos();
-}
-
 void smm_setup_structures(void *gnvs, void *tcg, void *smi1)
 {
 	/*
@@ -155,11 +123,11 @@ void smm_setup_structures(void *gnvs, void *tcg, void *smi1)
 	);
 }
 
-void southbridge_smm_clear_state(void)
+void smm_southbridge_clear_state(void)
 {
 	u32 smi_en;
 
-	if (IS_ENABLED(CONFIG_ELOG))
+	if (CONFIG(ELOG))
 	/* Log events from chipset before clearing */
 		pch_log_state();
 

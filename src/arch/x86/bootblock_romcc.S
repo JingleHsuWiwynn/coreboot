@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright 2015 Google Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -37,7 +35,7 @@
 
 #include <arch/x86/timestamp.inc>
 
-#if IS_ENABLED(CONFIG_SSE)
+#if CONFIG(SSE)
 #include <cpu/x86/sse_enable.inc>
 #endif
 

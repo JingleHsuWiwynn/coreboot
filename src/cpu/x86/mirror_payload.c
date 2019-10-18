@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2014 Google Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -16,6 +14,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <commonlib/helpers.h>
 #include <console/console.h>
 #include <bootmem.h>
 #include <program_loading.h>
@@ -42,7 +41,7 @@ void mirror_payload(struct prog *payload)
 	alignment_diff = (intra_cacheline_mask & (uintptr_t)src);
 	size += alignment_diff;
 
-	size = ALIGN(size, cacheline_size);
+	size = ALIGN_UP(size, cacheline_size);
 
 	printk(BIOS_DEBUG, "Payload aligned size: 0x%zx\n", size);
 

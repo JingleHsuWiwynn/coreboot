@@ -23,6 +23,8 @@
 #include <pc80/isa-dma.h>
 #include <pc80/i8259.h>
 #include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <arch/ioapic.h>
 #include <arch/acpi.h>
 #include <arch/cpu.h>
@@ -32,10 +34,12 @@
 #include <cbmem.h>
 #include <string.h>
 #include <cpu/x86/smm.h>
+#include "chip.h"
 #include "pch.h"
 #include "nvs.h"
 #include <southbridge/intel/common/pciehp.h>
 #include <southbridge/intel/common/acpi_pirq_gen.h>
+#include <southbridge/intel/common/spi.h>
 
 #define NMI_OFF	0
 
@@ -72,7 +76,7 @@ static void pch_enable_serial_irqs(struct device *dev)
 	/* Set packet length and toggle silent mode bit for one frame. */
 	pci_write_config8(dev, SERIRQ_CNTL,
 			  (1 << 7) | (1 << 6) | ((21 - 17) << 2) | (0 << 0));
-#if !IS_ENABLED(CONFIG_SERIRQ_CONTINUOUS_MODE)
+#if !CONFIG(SERIRQ_CONTINUOUS_MODE)
 	pci_write_config8(dev, SERIRQ_CNTL,
 			  (1 << 7) | (0 << 6) | ((21 - 17) << 2) | (0 << 0));
 #endif
@@ -262,10 +266,11 @@ static void pch_power_options(struct device *dev)
 	outl(reg32, pmbase + 0x04);
 
 	/* Clear magic status bits to prevent unexpected wake */
-	reg32 = RCBA32(0x3310);
-	reg32 |= (1 << 4)|(1 << 5)|(1 << 0);
-	RCBA32(0x3310) = reg32;
+	reg32 = RCBA32(PRSTS);
+	reg32 |= (1 << 5) | (1 << 4) | (1 << 0);
+	RCBA32(PRSTS) = reg32;
 
+	/* FIXME: Does this even exist? */
 	reg32 = RCBA32(0x3f02);
 	reg32 &= ~0xf;
 	RCBA32(0x3f02) = reg32;
@@ -281,7 +286,7 @@ static void pch_rtc_init(struct device *dev)
 	if (rtc_failed) {
 		reg8 &= ~RTC_BATTERY_DEAD;
 		pci_write_config8(dev, GEN_PMCON_3, reg8);
-#if IS_ENABLED(CONFIG_ELOG)
+#if CONFIG(ELOG)
 		elog_add_event(ELOG_TYPE_RTC_RESET);
 #endif
 	}
@@ -389,6 +394,7 @@ static void enable_hpet(void)
 	reg32 |= (1 << 7); // HPET Address Enable
 	reg32 &= ~(3 << 0);
 	RCBA32(HPTC) = reg32;
+	RCBA32(HPTC); /* Read back for it to work */
 
 	write32((u32 *)0xfed00010, read32((u32 *)0xfed00010) | 1);
 }
@@ -403,11 +409,6 @@ static void enable_clock_gating(struct device *dev)
 	reg16 = pci_read_config16(dev, GEN_PMCON_1);
 	reg16 |= (1 << 2) | (1 << 11);
 	pci_write_config16(dev, GEN_PMCON_1, reg16);
-
-	pch_iobp_update(0xEB007F07, ~0UL, (1 << 31));
-	pch_iobp_update(0xEB004000, ~0UL, (1 << 7));
-	pch_iobp_update(0xEC007F07, ~0UL, (1 << 31));
-	pch_iobp_update(0xEC004000, ~0UL, (1 << 7));
 
 	reg32 = RCBA32(CG);
 	reg32 |= (1 << 31);
@@ -431,7 +432,7 @@ static void enable_clock_gating(struct device *dev)
 
 static void pch_set_acpi_mode(void)
 {
-	if (!acpi_is_wakeup_s3() && CONFIG_HAVE_SMI_HANDLER) {
+	if (!acpi_is_wakeup_s3() && CONFIG(HAVE_SMI_HANDLER)) {
 #if ENABLE_ACPI_MODE_IN_COREBOOT
 		printk(BIOS_DEBUG, "Enabling ACPI via APMC:\n");
 		outb(APM_CNT_ACPI_ENABLE, APM_CNT); // Enable ACPI mode
@@ -449,9 +450,9 @@ static void pch_disable_smm_only_flashing(struct device *dev)
 	u8 reg8;
 
 	printk(BIOS_SPEW, "Enabling BIOS updates outside of SMM... ");
-	reg8 = pci_read_config8(dev, 0xdc);	/* BIOS_CNTL */
+	reg8 = pci_read_config8(dev, BIOS_CNTL);
 	reg8 &= ~(1 << 5);
-	pci_write_config8(dev, 0xdc, reg8);
+	pci_write_config8(dev, BIOS_CNTL, reg8);
 }
 
 static void pch_fixups(struct device *dev)
@@ -462,18 +463,6 @@ static void pch_fixups(struct device *dev)
 	RCBA32_AND_OR(0x2304, ~(1 << 10), 0);
 	RCBA32_OR(0x21a4, (1 << 11)|(1 << 10));
 	RCBA32_OR(0x21a8, 0x3);
-}
-
-static void pch_decode_init(struct device *dev)
-{
-	config_t *config = dev->chip_info;
-
-	printk(BIOS_DEBUG, "pch_decode_init\n");
-
-	pci_write_config32(dev, LPC_GEN1_DEC, config->gen1_dec);
-	pci_write_config32(dev, LPC_GEN2_DEC, config->gen2_dec);
-	pci_write_config32(dev, LPC_GEN3_DEC, config->gen3_dec);
-	pci_write_config32(dev, LPC_GEN4_DEC, config->gen4_dec);
 }
 
 static void lpc_init(struct device *dev)
@@ -495,13 +484,7 @@ static void lpc_init(struct device *dev)
 	pch_power_options(dev);
 
 	/* Initialize power management */
-	switch (pch_silicon_type()) {
-	case PCH_TYPE_MOBILE5:
-		mobile5_pm_init (dev);
-		break;
-	default:
-		printk(BIOS_ERR, "Unknown Chipset: 0x%04x\n", dev->device);
-	}
+	mobile5_pm_init(dev);
 
 	/* Set the state of the GPIO lines. */
 	//gpio_init(dev);
@@ -592,12 +575,6 @@ static void pch_lpc_read_resources(struct device *dev)
 	}
 }
 
-static void pch_lpc_enable_resources(struct device *dev)
-{
-	pch_decode_init(dev);
-	return pci_dev_enable_resources(dev);
-}
-
 static void pch_lpc_enable(struct device *dev)
 {
 	/* Enable PCH Display Port */
@@ -605,18 +582,6 @@ static void pch_lpc_enable(struct device *dev)
 	RCBA32_OR(FD2, PCH_ENABLE_DBDF);
 
 	pch_enable(dev);
-}
-
-static void set_subsystem(struct device *dev, unsigned vendor,
-			  unsigned device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
 }
 
 static void southbridge_inject_dsdt(struct device *dev)
@@ -655,7 +620,7 @@ void acpi_fill_fadt(acpi_fadt_t *fadt)
 	u16 pmbase = pci_read_config16(dev, 0x40) & 0xfffe;
 	int c2_latency;
 
-	fadt->model = 1;
+	fadt->reserved = 0;
 
 	fadt->sci_int = 0x9;
 	fadt->smi_cmd = APM_CNT;
@@ -689,12 +654,10 @@ void acpi_fill_fadt(acpi_fadt_t *fadt)
 	fadt->p_lvl3_lat = 87;
 	fadt->flush_size = 1024;
 	fadt->flush_stride = 16;
-	fadt->duty_offset = 1;
-	if (chip->p_cnt_throttling_supported) {
-		fadt->duty_width = 3;
-	} else {
-		fadt->duty_width = 0;
-	}
+	/* P_CNT not supported */
+	fadt->duty_offset = 0;
+	fadt->duty_width = 0;
+
 	fadt->day_alrm = 0xd;
 	fadt->mon_alrm = 0x00;
 	fadt->century = 0x32;
@@ -795,9 +758,11 @@ static void southbridge_fill_ssdt(struct device *device)
 
 static void lpc_final(struct device *dev)
 {
+	spi_finalize_ops();
+
 	/* Call SMM finalize() handlers before resume */
-	if (IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)) {
-		if (IS_ENABLED(CONFIG_INTEL_CHIPSET_LOCKDOWN) ||
+	if (CONFIG(HAVE_SMI_HANDLER)) {
+		if (CONFIG(INTEL_CHIPSET_LOCKDOWN) ||
 		    acpi_is_wakeup_s3()) {
 			outb(APM_CNT_FINALIZE, APM_CNT);
 		}
@@ -805,13 +770,13 @@ static void lpc_final(struct device *dev)
 }
 
 static struct pci_operations pci_ops = {
-	.set_subsystem = set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 };
 
 static struct device_operations device_ops = {
 	.read_resources		= pch_lpc_read_resources,
 	.set_resources		= pci_dev_set_resources,
-	.enable_resources	= pch_lpc_enable_resources,
+	.enable_resources	= pci_dev_enable_resources,
 	.acpi_inject_dsdt_generator = southbridge_inject_dsdt,
 	.acpi_fill_ssdt_generator = southbridge_fill_ssdt,
 	.acpi_name		= lpc_acpi_name,
@@ -819,7 +784,7 @@ static struct device_operations device_ops = {
 	.init			= lpc_init,
 	.final			= lpc_final,
 	.enable			= pch_lpc_enable,
-	.scan_bus		= scan_lpc_bus,
+	.scan_bus		= scan_static_bus,
 	.ops_pci		= &pci_ops,
 };
 

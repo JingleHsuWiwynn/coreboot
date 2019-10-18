@@ -14,18 +14,16 @@
  */
 
 #include <arch/cbfs.h>
-#include <arch/io.h>
 #include <assert.h>
 #include <cbfs.h>
 #include <cbmem.h>
 #include <cf9_reset.h>
 #include <console/console.h>
 #include <device/pci_def.h>
-#include <lib.h>
 #include <memory_info.h>
 #include <mrc_cache.h>
 #include <string.h>
-#if IS_ENABLED(CONFIG_EC_GOOGLE_CHROMEEC)
+#if CONFIG(EC_GOOGLE_CHROMEEC)
 #include <ec/google/chromeec/ec.h>
 #include <ec/google/chromeec/ec_commands.h>
 #endif
@@ -47,6 +45,8 @@ void raminit(struct pei_data *pei_data)
 	struct memory_info *mem_info;
 	pei_wrapper_entry_t entry;
 	int ret;
+	struct cbfsf f;
+	uint32_t type = CBFS_TYPE_MRC;
 
 	broadwell_fill_pei_data(pei_data);
 
@@ -58,7 +58,7 @@ void raminit(struct pei_data *pei_data)
 		pei_data->saved_data_size = region_device_sz(&rdev);
 		pei_data->saved_data = rdev_mmap_full(&rdev);
 		/* Assume boot device is memory mapped. */
-		assert(IS_ENABLED(CONFIG_BOOT_DEVICE_MEMORY_MAPPED));
+		assert(CONFIG(BOOT_DEVICE_MEMORY_MAPPED));
 	} else if (pei_data->boot_mode == ACPI_S3) {
 		/* Waking from S3 and no cache. */
 		printk(BIOS_DEBUG, "No MRC cache found in S3 resume path.\n");
@@ -79,7 +79,10 @@ void raminit(struct pei_data *pei_data)
 	}
 
 	/* Determine if mrc.bin is in the cbfs. */
-	entry = cbfs_boot_map_with_leak("mrc.bin", CBFS_TYPE_MRC, NULL);
+	if (cbfs_locate_file_in_region(&f, "COREBOOT", "mrc.bin", &type) < 0)
+		die("mrc.bin not found!");
+	/* We don't care about leaking the mapping */
+	entry = (pei_wrapper_entry_t)rdev_mmap_full(&f.data);
 	if (entry == NULL) {
 		printk(BIOS_DEBUG, "Couldn't find mrc.bin\n");
 		return;
@@ -99,13 +102,10 @@ void raminit(struct pei_data *pei_data)
 
 	report_memory_config();
 
-	/* Basic memory sanity test */
-	quick_ram_check();
-
 	if (pei_data->boot_mode != ACPI_S3) {
 		cbmem_initialize_empty();
 	} else if (cbmem_initialize()) {
-#if IS_ENABLED(CONFIG_HAVE_ACPI_RESUME)
+#if CONFIG(HAVE_ACPI_RESUME)
 		printk(BIOS_DEBUG, "Failed to recover CBMEM in S3 resume.\n");
 		/* Failed S3 resume, reset to come up cleanly */
 		system_reset();
@@ -122,6 +122,12 @@ void raminit(struct pei_data *pei_data)
 
 	printk(BIOS_DEBUG, "create cbmem for dimm information\n");
 	mem_info = cbmem_add(CBMEM_ID_MEMINFO, sizeof(struct memory_info));
+
+	if (!mem_info) {
+		printk(BIOS_ERR, "Error! Failed to add mem_info to cbmem\n");
+		return;
+	}
+
 	memset(mem_info, 0, sizeof(*mem_info));
 	/* Translate pei_memory_info struct data into memory_info struct */
 	mem_info->dimm_cnt = pei_data->meminfo.dimm_cnt;

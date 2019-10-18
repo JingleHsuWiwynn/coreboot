@@ -16,16 +16,14 @@
  */
 
 #include <console/console.h>
-#include <arch/acpi.h>
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <stdint.h>
 #include <delay.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <stdlib.h>
-#include <string.h>
-#include <romstage_handoff.h>
 #include <timer.h>
 
 #include <soc/iomap.h>

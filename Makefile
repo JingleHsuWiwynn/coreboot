@@ -30,6 +30,9 @@
 ## SUCH DAMAGE.
 ##
 
+ifneq ($(words $(CURDIR)),1)
+    $(error Error: Path to the main directory cannot contain spaces)
+endif
 top := $(CURDIR)
 src := src
 srck := $(top)/util/kconfig
@@ -41,6 +44,12 @@ absobj := $(abspath $(obj))
 
 COREBOOT_EXPORTS := COREBOOT_EXPORTS
 COREBOOT_EXPORTS += top src srck obj objutil objk
+
+# reproducible builds
+LANG:=C
+LC_ALL:=C
+TZ:=UTC0
+COREBOOT_EXPORTS += LANG LC_ALL TZ
 
 DOTCONFIG ?= $(top)/.config
 KCONFIG_CONFIG = $(DOTCONFIG)
@@ -124,10 +133,16 @@ ifneq ($(MAKECMDGOALS),)
 ifneq ($(filter %config %clean cross% clang iasl gnumake lint% help% what-jenkins-does,$(MAKECMDGOALS)),)
 NOCOMPILE:=1
 endif
-ifeq ($(MAKECMDGOALS), %clean)
+ifneq ($(filter %clean lint% help% what-jenkins-does,$(MAKECMDGOALS)),)
 NOMKDIR:=1
 endif
 endif
+
+.xcompile: util/xcompile/xcompile
+	rm -f $@
+	$< $(XGCCPATH) > $@.tmp
+	\mv -f $@.tmp $@ 2> /dev/null
+	rm -f $@.tmp
 
 ifeq ($(NOCOMPILE),1)
 include $(TOPLEVEL)/Makefile.inc
@@ -146,12 +161,6 @@ include $(DOTCONFIG)
 # in addition to the dependency below, create the file if it doesn't exist
 # to silence stupid warnings about a file that would be generated anyway.
 $(if $(wildcard .xcompile)$(NOCOMPILE),,$(eval $(shell util/xcompile/xcompile $(XGCCPATH) > .xcompile || rm -f .xcompile)))
-
-.xcompile: util/xcompile/xcompile
-	rm -f $@
-	$< $(XGCCPATH) > $@.tmp
-	\mv -f $@.tmp $@ 2> /dev/null
-	rm -f $@.tmp
 
 -include .xcompile
 

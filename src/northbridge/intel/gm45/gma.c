@@ -14,24 +14,24 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <console/console.h>
-#include <delay.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
+#include <drivers/intel/gma/edid.h>
+#include <drivers/intel/gma/opregion.h>
+#include <drivers/intel/gma/libgfxinit.h>
 #include <string.h>
 #include <device/pci_ops.h>
 #include <commonlib/helpers.h>
 #include <cbmem.h>
 #include <southbridge/intel/i82801ix/nvs.h>
+#include <types.h>
 
 #include "drivers/intel/gma/i915_reg.h"
 #include "chip.h"
 #include "gm45.h"
-#include <drivers/intel/gma/edid.h>
-#include <drivers/intel/gma/opregion.h>
-#include <drivers/intel/gma/libgfxinit.h>
 
 static struct resource *gtt_res = NULL;
 
@@ -190,7 +190,7 @@ static void gma_func0_init(struct device *dev)
 	mmio = res2mmio(gtt_res, 0, 0);
 
 
-	if (!IS_ENABLED(CONFIG_MAINBOARD_USE_LIBGFXINIT)) {
+	if (!CONFIG(MAINBOARD_USE_LIBGFXINIT)) {
 		/* PCI Init, will run VBIOS */
 		printk(BIOS_DEBUG, "Initialising IGD using VBIOS\n");
 		pci_dev_init(dev);
@@ -205,7 +205,7 @@ static void gma_func0_init(struct device *dev)
 	/* Post VBIOS init */
 	gma_pm_init_post_vbios(dev, edid_lvds.ascii_string);
 
-	if (IS_ENABLED(CONFIG_MAINBOARD_USE_LIBGFXINIT)) {
+	if (CONFIG(MAINBOARD_USE_LIBGFXINIT) && !acpi_is_wakeup_s3()) {
 		int vga_disable = (pci_read_config16(dev, D0F0_GGC) & 2) >> 1;
 		if (vga_disable) {
 			printk(BIOS_INFO,
@@ -219,19 +219,6 @@ static void gma_func0_init(struct device *dev)
 	}
 
 	intel_gma_restore_opregion();
-}
-
-static void gma_set_subsystem(struct device *dev, unsigned int vendor,
-			      unsigned int device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				   pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				   ((device & 0xffff) << 16) | (vendor &
-								0xffff));
-	}
 }
 
 const struct i915_gpu_controller_info *
@@ -287,7 +274,7 @@ static const char *gma_acpi_name(const struct device *dev)
 }
 
 static struct pci_operations gma_pci_ops = {
-	.set_subsystem = gma_set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 };
 
 static struct device_operations gma_func0_ops = {

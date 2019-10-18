@@ -32,9 +32,31 @@ config LOCALVERSION
 	  the coreboot version number, so that you can easily distinguish
 	  boot logs of different boards from each other.
 
+config CONFIGURABLE_CBFS_PREFIX
+	bool
+	help
+	  Select this to prompt to use to configure the prefix for cbfs files.
+
+choice
+	prompt "CBFS prefix to use"
+	depends on CONFIGURABLE_CBFS_PREFIX
+	default CBFS_PREFIX_FALLBACK
+
+config CBFS_PREFIX_FALLBACK
+	bool "fallback"
+
+config CBFS_PREFIX_NORMAL
+	bool "normal"
+
+config CBFS_PREFIX_DIY
+	bool "Define your own cbfs prefix"
+
+endchoice
+
 config CBFS_PREFIX
-	string "CBFS prefix to use"
-	default "fallback"
+	string "CBFS prefix to use" if CBFS_PREFIX_DIY
+	default "fallback" if !CONFIGURABLE_CBFS_PREFIX || CBFS_PREFIX_FALLBACK
+	default "normal" if CBFS_PREFIX_NORMAL
 	help
 	  Select the prefix to all files put into the image. It's "fallback"
 	  by default, "normal" is a common alternative.
@@ -129,6 +151,7 @@ config STATIC_OPTION_TABLE
 
 config COMPRESS_RAMSTAGE
 	bool "Compress ramstage with LZMA"
+	depends on HAVE_RAMSTAGE
 	# Default value set at the end of the file
 	help
 	  Compress ramstage to save memory in the flash image. Note
@@ -137,7 +160,7 @@ config COMPRESS_RAMSTAGE
 
 config COMPRESS_PRERAM_STAGES
 	bool "Compress romstage and verstage with LZ4"
-	depends on !ARCH_X86
+	depends on !ARCH_X86 && (HAVE_ROMSTAGE || HAVE_VERSTAGE)
 	# Default value set at the end of the file
 	help
 	  Compress romstage and (if it exists) verstage with LZ4 to save flash
@@ -148,6 +171,7 @@ config COMPRESS_PRERAM_STAGES
 
 config COMPRESS_BOOTBLOCK
 	bool
+	depends on HAVE_BOOTBLOCK
 	help
 	  This option can be used to compress the bootblock with LZ4 and attach
 	  a small self-decompression stub to its front. This can drastically
@@ -243,12 +267,28 @@ config RELOCATABLE_RAMSTAGE
 	 wake. When selecting this option the romstage is responsible for
 	 determing a stack location to use for loading the ramstage.
 
-config CACHE_RELOCATED_RAMSTAGE_OUTSIDE_CBMEM
-	depends on RELOCATABLE_RAMSTAGE
+config TSEG_STAGE_CACHE
 	bool
+	default y
+	depends on !NO_STAGE_CACHE && SMM_TSEG
 	help
-	 The relocated ramstage is saved in an area specified by the
-	 by the board and/or chipset.
+	  The option enables stage cache support for platform. Platform
+	  can stash copies of postcar, ramstage and raw runtime data
+	  inside SMM TSEG, to be restored on S3 resume path.
+
+config CBMEM_STAGE_CACHE
+	bool "Cache stages in CBMEM"
+	depends on !NO_STAGE_CACHE && !TSEG_STAGE_CACHE
+	help
+	  The option enables stage cache support for platform. Platform
+	  can stash copies of postcar, ramstage and raw runtime data
+	  inside CBMEM.
+
+	  While the approach is faster than reloading stages from boot media
+	  it is also a possible attack scenario via which OS can possibly
+	  circumvent SMM locks and SPI write protections.
+
+	  If unsure, select 'N'
 
 config UPDATE_IMAGE
 	bool "Update existing coreboot.rom image"
@@ -276,6 +316,24 @@ config BOOTSPLASH_FILE
 	help
 	  The path and filename of the file to use as graphical bootsplash
 	  screen. The file format has to be jpg.
+
+config HAVE_RAMPAYLOAD
+	bool
+
+config RAMPAYLOAD
+	bool "Enable coreboot flow without executing ramstage"
+	default y if ARCH_X86
+	depends on HAVE_RAMPAYLOAD
+	help
+	  If this option is enabled, coreboot flow will skip ramstage
+	  loading and execution of ramstage to load payload.
+
+	  Instead it is expected to load payload from postcar stage itself.
+
+	  In this flow coreboot will perform basic x86 initialization
+	  (DRAM resource allocation), MTRR programming,
+	  Skip PCI enumeration logic and only allocate BAR for fixed devices
+	  (bootable devices, TPM over GSPI).
 
 endmenu
 
@@ -305,18 +363,6 @@ config OVERRIDE_DEVICETREE
 	  Examples: "devicetree.variant-override.cb"
 	            "variant/devicetree-override.cb"
 
-config CBFS_SIZE
-	hex "Size of CBFS filesystem in ROM"
-	# Default value set at the end of the file
-	help
-	  This is the part of the ROM actually managed by CBFS, located at the
-	  end of the ROM (passed through cbfstool -o) on x86 and at at the start
-	  of the ROM (passed through cbfstool -s) everywhere else. It defaults
-	  to span the whole ROM on all but Intel systems that use an Intel Firmware
-	  Descriptor.  It can be overridden to make coreboot live alongside other
-	  components like ChromeOS's vboot/FMAP or Intel's IFD / ME / TXE
-	  binaries.
-
 config FMDFILE
 	string "fmap description file in fmd format"
 	default "src/mainboard/$(CONFIG_MAINBOARD_DIR)/chromeos.fmd" if CHROMEOS
@@ -325,6 +371,20 @@ config FMDFILE
 	  The build system creates a default FMAP from ROM_SIZE and CBFS_SIZE,
 	  but in some cases more complex setups are required.
 	  When an fmd is specified, it overrides the default format.
+
+config CBFS_SIZE
+	hex "Size of CBFS filesystem in ROM"
+	depends on FMDFILE = ""
+	# Default value set at the end of the file
+	help
+	  This is the part of the ROM actually managed by CBFS, located at the
+	  end of the ROM (passed through cbfstool -o) on x86 and at at the start
+	  of the ROM (passed through cbfstool -s) everywhere else. It defaults
+	  to span the whole ROM on all but Intel systems that use an Intel Firmware
+	  Descriptor.  It can be overridden to make coreboot live alongside other
+	  components like ChromeOS's vboot/FMAP or Intel's IFD / ME / TXE
+	  binaries. This symbol should only be used to generate a default FMAP and
+	  is unused when a non-default fmd file is provided via CONFIG_FMDFILE.
 
 endmenu
 
@@ -370,8 +430,6 @@ source "src/superio/*/*/Kconfig"
 comment "Embedded Controllers"
 source "src/ec/acpi/Kconfig"
 source "src/ec/*/*/Kconfig"
-# FIXME move to vendorcode
-source "src/drivers/intel/fsp1_0/Kconfig"
 
 source "src/southbridge/intel/common/firmware/Kconfig"
 source "src/vendorcode/*/Kconfig"
@@ -428,6 +486,7 @@ config RTC
 
 config HEAP_SIZE
 	hex
+	default 0x100000 if FLATTENED_DEVICE_TREE
 	default 0x4000
 
 config STACK_SIZE
@@ -444,12 +503,7 @@ source "src/console/Kconfig"
 config HAVE_ACPI_RESUME
 	bool
 	default n
-
-config ACPI_HUGE_LOWMEM_BACKUP
-	bool
-	default n
-	help
-	  On S3 resume path, backup low memory from RAMBASE..RAMTOP in CBMEM.
+	depends on RELOCATABLE_RAMSTAGE
 
 config RESUME_PATH_SAME_AS_BOOT
 	bool
@@ -476,14 +530,20 @@ config HAVE_ROMSTAGE_MICROCODE_CBFS_SPINLOCK
 	bool
 	default n
 
-config HAVE_MONOTONIC_TIMER
+config NO_MONOTONIC_TIMER
 	def_bool n
+
+config HAVE_MONOTONIC_TIMER
+	bool
+	depends on !NO_MONOTONIC_TIMER
+	default y
 	help
 	 The board/chipset provides a monotonic timer.
 
 config GENERIC_UDELAY
-	def_bool n
+	bool
 	depends on HAVE_MONOTONIC_TIMER
+	default y if !ARCH_X86
 	help
 	 The board/chipset uses a generic udelay function utilizing the
 	 monotonic timer.
@@ -517,14 +577,6 @@ config HAVE_OPTION_TABLE
 	  This variable specifies whether a given board has a cmos.layout
 	  file containing NVRAM/CMOS bit definitions.
 	  It defaults to 'n' but can be selected in mainboard/*/Kconfig.
-
-config PIRQ_ROUTE
-	bool
-	default n
-
-config HAVE_SMI_HANDLER
-	bool
-	default n
 
 config PCI_IO_CFG_EXT
 	bool
@@ -565,17 +617,6 @@ config HAVE_PIRQ_TABLE
 	  It is usually set in mainboard/*/Kconfig.
 	  Whether or not the PIRQ table is actually generated by coreboot
 	  is configurable by the user via GENERATE_PIRQ_TABLE.
-
-config MAX_PIRQ_LINKS
-	int
-	default 4
-	help
-	  This variable specifies the number of PIRQ interrupt links which are
-	  routable. On most chipsets, this is 4, INTA through INTD. Some
-	  chipsets offer more than four links, commonly up to INTH. They may
-	  also have a separate link for ATA or IOAPIC interrupts. When the PIRQ
-	  table specifies links greater than 4, pirq_route_irqs will not
-	  function properly, unless this variable is correctly set.
 
 config COMMON_FADT
 	bool
@@ -631,33 +672,33 @@ config SMBIOS_PROVIDED_BY_MOBO
 	default n
 
 config MAINBOARD_SERIAL_NUMBER
-	string "SMBIOS Serial Number"
+	prompt "SMBIOS Serial Number" if !SMBIOS_PROVIDED_BY_MOBO
+	string
 	depends on GENERATE_SMBIOS_TABLES
-	depends on !SMBIOS_PROVIDED_BY_MOBO
 	default "123456789"
 	help
 	  The Serial Number to store in SMBIOS structures.
 
 config MAINBOARD_VERSION
-	string "SMBIOS Version Number"
+	prompt "SMBIOS Version Number" if !SMBIOS_PROVIDED_BY_MOBO
+	string
 	depends on GENERATE_SMBIOS_TABLES
-	depends on !SMBIOS_PROVIDED_BY_MOBO
 	default "1.0"
 	help
 	  The Version Number to store in SMBIOS structures.
 
 config MAINBOARD_SMBIOS_MANUFACTURER
-	string "SMBIOS Manufacturer"
+	prompt "SMBIOS Manufacturer" if !SMBIOS_PROVIDED_BY_MOBO
+	string
 	depends on GENERATE_SMBIOS_TABLES
-	depends on !SMBIOS_PROVIDED_BY_MOBO
 	default MAINBOARD_VENDOR
 	help
 	  Override the default Manufacturer stored in SMBIOS structures.
 
 config MAINBOARD_SMBIOS_PRODUCT_NAME
-	string "SMBIOS Product name"
+	prompt "SMBIOS Product name" if !SMBIOS_PROVIDED_BY_MOBO
+	string
 	depends on GENERATE_SMBIOS_TABLES
-	depends on !SMBIOS_PROVIDED_BY_MOBO
 	default MAINBOARD_PART_NUMBER
 	help
 	  Override the default Product name stored in SMBIOS structures.
@@ -964,7 +1005,7 @@ config X86EMU_DEBUG_IO
 config X86EMU_DEBUG_TIMINGS
 	bool "Output timing information"
 	default n
-	depends on X86EMU_DEBUG && UDELAY_LAPIC && HAVE_MONOTONIC_TIMER
+	depends on X86EMU_DEBUG && HAVE_MONOTONIC_TIMER
 	help
 	  Print timing information needed by i915tool.
 
@@ -1132,7 +1173,7 @@ config RELOCATABLE_MODULES
 
 config NO_STAGE_CACHE
 	bool
-	default y if !HAVE_ACPI_RESUME
+	default y if !HAVE_ACPI_RESUME || !RELOCATABLE_RAMSTAGE
 	help
 	  Do not save any component in stage cache for resume path. On resume,
 	  all components would be read back from CBFS again.
@@ -1143,32 +1184,6 @@ config GENERIC_GPIO_LIB
 	  If enabled, compile the generic GPIO library. A "generic" GPIO
 	  implies configurability usually found on SoCs, particularly the
 	  ability to control internal pull resistors.
-
-config GENERIC_SPD_BIN
-	bool
-	help
-	  If enabled, add support for adding spd.hex files in cbfs as spd.bin
-	  and locating it runtime to load SPD. Additionally provide provision to
-	  fetch SPD over SMBus.
-
-config DIMM_MAX
-	int
-	default 4
-	depends on GENERIC_SPD_BIN
-	help
-	  Total number of memory DIMM slots available on motherboard.
-	  It is multiplication of number of channel to number of DIMMs per
-	  channel
-
-config DIMM_SPD_SIZE
-	int
-	default 256
-	help
-	  Total SPD size that will be used for DIMM.
-	  Ex: DDR3 256, DDR4 512.
-
-config SPD_READ_BY_WORD
-	bool
 
 config BOOTBLOCK_CUSTOM
 	# To be selected by arch, SoC or mainboard if it does not want use the normal
@@ -1200,3 +1215,26 @@ config BOOTSPLASH_FILE
 
 config CBFS_SIZE
 	default ROM_SIZE
+
+config HAVE_BOOTBLOCK
+	bool
+	default y
+
+config HAVE_VERSTAGE
+	bool
+	depends on VBOOT_SEPARATE_VERSTAGE
+	default y
+
+config HAVE_ROMSTAGE
+	bool
+	default y
+
+config HAVE_POSTCAR
+	bool
+	depends on POSTCAR_STAGE
+	default y
+
+config HAVE_RAMSTAGE
+	bool
+	default n if RAMPAYLOAD
+	default y

@@ -32,39 +32,6 @@ int vboot_named_region_device_rw(const char *name, struct region_device *rdev);
  */
 int vboot_check_recovery_request(void);
 
-/* ========================== VBOOT HANDOFF APIs =========================== */
-/*
- * The vboot_handoff structure contains the data to be consumed by downstream
- * firmware after firmware selection has been completed. Namely it provides
- * vboot shared data as well as the flags from VbInit.
- */
-struct vboot_handoff {
-	VbInitParams init_params;
-	uint32_t selected_firmware;
-	char shared_data[VB_SHARED_DATA_MIN_SIZE];
-} __packed;
-
-/*
- * vboot_get_handoff_info returns pointer to the vboot_handoff structure if
- * available. vboot_handoff is available only after CBMEM comes online. If size
- * is not NULL, size of the vboot_handoff structure is returned in it.
- * Returns 0 on success and -1 on error.
- */
-int vboot_get_handoff_info(void **addr, uint32_t *size);
-
-/*
- * The following functions read vboot_handoff structure to obtain requested
- * information. If vboot handoff is not available, 0 is returned by default.
- * If vboot handoff is available:
- * Returns 1 for flag if true
- * Returns 0 for flag if false
- * Returns value read for other fields
- */
-int vboot_handoff_skip_display_init(void);
-int vboot_handoff_check_recovery_flag(void);
-int vboot_handoff_check_developer_flag(void);
-int vboot_handoff_get_recovery_reason(void);
-
 /* ============================ VBOOT REBOOT ============================== */
 /*
  * vboot_reboot handles the reboot requests made by vboot_reference library. It
@@ -104,7 +71,7 @@ void verstage_main(void);
 void verstage_mainboard_init(void);
 
 /* Check boot modes */
-#if IS_ENABLED(CONFIG_VBOOT)
+#if CONFIG(VBOOT)
 int vboot_developer_mode_enabled(void);
 int vboot_recovery_mode_enabled(void);
 int vboot_recovery_mode_memory_retrain(void);

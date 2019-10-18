@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <delay.h>
 #include <stddef.h>
 
@@ -344,6 +344,15 @@ void mt_pll_init(void)
 
 	/* enable infrasys DCM */
 	setbits_le32(&mt8183_infracfg->infra_bus_dcm_ctrl, 0x3 << 21);
+	clrsetbits_le32(&mt8183_infracfg->infra_bus_dcm_ctrl,
+		DCM_INFRA_BUS_MASK, DCM_INFRA_BUS_ON);
+	setbits_le32(&mt8183_infracfg->mem_dcm_ctrl, DCM_INFRA_MEM_ON);
+	clrbits_le32(&mt8183_infracfg->p2p_rx_clk_on, DCM_INFRA_P2PRX_MASK);
+	clrsetbits_le32(&mt8183_infracfg->peri_bus_dcm_ctrl,
+		DCM_INFRA_PERI_MASK, DCM_INFRA_PERI_ON);
+
+	/* enable [11] for change i2c module source clock to TOPCKGEN */
+	setbits_le32(&mt8183_infracfg->module_clk_sel, 0x1 << 11);
 
 	/*
 	 * TOP CLKMUX -- DO NOT CHANGE WITHOUT ADJUSTING <soc/pll.h> CONSTANTS!
@@ -353,4 +362,21 @@ void mt_pll_init(void)
 
 	/* enable [14] dramc_pll104m_ck */
 	setbits_le32(&mtk_topckgen->clk_misc_cfg_0, 1 << 14);
+
+	/* enable audio clock */
+	setbits_le32(&mtk_topckgen->clk_cfg_5_clr, 1 << 7);
+
+	/* enable intbus clock */
+	setbits_le32(&mtk_topckgen->clk_cfg_5_clr, 1 << 15);
+
+	/* enable infra clock */
+	setbits_le32(&mt8183_infracfg->module_sw_cg_1_clr, 1 << 25);
+
+	/* enable mtkaif 26m clock */
+	setbits_le32(&mt8183_infracfg->module_sw_cg_2_clr, 1 << 4);
+}
+
+void mt_pll_raise_ca53_freq(u32 freq)
+{
+	pll_set_rate(&plls[APMIXED_ARMPLL_LL], freq);
 }

@@ -23,8 +23,8 @@
 #include <ip_checksum.h>
 #include <timestamp.h>
 #include <cpu/intel/microcode.h>
+#include <cf9_reset.h>
 
-#ifndef __PRE_RAM__
 /* Globals pointers for FSP structures */
 void *FspHobListPtr = NULL;
 FSP_INFO_HEADER *fsp_header_ptr = NULL;
@@ -59,9 +59,17 @@ void FspNotify (u32 Phase)
 	if (Status != 0)
 		printk(BIOS_ERR,"FSP API NotifyPhase failed for phase 0x%x with status: 0x%x\n", Phase, Status);
 }
-#endif /* #ifndef __PRE_RAM__ */
 
-#ifdef __PRE_RAM__
+/* The FSP returns here after the fsp_early_init call */
+static void ChipsetFspReturnPoint(EFI_STATUS Status, VOID *HobListPtr)
+{
+	*(void **)CBMEM_FSP_HOB_PTR = HobListPtr;
+
+	if (Status == 0xFFFFFFFF)
+		system_reset();
+
+	romstage_main_continue(Status, HobListPtr);
+}
 
 /*
  * Call the FSP to do memory init. The FSP doesn't return to this function.
@@ -72,19 +80,19 @@ void __noreturn fsp_early_init (FSP_INFO_HEADER *fsp_ptr)
 	FSP_FSP_INIT FspInitApi;
 	FSP_INIT_PARAMS FspInitParams;
 	FSP_INIT_RT_BUFFER FspRtBuffer;
-#if IS_ENABLED(CONFIG_FSP_USES_UPD)
+#if CONFIG(FSP_USES_UPD)
 	UPD_DATA_REGION fsp_upd_data;
 #endif
 
 	/* Load microcode before RAM init */
-	if (IS_ENABLED(CONFIG_SUPPORT_CPU_UCODE_IN_CBFS))
+	if (CONFIG(SUPPORT_CPU_UCODE_IN_CBFS))
 		intel_update_microcode_from_cbfs();
 
 	memset((void *)&FspRtBuffer, 0, sizeof(FSP_INIT_RT_BUFFER));
 	FspRtBuffer.Common.StackTop = (u32 *)CONFIG_RAMTOP;
 	FspInitParams.NvsBufferPtr = NULL;
 
-#if IS_ENABLED(CONFIG_FSP_USES_UPD)
+#if CONFIG(FSP_USES_UPD)
 	FspRtBuffer.Common.UpdDataRgnPtr = &fsp_upd_data;
 #endif
 	FspInitParams.RtBufferPtr = (FSP_INIT_RT_BUFFER *)&FspRtBuffer;
@@ -103,12 +111,10 @@ void __noreturn fsp_early_init (FSP_INFO_HEADER *fsp_ptr)
 	/* Should never return. Control will continue from ContinuationFunc */
 	die("Uh Oh! FspInitApi returned");
 }
-#endif	/* __PRE_RAM__ */
 
 volatile u8 *find_fsp()
 {
-
-#ifdef __PRE_RAM__
+#if ENV_ROMSTAGE
 	volatile register u8 *fsp_ptr asm ("eax");
 
 	/* Entry point for CAR assembly routine */
@@ -118,7 +124,7 @@ volatile u8 *find_fsp()
 	);
 #else
 	volatile u8 *fsp_ptr;
-#endif	/* __PRE_RAM__ */
+#endif
 
 	/* The FSP is stored in CBFS */
 	fsp_ptr = (u8 *) CONFIG_FSP_LOC;
@@ -213,8 +219,6 @@ void *find_fsp_reserved_mem(void *hob_list_ptr)
 }
 #endif /* FSP_RESERVE_MEMORY_SIZE */
 
-#ifndef __PRE_RAM__ /* Only parse HOB data in ramstage */
-
 void print_fsp_info(void) {
 
 	if (fsp_header_ptr == NULL)
@@ -237,12 +241,10 @@ void print_fsp_info(void) {
 			(u8)(fsp_header_ptr->ImageRevision  & 0xff));
 }
 
-
-#if IS_ENABLED(CONFIG_ENABLE_MRC_CACHE)
 /**
  *  Save the FSP memory HOB (mrc data) to the MRC area in CBMEM
  */
-int save_mrc_data(void *hob_start)
+static int save_mrc_data(void *hob_start)
 {
 	u32 *mrc_hob;
 	u32 *mrc_hob_data;
@@ -263,7 +265,7 @@ int save_mrc_data(void *hob_start)
 	printk(BIOS_DEBUG, "Memory Configure Data Hob at %p (size = 0x%x).\n",
 			(void *)mrc_hob_data, mrc_hob_size);
 
-	output_len = ALIGN(mrc_hob_size, 16);
+	output_len = ALIGN_UP(mrc_hob_size, 16);
 
 	/* Save the MRC S3/fast boot/ADR restore data to cbmem */
 	mrc_data = cbmem_add (CBMEM_ID_MRCDATA,
@@ -295,7 +297,6 @@ int save_mrc_data(void *hob_start)
 	hexdump32(BIOS_SPEW, (void *)mrc_data->mrc_data, output_len / 4);
 	return (1);
 }
-#endif /* CONFIG_ENABLE_MRC_CACHE */
 
 static void find_fsp_hob_update_mrc(void *unused)
 {
@@ -307,13 +308,13 @@ static void find_fsp_hob_update_mrc(void *unused)
 	} else {
 		/* 0x0000: Print all types */
 		print_hob_type_structure(0x000, FspHobListPtr);
+	}
 
-	#if IS_ENABLED(CONFIG_ENABLE_MRC_CACHE)
+	if (CONFIG(ENABLE_MRC_CACHE)) {
 		if (save_mrc_data(FspHobListPtr))
 			update_mrc_cache(NULL);
 		else
 			printk(BIOS_DEBUG,"Not updating MRC data in flash.\n");
-	#endif
 	}
 }
 
@@ -344,11 +345,10 @@ static void fsp_finalize(void *unused)
 	printk(BIOS_DEBUG, "Returned from FspNotify(EnumInitPhaseReadyToBoot)\n");
 }
 
+
 /* Set up for the ramstage FSP calls */
 BOOT_STATE_INIT_ENTRY(BS_DEV_ENUMERATE, BS_ON_EXIT, fsp_after_pci_enum, NULL);
 BOOT_STATE_INIT_ENTRY(BS_PAYLOAD_BOOT, BS_ON_ENTRY, fsp_finalize, NULL);
 
 /* Update the MRC/fast boot cache as part of the late table writing stage */
-BOOT_STATE_INIT_ENTRY(BS_WRITE_TABLES, BS_ON_ENTRY,
-			find_fsp_hob_update_mrc, NULL);
-#endif	/* #ifndef __PRE_RAM__ */
+BOOT_STATE_INIT_ENTRY(BS_WRITE_TABLES, BS_ON_ENTRY, find_fsp_hob_update_mrc, NULL);

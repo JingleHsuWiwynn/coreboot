@@ -17,7 +17,7 @@
 
 #include <console/console.h>
 #include <arch/acpi.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <stdint.h>
 #include <delay.h>
 #include <cpu/intel/model_2065x/model_2065x.h>
@@ -26,11 +26,10 @@
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <stdlib.h>
-#include <string.h>
 #include <cpu/cpu.h>
 #include "chip.h"
 #include "nehalem.h"
-#include <cpu/intel/smm/gen1/smi.h>
+#include <cpu/intel/smm_reloc.h>
 
 static int bridge_revision_id = -1;
 
@@ -78,7 +77,7 @@ static void add_fixed_resources(struct device *dev, int index)
 	reserved_ram_resource(dev, index++, 0xc0000 >> 10,
 			      (0x100000 - 0xc0000) >> 10);
 
-#if IS_ENABLED(CONFIG_CHROMEOS_RAMOOPS)
+#if CONFIG(CHROMEOS_RAMOOPS)
 	reserved_ram_resource(dev, index++,
 			      CONFIG_CHROMEOS_RAMOOPS_RAM_START >> 10,
 			      CONFIG_CHROMEOS_RAMOOPS_RAM_SIZE >> 10);
@@ -90,7 +89,7 @@ static void pci_domain_set_resources(struct device *dev)
 	assign_resources(dev->link_list);
 }
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 static const char *northbridge_acpi_name(const struct device *dev)
 {
 	if (dev->path.type == DEVICE_PATH_DOMAIN)
@@ -114,7 +113,7 @@ static struct device_operations pci_domain_ops = {
 	.enable_resources = NULL,
 	.init = NULL,
 	.scan_bus = pci_domain_scan_bus,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_name = northbridge_acpi_name,
 #endif
 };
@@ -172,35 +171,10 @@ static void mc_read_resources(struct device *dev)
 	add_fixed_resources(dev, 10);
 }
 
-u32 northbridge_get_tseg_base(void)
-{
-	struct device *dev = pcidev_on_root(0, 0);
-
-	return pci_read_config32(dev, TSEG) & ~1;
-}
-
-u32 northbridge_get_tseg_size(void)
-{
-	return CONFIG_SMM_TSEG_SIZE;
-}
-
 static void mc_set_resources(struct device *dev)
 {
 	/* And call the normal set_resources */
 	pci_dev_set_resources(dev);
-}
-
-static void intel_set_subsystem(struct device *dev, unsigned int vendor,
-				unsigned int device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				   pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				   ((device & 0xffff) << 16) | (vendor &
-								0xffff));
-	}
 }
 
 static void northbridge_dmi_init(struct device *dev)
@@ -252,59 +226,33 @@ static void northbridge_dmi_init(struct device *dev)
 
 static void northbridge_init(struct device *dev)
 {
-	u8 bios_reset_cpl;
-	u32 bridge_type;
-
 	northbridge_dmi_init(dev);
+}
 
-	bridge_type = MCHBAR32(0x5f10);
-	bridge_type &= ~0xff;
+/* Disable unused PEG devices based on devicetree before PCI enumeration */
+static void nehalem_init(void *const chip_info)
+{
+	u32 deven_mask = UINT32_MAX;
+	const struct device *dev;
 
-	if ((bridge_silicon_revision() & BASE_REV_MASK) == BASE_REV_IVB) {
-		/* Enable Power Aware Interrupt Routing */
-		u8 pair = MCHBAR8(0x5418);
-		pair &= ~0xf;	/* Clear 3:0 */
-		pair |= 0x4;	/* Fixed Priority */
-		MCHBAR8(0x5418) = pair;
-
-		/* 30h for IvyBridge */
-		bridge_type |= 0x30;
-	} else {
-		/* 20h for Sandybridge */
-		bridge_type |= 0x20;
+	dev = pcidev_on_root(1, 0);
+	if (!dev || !dev->enabled) {
+		printk(BIOS_DEBUG, "Disabling PEG10.\n");
+		deven_mask &= ~DEVEN_PEG10;
 	}
-	MCHBAR32(0x5f10) = bridge_type;
-
-	/*
-	 * Set bit 0 of BIOS_RESET_CPL to indicate to the CPU
-	 * that BIOS has initialized memory and power management
-	 */
-	bios_reset_cpl = MCHBAR8(BIOS_RESET_CPL);
-	bios_reset_cpl |= 1;
-	MCHBAR8(BIOS_RESET_CPL) = bios_reset_cpl;
-	printk(BIOS_DEBUG, "Set BIOS_RESET_CPL\n");
-
-	/* Configure turbo power limits 1ms after reset complete bit */
-	mdelay(1);
-#ifdef DISABLED
-	set_power_limits(28);
-
-	/*
-	 * CPUs with configurable TDP also need power limits set
-	 * in MCHBAR.  Use same values from MSR_PKG_POWER_LIMIT.
-	 */
-	if (cpu_config_tdp_levels()) {
-		msr_t msr = rdmsr(MSR_PKG_POWER_LIMIT);
-		MCHBAR32(0x59A0) = msr.lo;
-		MCHBAR32(0x59A4) = msr.hi;
+	dev = pcidev_on_root(2, 0);
+	if (!dev || !dev->enabled) {
+		printk(BIOS_DEBUG, "Disabling IGD.\n");
+		deven_mask &= ~DEVEN_IGD;
 	}
-#endif
-	/* Set here before graphics PM init */
-	MCHBAR32(0x5500) = 0x00100001;
+	const struct device *const d0f0 = pcidev_on_root(0, 0);
+	if (d0f0)
+		pci_update_config32(d0f0, D0F0_DEVEN, deven_mask, 0);
+
 }
 
 static struct pci_operations intel_pci_ops = {
-	.set_subsystem = intel_set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 };
 
 static struct device_operations mc_ops = {
@@ -323,16 +271,11 @@ static const struct pci_driver mc_driver_44 __pci_driver = {
 	.device = 0x0044,	/* Nehalem */
 };
 
-static void cpu_bus_init(struct device *dev)
-{
-	initialize_cpus(dev->link_list);
-}
-
 static struct device_operations cpu_bus_ops = {
 	.read_resources = DEVICE_NOOP,
 	.set_resources = DEVICE_NOOP,
 	.enable_resources = DEVICE_NOOP,
-	.init = cpu_bus_init,
+	.init = mp_cpu_bus_init,
 	.scan_bus = 0,
 };
 
@@ -348,5 +291,6 @@ static void enable_dev(struct device *dev)
 
 struct chip_operations northbridge_intel_nehalem_ops = {
 	CHIP_NAME("Intel i7 (Nehalem) integrated Northbridge")
-	    .enable_dev = enable_dev,
+	.enable_dev = enable_dev,
+	.init = nehalem_init,
 };

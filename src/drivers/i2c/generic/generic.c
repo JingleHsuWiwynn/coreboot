@@ -24,7 +24,7 @@
 #include <string.h>
 #include "chip.h"
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 
 static bool i2c_generic_add_gpios_to_crs(struct drivers_i2c_generic_config *cfg)
 {
@@ -116,10 +116,13 @@ void i2c_generic_fill_ssdt(struct device *dev,
 	}
 
 	/* DSD */
-	if (config->probed || config->property_count ||
+	if (config->probed || config->property_count || config->compat_string ||
 	    (reset_gpio_index != -1) ||
 	    (enable_gpio_index != -1) || (irq_gpio_index != -1)) {
 		dsd = acpi_dp_new_table("_DSD");
+		if (config->compat_string)
+			acpi_dp_add_string(dsd, "compatible",
+					   config->compat_string);
 		if (config->probed)
 			acpi_dp_add_integer(dsd, "linux,probed", 1);
 		if (irq_gpio_index != -1)
@@ -192,7 +195,7 @@ static struct device_operations i2c_generic_ops = {
 	.read_resources		  = DEVICE_NOOP,
 	.set_resources		  = DEVICE_NOOP,
 	.enable_resources	  = DEVICE_NOOP,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_name		  = i2c_generic_acpi_name,
 	.acpi_fill_ssdt_generator = i2c_generic_fill_ssdt_generator,
 #endif

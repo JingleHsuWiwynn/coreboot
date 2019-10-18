@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2007 Advanced Micro Devices, Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -17,6 +15,7 @@
 #include <cpu/x86/lapic.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <pc80/mc146818rtc.h>
 #include <smp/spinlock.h>
 #include <cpu/x86/mtrr.h>
@@ -73,7 +72,7 @@ u32 get_apicid_base(u32 ioapic_num)
 	u32 siblings;
 	u32 nb_cfg_54;
 
-	u32 disable_siblings = !CONFIG_LOGICAL_CPUS;
+	u32 disable_siblings = !CONFIG(LOGICAL_CPUS);
 
 	get_option(&disable_siblings, "multi_core");
 

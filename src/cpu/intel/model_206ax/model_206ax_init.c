@@ -1,9 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2007-2009 coresystems GmbH
- * Copyright (C) 2011 The ChromiumOS Authors.  All rights reserved.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2 of
@@ -15,10 +12,8 @@
  * GNU General Public License for more details.
  */
 
-#include <assert.h>
 #include <console/console.h>
 #include <device/device.h>
-#include <string.h>
 #include <arch/acpi.h>
 #include <arch/cpu.h>
 #include <cpu/cpu.h>
@@ -34,7 +29,7 @@
 #include <pc80/mc146818rtc.h>
 #include "model_206ax.h"
 #include "chip.h"
-#include <cpu/intel/smm/gen1/smi.h>
+#include <cpu/intel/smm_reloc.h>
 #include <cpu/intel/common/common.h>
 
 /*
@@ -53,7 +48,7 @@ static acpi_cstate_t cstate_map[] = {
 			.space_id = ACPI_ADDRESS_SPACE_FIXED,
 			.bit_width = ACPI_FFIXEDHW_VENDOR_INTEL,
 			.bit_offset = ACPI_FFIXEDHW_CLASS_MWAIT,
-			.resv = ACPI_FFIXEDHW_FLAG_HW_COORD,
+			.access_size = ACPI_FFIXEDHW_FLAG_HW_COORD,
 		}
 	},
 	{	/* 2: C1E */
@@ -64,7 +59,7 @@ static acpi_cstate_t cstate_map[] = {
 			.space_id = ACPI_ADDRESS_SPACE_FIXED,
 			.bit_width = ACPI_FFIXEDHW_VENDOR_INTEL,
 			.bit_offset = ACPI_FFIXEDHW_CLASS_MWAIT,
-			.resv = ACPI_FFIXEDHW_FLAG_HW_COORD,
+			.access_size = ACPI_FFIXEDHW_FLAG_HW_COORD,
 		}
 	},
 	{	/* 3: C3 */
@@ -75,7 +70,7 @@ static acpi_cstate_t cstate_map[] = {
 			.space_id = ACPI_ADDRESS_SPACE_FIXED,
 			.bit_width = ACPI_FFIXEDHW_VENDOR_INTEL,
 			.bit_offset = ACPI_FFIXEDHW_CLASS_MWAIT,
-			.resv = ACPI_FFIXEDHW_FLAG_HW_COORD,
+			.access_size = ACPI_FFIXEDHW_FLAG_HW_COORD,
 		}
 	},
 	{	/* 4: C6 */
@@ -86,7 +81,7 @@ static acpi_cstate_t cstate_map[] = {
 			.space_id = ACPI_ADDRESS_SPACE_FIXED,
 			.bit_width = ACPI_FFIXEDHW_VENDOR_INTEL,
 			.bit_offset = ACPI_FFIXEDHW_CLASS_MWAIT,
-			.resv = ACPI_FFIXEDHW_FLAG_HW_COORD,
+			.access_size = ACPI_FFIXEDHW_FLAG_HW_COORD,
 		}
 	},
 	{	/* 5: C7 */
@@ -97,7 +92,7 @@ static acpi_cstate_t cstate_map[] = {
 			.space_id = ACPI_ADDRESS_SPACE_FIXED,
 			.bit_width = ACPI_FFIXEDHW_VENDOR_INTEL,
 			.bit_offset = ACPI_FFIXEDHW_CLASS_MWAIT,
-			.resv = ACPI_FFIXEDHW_FLAG_HW_COORD,
+			.access_size = ACPI_FFIXEDHW_FLAG_HW_COORD,
 		}
 	},
 	{	/* 6: C7S */
@@ -108,7 +103,7 @@ static acpi_cstate_t cstate_map[] = {
 			.space_id = ACPI_ADDRESS_SPACE_FIXED,
 			.bit_width = ACPI_FFIXEDHW_VENDOR_INTEL,
 			.bit_offset = ACPI_FFIXEDHW_CLASS_MWAIT,
-			.resv = ACPI_FFIXEDHW_FLAG_HW_COORD,
+			.access_size = ACPI_FFIXEDHW_FLAG_HW_COORD,
 		}
 	},
 	{ 0 }
@@ -515,7 +510,7 @@ static int get_cpu_count(void)
 	int num_threads;
 	int num_cores;
 
-	msr = rdmsr(CORE_THREAD_COUNT_MSR);
+	msr = rdmsr(MSR_CORE_THREAD_COUNT);
 	num_threads = (msr.lo >> 0) & 0xffff;
 	num_cores = (msr.lo >> 16) & 0xffff;
 	printk(BIOS_DEBUG, "CPU has %u cores, %u threads enabled.\n",
@@ -544,7 +539,7 @@ static void post_mp_init(void)
 {
 	/* Now that all APs have been relocated as well as the BSP let SMIs
 	 * start flowing. */
-	southbridge_smm_init();
+	smm_southbridge_enable_smi();
 
 	/* Lock down the SMRAM space. */
 	smm_lock();
@@ -562,7 +557,7 @@ static const struct mp_ops mp_ops = {
 	.post_mp_init = post_mp_init,
 };
 
-void bsp_init_and_start_aps(struct bus *cpu_bus)
+void mp_init_cpus(struct bus *cpu_bus)
 {
 	if (mp_init_with_smm(cpu_bus, &mp_ops))
 		printk(BIOS_ERR, "MP initialization failure.\n");

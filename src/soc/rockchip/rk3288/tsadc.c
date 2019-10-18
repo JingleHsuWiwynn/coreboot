@@ -13,9 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
-#include <assert.h>
-#include <delay.h>
+#include <device/mmio.h>
 #include <soc/clock.h>
 #include <soc/grf.h>
 #include <soc/pmu.h>

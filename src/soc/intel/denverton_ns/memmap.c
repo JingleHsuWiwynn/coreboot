@@ -14,15 +14,16 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <arch/romstage.h>
 #include <cbmem.h>
 #include <assert.h>
+#include <cpu/x86/mtrr.h>
+#include <cpu/x86/smm.h>
 #include <device/device.h>
 #include <device/pci_def.h>
 #include <device/pci_ops.h>
 #include <soc/pci_devs.h>
 #include <soc/systemagent.h>
-#include <soc/smm.h>
 #include <lib.h>
 
 /* Returns base of requested region encoded in the system agent. */
@@ -31,7 +32,7 @@ static inline uintptr_t system_agent_region_base(size_t reg)
 #if defined(__SIMPLE_DEVICE__)
 	pci_devfn_t dev = SA_DEV_ROOT;
 #else
-	struct device *dev = SA_DEV_ROOT;
+	struct device *dev = pcidev_path_on_root(SA_DEVFN_ROOT);
 #endif
 	/* All regions concerned for have 1 MiB alignment. */
 	return ALIGN_DOWN(pci_read_config32(dev, reg), 1 * MiB);
@@ -52,7 +53,7 @@ u32 top_of_32bit_ram(void)
 /*
  * Add IQAT region size if enabled.
  */
-#if IS_ENABLED(CONFIG_IQAT_ENABLE)
+#if CONFIG(IQAT_ENABLE)
 	iqat_region_size = CONFIG_IQAT_MEMORY_REGION_SIZE;
 #endif
 	return system_agent_region_base(TOLUD) -
@@ -71,39 +72,25 @@ static inline size_t smm_region_size(void)
 	return system_agent_region_base(TOLUD) - smm_region_start();
 }
 
-void smm_region(void **start, size_t *size)
+void smm_region(uintptr_t *start, size_t *size)
 {
-	*start = (void *)smm_region_start();
+	*start = smm_region_start();
 	*size = smm_region_size();
 }
 
-int smm_subregion(int sub, void **start, size_t *size)
+void fill_postcar_frame(struct postcar_frame *pcf)
 {
-	uintptr_t sub_base;
-	size_t sub_size;
-	const size_t cache_size = CONFIG_SMM_RESERVED_SIZE;
+	uintptr_t top_of_ram;
 
-	sub_base = smm_region_start();
-	sub_size = smm_region_size();
+	/*
+	 * We need to make sure ramstage will be run cached. At this point exact
+	 * location of ramstage in cbmem is not known. Instruct postcar to cache
+	 * 16 megs under cbmem top which is a safe bet to cover ramstage.
+	 */
+	top_of_ram = (uintptr_t)cbmem_top();
+	postcar_frame_add_mtrr(pcf, top_of_ram - 16 * MiB, 16 * MiB,
+			       MTRR_TYPE_WRBACK);
 
-	assert(sub_size > CONFIG_SMM_RESERVED_SIZE);
-
-	switch (sub) {
-	case SMM_SUBREGION_HANDLER:
-		/* Handler starts at the base of TSEG. */
-		sub_size -= cache_size;
-		break;
-	case SMM_SUBREGION_CACHE:
-		/* External cache is in the middle of TSEG. */
-		sub_base += sub_size - cache_size;
-		sub_size = cache_size;
-		break;
-	default:
-		return -1;
-	}
-
-	*start = (void *)sub_base;
-	*size = sub_size;
-
-	return 0;
+	/* Cache the TSEG region */
+	postcar_enable_tseg_cache(pcf);
 }

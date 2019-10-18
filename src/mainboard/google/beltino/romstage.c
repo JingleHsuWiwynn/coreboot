@@ -16,8 +16,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
-#include <cpu/intel/romstage.h>
+#include <arch/romstage.h>
 #include <cpu/intel/haswell/haswell.h>
 #include <northbridge/intel/haswell/haswell.h>
 #include <northbridge/intel/haswell/raminit.h>
@@ -68,14 +67,14 @@ const struct rcba_config_instruction rcba_config[] = {
 	RCBA_END_CONFIG,
 };
 
-void mainboard_romstage_entry(unsigned long bist)
+void mainboard_romstage_entry(void)
 {
 	struct pei_data pei_data = {
 		.pei_version = PEI_VERSION,
 		.mchbar = (uintptr_t)DEFAULT_MCHBAR,
 		.dmibar = (uintptr_t)DEFAULT_DMIBAR,
 		.epbar = DEFAULT_EPBAR,
-		.pciexbar = DEFAULT_PCIEXBAR,
+		.pciexbar = CONFIG_MMCONF_BASE_ADDRESS,
 		.smbusbar = SMBUS_IO_BASE,
 		.wdbbar = 0x4000000,
 		.wdbsize = 0x1000,
@@ -131,7 +130,6 @@ void mainboard_romstage_entry(unsigned long bist)
 		.pei_data = &pei_data,
 		.gpio_map = &mainboard_gpio_map,
 		.rcba_config = &rcba_config[0],
-		.bist = bist,
 	};
 
 	/* Early SuperIO setup */

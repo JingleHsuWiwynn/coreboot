@@ -13,11 +13,10 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <boardid.h>
 #include <bootblock_common.h>
-#include <delay.h>
 #include <gpio.h>
+#include <device/mmio.h>
 #include <soc/gpio.h>
 #include <soc/i2c.h>
 #include <soc/mt6391.h>
@@ -87,10 +86,11 @@ void bootblock_mainboard_init(void)
 	/* Init i2c bus 2 Timing register for TPM */
 	mtk_i2c_bus_init(CONFIG_DRIVER_TPM_I2C_BUS);
 
-	if (IS_ENABLED(CONFIG_OAK_HAS_TPM2))
+	if (CONFIG(OAK_HAS_TPM2))
 		gpio_eint_configure(CR50_IRQ, IRQ_TYPE_EDGE_RISING);
 
-	mtk_spi_init(CONFIG_EC_GOOGLE_CHROMEEC_SPI_BUS, SPI_PAD1_MASK, 6*MHz);
+	mtk_spi_init(CONFIG_EC_GOOGLE_CHROMEEC_SPI_BUS, SPI_PAD1_MASK, 6*MHz,
+		     0);
 
 	setup_chromeos_gpios();
 

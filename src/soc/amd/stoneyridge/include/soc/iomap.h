@@ -22,29 +22,37 @@
 #define SPI_BASE_ADDRESS		0xfec10000
 #define IO_APIC2_ADDR			0xfec20000
 
-/* I2C fixed address */
-#define I2C_BASE_ADDRESS	0xfedc2000
-#define I2C_DEVICE_SIZE		0x00001000
-#define I2C_DEVICE_COUNT	4
+/*
+ * AcpiMmio blocks are at fixed offsets from FED8_0000h and enabled in PMx04[1].
+ * All ranges not specified as supported below may, or may not, be listed in
+ * any documentation but should be considered reserved through FED8_1FFFh.
+ */
+#include <amdblocks/acpimmio_map.h>
+#define SUPPORTS_ACPIMMIO_SMI_BASE	1 /* 0xfed80100 */
+#define SUPPORTS_ACPIMMIO_PMIO_BASE	1 /* 0xfed80300 */
+#define SUPPORTS_ACPIMMIO_BIOSRAM_BASE	1 /* 0xfed80500 */
+#define SUPPORTS_ACPIMMIO_ACPI_BASE	1 /* 0xfed80800 */
+#define SUPPORTS_ACPIMMIO_ASF_BASE	1 /* 0xfed80900 */
+#define SUPPORTS_ACPIMMIO_SMBUS_BASE	1 /* 0xfed80a00 */
+#define SUPPORTS_ACPIMMIO_IOMUX_BASE	1 /* 0xfed80d00 */
+#define SUPPORTS_ACPIMMIO_MISC_BASE	1 /* 0xfed80e00 */
+#define SUPPORTS_ACPIMMIO_GPIO0_BASE	1 /* 0xfed81500 */
+#define SUPPORTS_ACPIMMIO_GPIO1_BASE	1 /* 0xfed81800 */
+#define SUPPORTS_ACPIMMIO_GPIO2_BASE	1 /* 0xfed81700 */
+#define SUPPORTS_ACPIMMIO_XHCIPM_BASE	1 /* 0xfed81c00 */
+#define SUPPORTS_ACPIMMIO_AOAC_BASE	1 /* 0xfed81e00 */
 
-#if IS_ENABLED(CONFIG_HPET_ADDRESS_OVERRIDE)
+#define ALINK_AHB_ADDRESS		0xfedc0000
+
+/* I2C fixed address */
+#define I2C_BASE_ADDRESS		0xfedc2000
+#define I2C_DEVICE_SIZE			0x00001000
+#define I2C_DEVICE_COUNT		4
+
+#if CONFIG(HPET_ADDRESS_OVERRIDE)
 #error HPET address override is not allowed and must be fixed at 0xfed00000
 #endif
 #define HPET_BASE_ADDRESS		0xfed00000
-
-/* Register blocks at fixed offsets from FED8_0000h and enabled in PMx04[1] */
-#define AMD_SB_ACPI_MMIO_ADDR		0xfed80000
-#define APU_SMI_BASE			0xfed80200
-#define PM_MMIO_BASE			0xfed80300
-#define BIOSRAM_MMIO_BASE		0xfed80500
-#define ACPI_REG_MMIO_BASE		0xfed80800
-#define ASF_MMIO_BASE			0xfed80900
-#define SMBUS_MMIO_BASE			0xfed80a00
-#define GPIO_IOMUX_MMIO_BASE		0xfed80d00
-#define MISC_MMIO_BASE			0xfed80e00
-#define XHCI_ACPI_PM_MMIO_BASE		0xfed81c00
-#define GPIO_CONTROL_MMIO_BASE		0xfed81500
-#define AOAC_MMIO_BASE			0xfed81e00
 
 #define APU_UART0_BASE			0xfedc6000
 #define APU_UART1_BASE			0xfedc8000
@@ -68,8 +76,6 @@
 #define PM2_DATA			0xcd1
 #define BIOSRAM_INDEX			0xcd4
 #define BIOSRAM_DATA			0xcd5
-#define PM_INDEX			0xcd6
-#define PM_DATA				0xcd7
 #define AB_INDX				0xcd8
 #define AB_DATA				(AB_INDX+4)
 #define SYS_RESET			0xcf9

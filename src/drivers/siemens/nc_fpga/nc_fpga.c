@@ -18,10 +18,10 @@
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
 #include <device/pci_def.h>
-#include <string.h>
-#include <delay.h>
+#include <device/mmio.h>
 #include <hwilib.h>
 #include <bootstate.h>
+
 #include "nc_fpga.h"
 
 static void *nc_fpga_bar0;
@@ -139,7 +139,7 @@ static void nc_fpga_init(struct device *dev)
 	}
 }
 
-#if IS_ENABLED(CONFIG_NC_FPGA_NOTIFY_CB_READY)
+#if CONFIG(NC_FPGA_NOTIFY_CB_READY)
 /* Set FW_DONE bit in FPGA before jumping to payload. */
 static void set_fw_done(void *unused)
 {

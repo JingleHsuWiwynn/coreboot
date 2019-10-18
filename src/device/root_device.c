@@ -1,13 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2003-2004 Linux Networx
- * (Written by Eric Biederman <ebiederman@lnxi.com> for Linux Networx)
- * Copyright (C) 2003 Ronald G. Minnich <rminnich@gmail.com>
- * Copyright (C) 2004-2005 Li-Ta Lo <ollie@lanl.gov>
- * Copyright (C) 2005 Tyan
- * (Written by Yinghai Lu <yhlu@tyan.com> for Tyan)
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -26,7 +19,7 @@
 const char mainboard_name[] = CONFIG_MAINBOARD_VENDOR " " CONFIG_MAINBOARD_PART_NUMBER;
 
 /**
- * Scan devices on static buses.
+ * Enable devices on static buses.
  *
  * The enumeration of certain buses is purely static. The existence of
  * devices on those buses can be completely determined at compile time
@@ -43,7 +36,7 @@ const char mainboard_name[] = CONFIG_MAINBOARD_VENDOR " " CONFIG_MAINBOARD_PART_
  * @param bus Pointer to the device to which the static buses are attached to.
  */
 
-void scan_static_bus(struct device *bus)
+void enable_static_devices(struct device *bus)
 {
 	struct device *child;
 	struct bus *link;
@@ -61,30 +54,6 @@ void scan_static_bus(struct device *bus)
 			       child->enabled ? "enabled" : "disabled");
 		}
 	}
-}
-
-void scan_lpc_bus(struct device *bus)
-{
-	printk(BIOS_SPEW, "%s for %s\n", __func__, dev_path(bus));
-
-	scan_static_bus(bus);
-
-	printk(BIOS_SPEW, "%s for %s done\n", __func__, dev_path(bus));
-}
-
-void scan_usb_bus(struct device *bus)
-{
-	struct bus *link;
-
-	printk(BIOS_SPEW, "%s for %s\n", __func__, dev_path(bus));
-
-	scan_static_bus(bus);
-
-	/* Scan bridges in case this device is a hub */
-	for (link = bus->link_list; link; link = link->next)
-		scan_bridges(link);
-
-	printk(BIOS_SPEW, "%s for %s done\n", __func__, dev_path(bus));
 }
 
 void scan_generic_bus(struct device *bus)
@@ -123,20 +92,23 @@ void scan_smbus(struct device *bus)
 	scan_generic_bus(bus);
 }
 
-/**
- * Scan root bus for generic systems.
+/*
+ * Default scan_bus() implementation
  *
- * This function is the default scan_bus() method of the root device.
+ * This is the default implementation for buses that can't
+ * be probed at runtime. It simply walks through the topology
+ * given by the mainboard's `devicetree.cb`.
  *
- * @param root The root device structure.
+ * First, all direct descendants of the given device are
+ * enabled. Then, downstream buses are scanned.
  */
-static void root_dev_scan_bus(struct device *bus)
+void scan_static_bus(struct device *bus)
 {
 	struct bus *link;
 
 	printk(BIOS_SPEW, "%s for %s\n", __func__, dev_path(bus));
 
-	scan_static_bus(bus);
+	enable_static_devices(bus);
 
 	for (link = bus->link_list; link; link = link->next)
 		scan_bridges(link);
@@ -150,7 +122,7 @@ static void root_dev_reset(struct bus *bus)
 	board_reset();
 }
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 static const char *root_dev_acpi_name(const struct device *dev)
 {
 	return "\\_SB";
@@ -169,9 +141,9 @@ struct device_operations default_dev_ops_root = {
 	.set_resources    = DEVICE_NOOP,
 	.enable_resources = DEVICE_NOOP,
 	.init             = DEVICE_NOOP,
-	.scan_bus         = root_dev_scan_bus,
+	.scan_bus         = scan_static_bus,
 	.reset_bus        = root_dev_reset,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_name        = root_dev_acpi_name,
 #endif
 };

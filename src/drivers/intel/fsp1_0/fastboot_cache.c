@@ -57,7 +57,7 @@ static u32 get_mrc_cache_region(struct mrc_data_container **mrc_region_ptr)
 {
 	size_t region_size;
 
-	if (IS_ENABLED(CONFIG_MRC_CACHE_FMAP)) {
+	if (CONFIG(MRC_CACHE_FMAP)) {
 		struct region_device rdev;
 		if (fmap_locate_area_as_rdev("RW_MRC_CACHE", &rdev) == 0) {
 			*mrc_region_ptr = rdev_mmap_full(&rdev);
@@ -65,13 +65,12 @@ static u32 get_mrc_cache_region(struct mrc_data_container **mrc_region_ptr)
 		}
 		*mrc_region_ptr = NULL;
 		return 0;
-	} else {
-		*mrc_region_ptr = cbfs_boot_map_with_leak("mrc.cache",
-							CBFS_TYPE_MRC_CACHE,
-							&region_size);
-
-		return region_size;
 	}
+	*mrc_region_ptr = cbfs_boot_map_with_leak("mrc.cache",
+						CBFS_TYPE_MRC_CACHE,
+						&region_size);
+
+	return region_size;
 }
 
 /*
@@ -117,10 +116,6 @@ static struct mrc_data_container *find_current_mrc_cache_local
 	return mrc_cache;
 }
 
-/* SPI code needs malloc/free.
- * Also unknown if writing flash from XIP-flash code is a good idea
- */
-#if !defined(__PRE_RAM__)
 /* find the first empty block in the MRC cache area.
  * If there's none, return NULL.
  *
@@ -221,8 +216,6 @@ void update_mrc_cache(void *unused)
 	spi_flash_write(&flash, to_flash_offset(cache),
 			current->mrc_data_size + sizeof(*current), current);
 }
-
-#endif	/* !defined(__PRE_RAM__) */
 
 void *find_and_set_fastboot_cache(void)
 {

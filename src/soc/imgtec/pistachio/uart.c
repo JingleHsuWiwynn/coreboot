@@ -16,7 +16,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <boot/coreboot_tables.h>
 #include <console/uart.h>
 #include <device/device.h>
@@ -36,12 +36,12 @@
 #define GEN_ACCESSOR(name, idx)						\
 static inline uint8_t read_##name(unsigned base_port)			\
 {									\
-	return read8(base_port + (idx << UART_SHIFT));			\
+	return read8((void *)(base_port + (idx << UART_SHIFT)));	\
 }									\
 									\
 static inline void write_##name(unsigned base_port, uint8_t val)	\
 {									\
-	write8(base_port + (idx << UART_SHIFT), val);			\
+	write8((void *)(base_port + (idx << UART_SHIFT)), val);		\
 }
 
 GEN_ACCESSOR(rbr, UART8250_RBR)
@@ -143,7 +143,6 @@ void uart_tx_flush(int idx)
 	uart8250_mem_tx_flush(CONFIG_CONSOLE_SERIAL_UART_ADDRESS);
 }
 
-#ifndef __PRE_RAM__
 void uart_fill_lb(void *data)
 {
 	struct lb_serial serial;
@@ -151,8 +150,9 @@ void uart_fill_lb(void *data)
 	serial.baseaddr = CONFIG_CONSOLE_SERIAL_UART_ADDRESS;
 	serial.baud = get_uart_baudrate();
 	serial.regwidth = 1 << UART_SHIFT;
+	serial.input_hertz = uart_platform_refclk();
+	serial.uart_pci_addr = CONFIG_UART_PCI_ADDR;
 	lb_add_serial(&serial, data);
 
 	lb_add_console(LB_TAG_CONSOLE_SERIAL8250MEM, data);
 }
-#endif

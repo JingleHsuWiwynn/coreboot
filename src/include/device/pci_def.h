@@ -138,6 +138,7 @@
 #define  PCI_BRIDGE_CTL_SERR	0x02	/* The same for SERR forwarding */
 #define  PCI_BRIDGE_CTL_NO_ISA	0x04	/* Disable bridging of ISA ports */
 #define  PCI_BRIDGE_CTL_VGA	0x08	/* Forward VGA addresses */
+#define  PCI_BRIDGE_CTL_VGA16	0x10	/* Enable 16-bit i/o port decoding */
 #define  PCI_BRIDGE_CTL_MASTER_ABORT 0x20  /* Report master aborts */
 #define  PCI_BRIDGE_CTL_BUS_RESET 0x40	/* Secondary bus reset */
 /* Fast Back2Back enabled on secondary interface */
@@ -198,6 +199,7 @@
 #define  PCI_CAP_ID_HT          0x08	/* Hypertransport */
 #define  PCI_CAP_ID_EHCI_DEBUG	0x0A	/* EHCI debug port */
 #define  PCI_CAP_ID_SHPC	0x0C	/* PCI Standard Hot-Plug Controller */
+#define  PCI_CAP_ID_SSVID	0x0D	/* Bridge subsystem vendor/device ID */
 #define  PCI_CAP_ID_PCIE	0x10	/* PCI Express */
 #define  PCI_CAP_ID_MSIX	0x11	/* MSI-X */
 #define PCI_CAP_LIST_NEXT	1	/* Next capability in the list */

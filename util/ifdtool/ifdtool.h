@@ -94,6 +94,15 @@ typedef struct {
 #define MAX_REGIONS 9
 #define MAX_REGIONS_OLD 5
 
+enum flash_regions {
+	REGION_DESC,
+	REGION_BIOS,
+	REGION_ME,
+	REGION_GBE,
+	REGION_PDR,
+	REGION_EC = 8,
+};
+
 typedef struct {
 	uint32_t flreg[MAX_REGIONS];
 } __attribute__((packed)) frba_t;
@@ -156,4 +165,5 @@ struct region_name {
 	const char *pretty;
 	const char *terse;
 	const char *filename;
+	const char *fmapname;
 };

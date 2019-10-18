@@ -23,12 +23,14 @@
 #include <pc80/isa-dma.h>
 #include <pc80/i8259.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <arch/ioapic.h>
 #include <arch/acpi.h>
 #include <cpu/x86/smm.h>
 #include <arch/acpigen.h>
 #include <cbmem.h>
 #include <string.h>
+#include "chip.h"
 #include "i82801ix.h"
 #include "nvs.h"
 #include <southbridge/intel/common/pciehp.h>
@@ -38,7 +40,6 @@
 #define NMI_OFF	0
 
 #define ENABLE_ACPI_MODE_IN_COREBOOT	0
-#define TEST_SMM_FLASH_LOCKDOWN		0
 
 typedef struct southbridge_intel_i82801ix_config config_t;
 
@@ -282,9 +283,6 @@ static void i82801ix_power_options(struct device *dev)
 				       will be constantly fired and OSPM must
 				       not know about it (ACPI spec says to
 				       ignore the bit). */
-	reg32 = inl(pmbase + 0x04); // PM1_CNT
-	reg32 &= ~(7 << 10);	// SLP_TYP
-	outl(reg32, pmbase + 0x04);
 
 	/* Set duty cycle for hardware throttling (defaults to 0x0: 50%). */
 	reg32 = inl(pmbase + 0x10);
@@ -369,13 +367,8 @@ static void enable_clock_gating(void)
 	RCBA32(0x38c0) |= 7;
 }
 
-#if IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)
-static void i82801ix_lock_smm(struct device *dev)
+static void i82801ix_set_acpi_mode(struct device *dev)
 {
-#if TEST_SMM_FLASH_LOCKDOWN
-	u8 reg8;
-#endif
-
 	if (!acpi_is_wakeup_s3()) {
 #if ENABLE_ACPI_MODE_IN_COREBOOT
 		printk(BIOS_DEBUG, "Enabling ACPI via APMC:\n");
@@ -390,40 +383,7 @@ static void i82801ix_lock_smm(struct device *dev)
 		printk(BIOS_DEBUG, "S3 wakeup, enabling ACPI via APMC\n");
 		outb(APM_CNT_ACPI_ENABLE, APM_CNT);
 	}
-	/* Don't allow evil boot loaders, kernels, or
-	 * userspace applications to deceive us:
-	 */
-	if (!IS_ENABLED(CONFIG_PARALLEL_MP))
-		smm_lock();
-
-#if TEST_SMM_FLASH_LOCKDOWN
-	/* Now try this: */
-	printk(BIOS_DEBUG, "Locking BIOS to RO... ");
-	reg8 = pci_read_config8(dev, 0xdc);	/* BIOS_CNTL */
-	printk(BIOS_DEBUG, " BLE: %s; BWE: %s\n", (reg8&2)?"on":"off",
-			(reg8&1)?"rw":"ro");
-	reg8 &= ~(1 << 0);			/* clear BIOSWE */
-	pci_write_config8(dev, 0xdc, reg8);
-	reg8 |= (1 << 1);			/* set BLE */
-	pci_write_config8(dev, 0xdc, reg8);
-	printk(BIOS_DEBUG, "ok.\n");
-	reg8 = pci_read_config8(dev, 0xdc);	/* BIOS_CNTL */
-	printk(BIOS_DEBUG, " BLE: %s; BWE: %s\n", (reg8&2)?"on":"off",
-			(reg8&1)?"rw":"ro");
-
-	printk(BIOS_DEBUG, "Writing:\n");
-	*(volatile u8 *)0xfff00000 = 0x00;
-	printk(BIOS_DEBUG, "Testing:\n");
-	reg8 |= (1 << 0);			/* set BIOSWE */
-	pci_write_config8(dev, 0xdc, reg8);
-
-	reg8 = pci_read_config8(dev, 0xdc);	/* BIOS_CNTL */
-	printk(BIOS_DEBUG, " BLE: %s; BWE: %s\n", (reg8&2)?"on":"off",
-			(reg8&1)?"rw":"ro");
-	printk(BIOS_DEBUG, "Done.\n");
-#endif
 }
-#endif
 
 static void lpc_init(struct device *dev)
 {
@@ -465,9 +425,14 @@ static void lpc_init(struct device *dev)
 	/* Interrupt 9 should be level triggered (SCI) */
 	i8259_configure_irq_trigger(9, 1);
 
-#if IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)
-	i82801ix_lock_smm(dev);
-#endif
+	if (CONFIG(HAVE_SMI_HANDLER))
+		i82801ix_set_acpi_mode(dev);
+
+	/* Don't allow evil boot loaders, kernels, or
+	 * userspace applications to deceive us:
+	 */
+	if (CONFIG(HAVE_SMI_HANDLER) && CONFIG(SMM_ASEG))
+		aseg_smm_lock();
 }
 
 static void i82801ix_lpc_read_resources(struct device *dev)
@@ -526,17 +491,6 @@ static void i82801ix_lpc_read_resources(struct device *dev)
 	res->flags = IORESOURCE_MEM | IORESOURCE_ASSIGNED | IORESOURCE_FIXED;
 }
 
-static void set_subsystem(struct device *dev, unsigned vendor, unsigned device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
-}
-
 static void southbridge_inject_dsdt(struct device *dev)
 {
 	global_nvs_t *gnvs = cbmem_add (CBMEM_ID_ACPI_GNVS, sizeof(*gnvs));
@@ -577,7 +531,7 @@ static void southbridge_fill_ssdt(struct device *device)
 }
 
 static struct pci_operations pci_ops = {
-	.set_subsystem = set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 };
 
 static struct device_operations device_ops = {
@@ -589,7 +543,7 @@ static struct device_operations device_ops = {
 	.acpi_fill_ssdt_generator = southbridge_fill_ssdt,
 	.acpi_name		= lpc_acpi_name,
 	.init			= lpc_init,
-	.scan_bus		= scan_lpc_bus,
+	.scan_bus		= scan_static_bus,
 	.ops_pci		= &pci_ops,
 };
 

@@ -18,6 +18,7 @@
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <device/pciexp.h>
 #include <device/pci_ids.h>
 #include <reg_script.h>
@@ -140,14 +141,14 @@ static void pcie_enable(struct device *dev)
 	printk(BIOS_SPEW, "%s/%s (%s)\n",
 			__FILE__, __func__, dev_name(dev));
 	if (is_first_port(dev)) {
-		struct soc_intel_braswell_config *config = dev->chip_info;
+		struct soc_intel_braswell_config *config = config_of(dev);
 		uint32_t reg = pci_read_config32(dev, PHYCTL2_IOSFBCTL);
 		pll_en_off = !!(reg & PLL_OFF_EN);
 
 		strpfusecfg = pci_read_config32(dev, STRPFUSECFG);
 
-		if (config && config->pcie_wake_enable)
-			southcluster_smm_save_param(
+		if (config->pcie_wake_enable)
+			smm_southcluster_save_param(
 				SMM_SAVE_PARAM_PCIE_WAKE_ENABLE, 1);
 	}
 
@@ -159,20 +160,8 @@ static void pcie_enable(struct device *dev)
 	southcluster_enable_dev(dev);
 }
 
-static void pcie_root_set_subsystem(struct device *dev, unsigned int vid,
-	unsigned int did)
-{
-	printk(BIOS_SPEW, "%s/%s (%s, 0x%04x, 0x%04x)\n",
-			__FILE__, __func__, dev_name(dev), vid, did);
-	uint32_t didvid = ((did & 0xffff) << 16) | (vid & 0xffff);
-
-	if (!didvid)
-		didvid = pci_read_config32(dev, PCI_VENDOR_ID);
-	pci_write_config32(dev, 0x94, didvid);
-}
-
 static struct pci_operations pcie_root_ops = {
-	.set_subsystem = &pcie_root_set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 };
 
 static struct device_operations device_ops = {

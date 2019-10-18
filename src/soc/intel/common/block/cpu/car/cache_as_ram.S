@@ -28,21 +28,8 @@ bootblock_pre_c_entry:
 
 	post_code(0x20)
 
-	/*
-	 * Use the MTRR default type MSR as a proxy for detecting INIT#.
-	 * Reset the system if any known bits are set in that MSR. That is
-	 * an indication of the CPU not being properly reset.
-	 */
-check_for_clean_reset:
-	mov	$MTRR_DEF_TYPE_MSR, %ecx
-	rdmsr
-	and	$(MTRR_DEF_TYPE_EN | MTRR_DEF_TYPE_FIX_EN), %eax
-	cmp	$0, %eax
-	jz	no_reset
-	/* perform warm reset */
-	movw	$0xcf9, %dx
-	movb	$0x06, %al
-	outb	%al, %dx
+	movl	$no_reset, %esp /* return address */
+	jmp	check_mtrr /* Check if CPU properly reset */
 
 no_reset:
 	post_code(0x21)
@@ -167,11 +154,11 @@ clear_var_mtrr:
 	invd
 	mov	%eax, %cr0
 
-#if IS_ENABLED(CONFIG_INTEL_CAR_NEM)
+#if CONFIG(INTEL_CAR_NEM)
 	jmp car_nem
-#elif IS_ENABLED(CONFIG_INTEL_CAR_CQOS)
+#elif CONFIG(INTEL_CAR_CQOS)
 	jmp car_cqos
-#elif IS_ENABLED(CONFIG_INTEL_CAR_NEM_ENHANCED)
+#elif CONFIG(INTEL_CAR_NEM_ENHANCED)
 	jmp car_nem_enhanced
 #else
 	jmp	.halt_forever /* In case nothing has selected */
@@ -221,7 +208,7 @@ fixed_mtrr_list:
 	.word	MTRR_FIX_4K_F8000
 fixed_mtrr_list_size = . - fixed_mtrr_list
 
-#if IS_ENABLED(CONFIG_INTEL_CAR_NEM)
+#if CONFIG(INTEL_CAR_NEM)
 .global car_nem
 car_nem:
 	/* Disable cache eviction (setup stage) */
@@ -252,7 +239,7 @@ car_nem:
 
 	jmp car_init_done
 
-#elif IS_ENABLED(CONFIG_INTEL_CAR_CQOS)
+#elif CONFIG(INTEL_CAR_CQOS)
 .global car_cqos
 car_cqos:
 	/*
@@ -356,7 +343,7 @@ car_cqos:
 
 	jmp car_init_done
 
-#elif IS_ENABLED(CONFIG_INTEL_CAR_NEM_ENHANCED)
+#elif CONFIG(INTEL_CAR_NEM_ENHANCED)
 .global car_nem_enhanced
 car_nem_enhanced:
 	/* Disable cache eviction (setup stage) */
@@ -378,7 +365,7 @@ find_llc_subleaf:
 	jnz	find_llc_subleaf
 
 	/*
-	 * Set MSR 0xC91 IA32_L3_MASK_! = 0xE/0xFE/0xFFE/0xFFFE
+	 * Set MSR 0xC91 IA32_L3_MASK_1 = 0xE/0xFE/0xFFE/0xFFFE
 	 * for 4/8/16 way of LLC
 	*/
 	shr	$22, %ebx

@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright 2016 Google Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -13,16 +11,18 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/cpu.h>
+#include <arch/romstage.h>
 #include <cbmem.h>
 #include <console/console.h>
 #include <cpu/cpu.h>
 #include <cpu/x86/msr.h>
 #include <cpu/x86/mtrr.h>
+#include <cpu/x86/smm.h>
 #include <program_loading.h>
 #include <rmodule.h>
 #include <romstage_handoff.h>
 #include <stage_cache.h>
+#include <timestamp.h>
 
 static inline void stack_push(struct postcar_frame *pcf, uint32_t val)
 {
@@ -46,6 +46,15 @@ static void postcar_frame_prepare(struct postcar_frame *pcf)
 int postcar_frame_init(struct postcar_frame *pcf, size_t stack_size)
 {
 	void *stack;
+
+	/*
+	 * Use default postcar stack size of 4 KiB. This value should
+	 * not be decreased, because if mainboards use vboot, 1 KiB will
+	 * not be enough anymore.
+	 */
+
+	if (stack_size == 0)
+		stack_size = 4 * KiB;
 
 	stack = cbmem_add(CBMEM_ID_ROMSTAGE_RAM_STACK, stack_size);
 	if (stack == NULL) {
@@ -105,12 +114,36 @@ void postcar_frame_add_mtrr(struct postcar_frame *pcf,
 
 void postcar_frame_add_romcache(struct postcar_frame *pcf, int type)
 {
-	if (!IS_ENABLED(CONFIG_BOOT_DEVICE_MEMORY_MAPPED))
+	if (!CONFIG(BOOT_DEVICE_MEMORY_MAPPED))
 		return;
 	postcar_frame_add_mtrr(pcf, CACHE_ROM_BASE, CACHE_ROM_SIZE, type);
 }
 
-void *postcar_commit_mtrrs(struct postcar_frame *pcf)
+void postcar_frame_common_mtrrs(struct postcar_frame *pcf)
+{
+	if (pcf->skip_common_mtrr)
+		return;
+
+	/* Cache the ROM as WP just below 4GiB. */
+	postcar_frame_add_romcache(pcf, MTRR_TYPE_WRPROT);
+}
+
+/* prepare_and_run_postcar() determines the stack to use after
+ * cache-as-ram is torn down as well as the MTRR settings to use. */
+void prepare_and_run_postcar(struct postcar_frame *pcf)
+{
+	if (postcar_frame_init(pcf, 0))
+		die("Unable to initialize postcar frame.\n");
+
+	fill_postcar_frame(pcf);
+
+	postcar_frame_common_mtrrs(pcf);
+
+	run_postcar_phase(pcf);
+	/* We do not return here. */
+}
+
+static void postcar_commit_mtrrs(struct postcar_frame *pcf)
 {
 	/*
 	 * Place the number of used variable MTRRs on stack then max number
@@ -118,7 +151,6 @@ void *postcar_commit_mtrrs(struct postcar_frame *pcf)
 	 */
 	stack_push(pcf, pcf->num_var_mtrrs);
 	stack_push(pcf, pcf->max_var_mtrrs);
-	return (void *) pcf->stack;
 }
 
 static void finalize_load(uintptr_t *stack_top_ptr, uintptr_t stack_top)
@@ -140,18 +172,37 @@ static void load_postcar_cbfs(struct prog *prog, struct postcar_frame *pcf)
 	};
 
 	if (prog_locate(prog))
-		die("Failed to locate after CAR program.\n");
+		die_with_post_code(POST_INVALID_ROM,
+				   "Failed to locate after CAR program.\n");
 	if (rmodule_stage_load(&rsl))
-		die("Failed to load after CAR program.\n");
+		die_with_post_code(POST_INVALID_ROM,
+				   "Failed to load after CAR program.\n");
 
 	/* Set the stack pointer within parameters of the program loaded. */
 	if (rsl.params == NULL)
-		die("No parameters found in after CAR program.\n");
+		die_with_post_code(POST_INVALID_ROM,
+				   "No parameters found in after CAR program.\n");
 
 	finalize_load(rsl.params, pcf->stack);
 
-	if (!IS_ENABLED(CONFIG_NO_STAGE_CACHE))
-		stage_cache_add(STAGE_POSTCAR, prog);
+	stage_cache_add(STAGE_POSTCAR, prog);
+}
+
+/*
+ * Cache the TSEG region at the top of ram. This region is
+ * not restricted to SMM mode until SMM has been relocated.
+ * By setting the region to cacheable it provides faster access
+ * when relocating the SMM handler as well as using the TSEG
+ * region for other purposes.
+ */
+void postcar_enable_tseg_cache(struct postcar_frame *pcf)
+{
+	uintptr_t smm_base;
+	size_t smm_size;
+
+	smm_region(&smm_base, &smm_size);
+	postcar_frame_add_mtrr(pcf, smm_base, smm_size,
+				MTRR_TYPE_WRBACK);
 }
 
 void run_postcar_phase(struct postcar_frame *pcf)
@@ -161,7 +212,7 @@ void run_postcar_phase(struct postcar_frame *pcf)
 
 	postcar_commit_mtrrs(pcf);
 
-	if (!IS_ENABLED(CONFIG_NO_STAGE_CACHE) &&
+	if (!CONFIG(NO_STAGE_CACHE) &&
 				romstage_handoff_is_resume()) {
 		stage_cache_load_stage(STAGE_POSTCAR, &prog);
 		/* This is here to allow platforms to pass different stack
@@ -170,6 +221,9 @@ void run_postcar_phase(struct postcar_frame *pcf)
 		finalize_load(prog.arg, pcf->stack);
 	} else
 		load_postcar_cbfs(&prog, pcf);
+
+	/* As postcar exist, it's end of romstage here */
+	timestamp_add_now(TS_END_ROMSTAGE);
 
 	prog_run(&prog);
 }

@@ -15,14 +15,18 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
-#include "pch.h"
 #include <pc80/mc146818rtc.h>
 #include <acpi/sata.h>
+#include <types.h>
+
+#include "chip.h"
+#include "pch.h"
 
 typedef struct southbridge_intel_ibexpeak_config config_t;
 
@@ -172,15 +176,6 @@ static void sata_init(struct device *dev)
 				     sata_port_map ^ 0x3f) << 24) | 0x183);
 	}
 
-	/* Set Gen3 Transmitter settings if needed */
-	if (config->sata_port0_gen3_tx)
-		pch_iobp_update(SATA_IOBP_SP0G3IR, 0,
-				config->sata_port0_gen3_tx);
-
-	if (config->sata_port1_gen3_tx)
-		pch_iobp_update(SATA_IOBP_SP1G3IR, 0,
-				config->sata_port1_gen3_tx);
-
 	/* Additional Programming Requirements */
 	sir_write(dev, 0x04, 0x00000000);
 	sir_write(dev, 0x28, 0x0a000033);
@@ -204,9 +199,6 @@ static void sata_init(struct device *dev)
 	sir_write(dev, 0xc4, 0x0c0c0c0c);
 	sir_write(dev, 0xc8, 0x0c0c0c0c);
 	sir_write(dev, 0xd4, 0x10000000);
-
-	pch_iobp_update(0xea004001, 0x3fffffff, 0xc0000000);
-	pch_iobp_update(0xea00408a, 0xfffffcff, 0x00000100);
 }
 
 static void sata_enable(struct device *dev)
@@ -234,19 +226,6 @@ static void sata_enable(struct device *dev)
 	pci_write_config16(dev, 0x90, map);
 }
 
-static void sata_set_subsystem(struct device *dev, unsigned vendor,
-			       unsigned device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				   pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				   ((device & 0xffff) << 16) | (vendor &
-								0xffff));
-	}
-}
-
 static void sata_fill_ssdt(struct device *dev)
 {
 	config_t *config = dev->chip_info;
@@ -254,7 +233,7 @@ static void sata_fill_ssdt(struct device *dev)
 }
 
 static struct pci_operations sata_pci_ops = {
-	.set_subsystem = sata_set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 };
 
 static struct device_operations sata_ops = {

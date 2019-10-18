@@ -15,7 +15,7 @@
 
 #include <console/console.h>
 #include <device/pci.h>
-#include <string.h>
+#include <device/pci_ops.h>
 #include <stdint.h>
 #include <cpu/amd/multicore.h>
 
@@ -36,6 +36,9 @@ static u32 get_hcid(u32 i)
 	struct device *dev;
 
 	dev = dev_find_slot(busn, PCI_DEVFN(devn,0));
+
+	if (dev == NULL)
+		die("ERROR - could not find PCI %02x:%02x.0\n", busn, PCI_DEVFN(devn, 0));
 
 	switch (dev->device) {
 	case 0x7458: /* 8132 */

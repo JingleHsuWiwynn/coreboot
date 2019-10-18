@@ -15,7 +15,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <northbridge/intel/sandybridge/sandybridge.h>
 #include <northbridge/intel/sandybridge/raminit_native.h>
 #include <southbridge/intel/bd82x6x/pch.h>
@@ -23,15 +23,6 @@
 
 void pch_enable_lpc(void)
 {
-	/*
-	 * CNF2 and CNF1 for Super I/O
-	 * MC and LPC (0x60,0x64,0x62,0x66) for KBC and EC
-	 */
-	pci_write_config16(PCH_LPC_DEV, LPC_EN,
-			CNF2_LPC_EN | CNF1_LPC_EN | MC_LPC_EN | KBC_LPC_EN);
-	pci_write_config16(PCH_LPC_DEV, LPC_IO_DEC, 0x0010);
-	/* Enable mailbox at 0x200/0x201 and PM1 at 0x220 */
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN1_DEC, 0x007c0201);
 }
 
 void mainboard_rcba_config(void)

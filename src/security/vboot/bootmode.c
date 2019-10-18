@@ -13,42 +13,39 @@
  * GNU General Public License for more details.
  */
 
+#define NEED_VB20_INTERNALS  /* Peeking into vb2_shared_data */
+
 #include <assert.h>
 #include <bootmode.h>
 #include <bootstate.h>
 #include <cbmem.h>
-#include <string.h>
 #include <vb2_api.h>
 #include <security/vboot/misc.h>
 #include <security/vboot/vbnv.h>
 #include <security/vboot/vboot_common.h>
 
-static int vb2_get_recovery_reason_shared_data(void)
+static int vboot_get_recovery_reason_shared_data(void)
 {
-	/* Shared data does not exist for Ramstage and Post-CAR stage. */
-	if (ENV_RAMSTAGE || ENV_POSTCAR)
-		return 0;
-
-	struct vb2_shared_data *sd = vb2_get_shared_data();
+	struct vb2_shared_data *sd = vboot_get_shared_data();
 	assert(sd);
 	return sd->recovery_reason;
 }
 
-void vb2_save_recovery_reason_vbnv(void)
+void vboot_save_recovery_reason_vbnv(void)
 {
-	if (!IS_ENABLED(CONFIG_VBOOT_SAVE_RECOVERY_REASON_ON_REBOOT))
+	if (!CONFIG(VBOOT_SAVE_RECOVERY_REASON_ON_REBOOT))
 		return;
 
-	int reason =  vb2_get_recovery_reason_shared_data();
+	int reason = vboot_get_recovery_reason_shared_data();
 	if (!reason)
 		return;
 
 	set_recovery_mode_into_vbnv(reason);
 }
 
-static void vb2_clear_recovery_reason_vbnv(void *unused)
+static void vboot_clear_recovery_reason_vbnv(void *unused)
 {
-	if (!IS_ENABLED(CONFIG_VBOOT_SAVE_RECOVERY_REASON_ON_REBOOT))
+	if (!CONFIG(VBOOT_SAVE_RECOVERY_REASON_ON_REBOOT))
 		return;
 
 	set_recovery_mode_into_vbnv(0);
@@ -65,7 +62,7 @@ static void vb2_clear_recovery_reason_vbnv(void *unused)
  * only in FSP stages which run before BS_DEV_INIT.
  */
 BOOT_STATE_INIT_ENTRY(BS_DEV_INIT, BS_ON_EXIT,
-		      vb2_clear_recovery_reason_vbnv, NULL);
+		      vboot_clear_recovery_reason_vbnv, NULL);
 
 /*
  * Returns 1 if vboot is being used and currently in a stage which might have
@@ -73,13 +70,13 @@ BOOT_STATE_INIT_ENTRY(BS_DEV_INIT, BS_ON_EXIT,
  */
 static int vboot_possibly_executed(void)
 {
-	if (IS_ENABLED(CONFIG_VBOOT_STARTS_IN_BOOTBLOCK)) {
-		if (ENV_BOOTBLOCK && IS_ENABLED(CONFIG_VBOOT_SEPARATE_VERSTAGE))
+	if (CONFIG(VBOOT_STARTS_IN_BOOTBLOCK)) {
+		if (ENV_BOOTBLOCK && CONFIG(VBOOT_SEPARATE_VERSTAGE))
 			return 0;
 		return 1;
 	}
 
-	if (IS_ENABLED(CONFIG_VBOOT_STARTS_IN_ROMSTAGE)) {
+	if (CONFIG(VBOOT_STARTS_IN_ROMSTAGE)) {
 		if (ENV_BOOTBLOCK)
 			return 0;
 		return 1;
@@ -95,11 +92,10 @@ static int vboot_possibly_executed(void)
  * VB2_RECOVERY_RO_MANUAL.
  * 2. Checks if recovery request is present in VBNV and returns the code read
  * from it.
- * 3. Checks recovery request in handoff for stages post-cbmem.
- * 4. For non-CBMEM stages, check if vboot verification is done and look-up
- * selected region to identify if vboot_reference library has requested recovery
- * path. If yes, return the reason code from shared data.
- * 5. If nothing applies, return 0 indicating no recovery request.
+ * 3. Checks if vboot verification is done and looks up selected region
+ * to identify if vboot_reference library has requested recovery path.
+ * If yes, return the reason code from shared data.
+ * 4. If nothing applies, return 0 indicating no recovery request.
  */
 int vboot_check_recovery_request(void)
 {
@@ -114,23 +110,12 @@ int vboot_check_recovery_request(void)
 		return reason;
 
 	/*
-	 * Check recovery flag in vboot_handoff for stages post CBMEM coming
-	 * online. Since for some stages there is no way to know if cbmem has
-	 * already come online, try looking up handoff anyways. If it fails,
-	 * flow will fallback to looking up shared data.
+	 * Identify if vboot verification is already complete and no slot
+	 * was selected i.e. recovery path was requested.
 	 */
-	if (cbmem_possibly_online() &&
-	    ((reason = vboot_handoff_get_recovery_reason()) != 0))
-		return reason;
-
-	/*
-	 * For stages where CBMEM might not be online, identify if vboot
-	 * verification is already complete and no slot was selected
-	 * i.e. recovery path was requested.
-	 */
-	if (vboot_possibly_executed() && vb2_logic_executed() &&
-	    !vb2_is_slot_selected())
-		return vb2_get_recovery_reason_shared_data();
+	if (vboot_possibly_executed() && vboot_logic_executed() &&
+	    !vboot_is_slot_selected())
+		return vboot_get_recovery_reason_shared_data();
 
 	return 0;
 }
@@ -163,13 +148,11 @@ int vboot_recovery_mode_memory_retrain(void)
 
 int vboot_developer_mode_enabled(void)
 {
-	if (cbmem_possibly_online() && vboot_handoff_check_developer_flag())
-		return 1;
-
-	return 0;
+	return cbmem_possibly_online() &&
+		vboot_get_working_data()->flags & VBOOT_WD_FLAG_DEVELOPER_MODE;
 }
 
-#if IS_ENABLED(CONFIG_VBOOT_NO_BOARD_SUPPORT)
+#if CONFIG(VBOOT_NO_BOARD_SUPPORT)
 /**
  * TODO: Create flash protection interface which implements get_write_protect_state.
  * get_recovery_mode_switch should be implemented as default function.

@@ -1,8 +1,5 @@
 /*
- * Copyright 2011, Marvell Semiconductor Inc.
- * Lei Wen <leiwen@marvell.com>
- *
- * Copyright 2017 Intel Corporation
+ * This file is part of the coreboot project.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -17,7 +14,7 @@
 #ifndef __COMMONLIB_STORAGE_SDHCI_H__
 #define __COMMONLIB_STORAGE_SDHCI_H__
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <commonlib/sd_mmc_ctrlr.h>
 
 /*

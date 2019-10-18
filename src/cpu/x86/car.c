@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2013 Google, Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -20,7 +18,7 @@
 #include <arch/early_variables.h>
 #include <symbols.h>
 
-#if IS_ENABLED(CONFIG_PLATFORM_USES_FSP1_0)
+#if CONFIG(PLATFORM_USES_FSP1_0)
 #include <drivers/intel/fsp1_0/fsp_util.h>
 #endif
 typedef void (* const car_migration_func_t)(void);
@@ -46,8 +44,8 @@ void *car_get_var_ptr(void *var)
 {
 	char *migrated_base = NULL;
 	int offset;
-	void *_car_start = _car_relocatable_data_start;
-	void *_car_end = _car_relocatable_data_end;
+	void *_car_start = _car_global_start;
+	void *_car_end = _car_global_end;
 
 	/* If the cache-as-ram has not been migrated return the pointer
 	 * passed in. */
@@ -61,7 +59,7 @@ void *car_get_var_ptr(void *var)
 		return var;
 	}
 
-#if IS_ENABLED(CONFIG_PLATFORM_USES_FSP1_0)
+#if CONFIG(PLATFORM_USES_FSP1_0)
 	migrated_base = (char *)find_saved_temp_mem(
 			*(void **)CBMEM_FSP_HOB_PTR);
 	/* FSP 1.0 migrates the entire DCACHE RAM */
@@ -77,41 +75,36 @@ void *car_get_var_ptr(void *var)
 	return &migrated_base[offset];
 }
 
+#if CONFIG(PLATFORM_USES_FSP1_0)
 /*
- * Update a CAR_GLOBAL variable var, originally pointing to CAR region,
- * with the address in migrated CAR region in DRAM.
+ * When a CAR_GLOBAL points to target object inside CAR, use relative
+ * addressing. Such CAR_GLOBAL has to be expicitly accessed using
+ * car_set_reloc_ptr() and car_get_reloc_ptr() as the stored value is now
+ * an offset instead of the absolute address (pointer) of the target.
+ *
+ * This way discovery of objects that are not CAR_GLOBALs themselves,
+ * remain discoverable after CAR migration has implicitly happened.
  */
-void *car_sync_var_ptr(void *var)
+void car_set_reloc_ptr(void *var, void *val)
 {
-	void **mig_var = car_get_var_ptr(var);
-	void *_car_start = _car_relocatable_data_start;
-	void *_car_end = _car_relocatable_data_end;
+	uintptr_t *offset = car_get_var_ptr(var);
+	*offset = 0;
 
-	/* Not moved or migrated yet. */
-	if (mig_var == var)
-		return mig_var;
-
-	/*
-	 * Migrate the cbmem console pointer for FSP 1.0 platforms. Otherwise,
-	 * keep console buffer in CAR until cbmemc_reinit() moves it.
-	 */
-	if (*mig_var == _preram_cbmem_console) {
-		if (IS_ENABLED(CONFIG_PLATFORM_USES_FSP1_0))
-			*mig_var += (char *)mig_var - (char *)var;
-		return mig_var;
-	}
-
-	/* It's already pointing outside car.global_data. */
-	if (*mig_var < _car_start || *mig_var > _car_end)
-		return mig_var;
-
-	/* Move the pointer by the same amount the variable storing it was
-	 * moved by.
-	 */
-	*mig_var += (char *)mig_var - (char *)var;
-
-	return mig_var;
+	if (val)
+		*offset = (uintptr_t)offset - (uintptr_t)val;
 }
+
+void *car_get_reloc_ptr(void *var)
+{
+	uintptr_t *offset = car_get_var_ptr(var);
+	void *val = NULL;
+
+	if (*offset)
+		val = (void *)((uintptr_t)offset - *offset);
+
+	return val;
+}
+#endif
 
 int car_active(void)
 {
@@ -134,7 +127,7 @@ static void do_car_migrate_variables(void)
 		return;
 	}
 
-	memcpy(migrated_base, _car_relocatable_data_start, car_size);
+	memcpy(migrated_base, _car_global_start, car_size);
 
 	/* Mark that the data has been moved. */
 	car_migrated = ~0;
@@ -142,7 +135,7 @@ static void do_car_migrate_variables(void)
 
 static void car_migrate_variables(int is_recovery)
 {
-	if (!IS_ENABLED(PLATFORM_USES_FSP1_0))
+	if (!CONFIG(PLATFORM_USES_FSP1_0))
 		do_car_migrate_variables();
 }
 ROMSTAGE_CBMEM_INIT_HOOK(car_migrate_variables)

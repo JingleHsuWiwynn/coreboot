@@ -14,7 +14,6 @@
  * GNU General Public License for more details.
  */
 
-#include <delay.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -120,14 +119,14 @@ static void copy_spd(struct pei_data *peid)
 	}
 }
 
-void variant_romstage_entry(unsigned long bist)
+void variant_romstage_entry(void)
 {
 	struct pei_data pei_data = {
 		.pei_version = PEI_VERSION,
 		.mchbar = (uintptr_t)DEFAULT_MCHBAR,
 		.dmibar = (uintptr_t)DEFAULT_DMIBAR,
 		.epbar = DEFAULT_EPBAR,
-		.pciexbar = DEFAULT_PCIEXBAR,
+		.pciexbar = CONFIG_MMCONF_BASE_ADDRESS,
 		.smbusbar = SMBUS_IO_BASE,
 		.wdbbar = 0x4000000,
 		.wdbsize = 0x1000,
@@ -180,7 +179,6 @@ void variant_romstage_entry(unsigned long bist)
 		.pei_data = &pei_data,
 		.gpio_map = &mainboard_gpio_map,
 		.rcba_config = &rcba_config[0],
-		.bist = bist,
 		.copy_spd = copy_spd,
 	};
 

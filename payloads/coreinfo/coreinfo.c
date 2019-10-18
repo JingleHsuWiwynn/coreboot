@@ -28,34 +28,34 @@ extern struct coreinfo_module cbfs_module;
 extern struct coreinfo_module timestamps_module;
 
 struct coreinfo_module *system_modules[] = {
-#if IS_ENABLED(CONFIG_MODULE_CPUINFO)
+#if CONFIG(MODULE_CPUINFO)
 	&cpuinfo_module,
 #endif
-#if IS_ENABLED(CONFIG_MODULE_PCI)
+#if CONFIG(MODULE_PCI)
 	&pci_module,
 #endif
-#if IS_ENABLED(CONFIG_MODULE_NVRAM)
+#if CONFIG(MODULE_NVRAM)
 	&nvram_module,
 #endif
-#if IS_ENABLED(CONFIG_MODULE_RAMDUMP)
+#if CONFIG(MODULE_RAMDUMP)
 	&ramdump_module,
 #endif
 };
 
 struct coreinfo_module *firmware_modules[] = {
-#if IS_ENABLED(CONFIG_MODULE_COREBOOT)
+#if CONFIG(MODULE_COREBOOT)
 	&coreboot_module,
 #endif
-#if IS_ENABLED(CONFIG_MODULE_MULTIBOOT)
+#if CONFIG(MODULE_MULTIBOOT)
 	&multiboot_module,
 #endif
-#if IS_ENABLED(CONFIG_MODULE_BOOTLOG)
+#if CONFIG(MODULE_BOOTLOG)
 	&bootlog_module,
 #endif
-#if IS_ENABLED(CONFIG_MODULE_CBFS)
+#if CONFIG(MODULE_CBFS)
 	&cbfs_module,
 #endif
-#if IS_ENABLED(CONFIG_MODULE_TIMESTAMPS)
+#if CONFIG(MODULE_TIMESTAMPS)
 	&timestamps_module,
 #endif
 };
@@ -114,7 +114,7 @@ static void print_submenu(struct coreinfo_cat *cat)
 	mvwprintw(menuwin, 0, 0, menu);
 }
 
-#if IS_ENABLED(CONFIG_SHOW_DATE_TIME)
+#if CONFIG(SHOW_DATE_TIME)
 static void print_time_and_date(void)
 {
 	struct tm tm;
@@ -132,7 +132,7 @@ static void print_time_and_date(void)
 
 static void print_menu(void)
 {
-	int i, j;
+	int j;
 	char menu[80];
 	char *ptr = menu;
 
@@ -140,16 +140,16 @@ static void print_menu(void)
 	for (j = 0; j < SCREEN_X; j++)
 		waddch(menuwin, ' ');
 
-	for (i = 0; i < ARRAY_SIZE(categories); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(categories); i++) {
 		if (categories[i].count == 0)
 			continue;
 
-		ptr += sprintf(ptr, "F%d: %s ", i + 1, categories[i].name);
+		ptr += sprintf(ptr, "F%zu: %s ", i + 1, categories[i].name);
 	}
 
 	mvwprintw(menuwin, 1, 0, menu);
 
-#if IS_ENABLED(CONFIG_SHOW_DATE_TIME)
+#if CONFIG(SHOW_DATE_TIME)
 	print_time_and_date();
 #endif
 }
@@ -198,8 +198,13 @@ static void redraw_module(struct coreinfo_cat *cat)
 
 static void handle_category_key(struct coreinfo_cat *cat, int key)
 {
-	if (key >= 'a' && key <= 'z') {
-		int index = key - 'a';
+	if ((key >= 'a' && key <= 'z') || (key >= 'A' && key <= 'Z')) {
+		int index;
+		if (key >= 'A' && key <= 'Z') {
+			index = key - 'A';
+		} else {
+			index = key - 'a';
+		}
 		if (index < cat->count) {
 			cat->cur = index;
 			redraw_module(cat);
@@ -215,9 +220,9 @@ static void handle_category_key(struct coreinfo_cat *cat, int key)
 
 static void print_no_modules_selected(void)
 {
-	int height = getmaxy(stdscr), i;
+	int height = getmaxy(stdscr);
 
-	for (i = 0; i < ARRAY_SIZE(categories); i++)
+	for (size_t i = 0; i < ARRAY_SIZE(categories); i++)
 		if (categories[i].count > 0)
 			return;
 
@@ -227,9 +232,7 @@ static void print_no_modules_selected(void)
 
 static int first_nonempty_category(void)
 {
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(categories); i++)
+	for (size_t i = 0; i < ARRAY_SIZE(categories); i++)
 		if (categories[i].count > 0)
 			return i;
 	return 0;
@@ -253,7 +256,7 @@ static void loop(void)
 	while (1) {
 		int ch = -1;
 
-#if IS_ENABLED(CONFIG_SHOW_DATE_TIME)
+#if CONFIG(SHOW_DATE_TIME)
 		print_time_and_date();
 		wrefresh(menuwin);
 #endif
@@ -268,7 +271,7 @@ static void loop(void)
 		if (key >= '1' && key <= '9')
 			ch = key - '1';
 
-		if (ch >= 0 && ch <= ARRAY_SIZE(categories)) {
+		if (ch >= 0 && (unsigned int)ch <= ARRAY_SIZE(categories)) {
 			if (ch == ARRAY_SIZE(categories))
 				continue;
 			if (categories[ch].count == 0)
@@ -289,9 +292,9 @@ static void loop(void)
 
 int main(void)
 {
-	int i, j;
+	int j;
 
-	if (IS_ENABLED(CONFIG_LP_USB))
+	if (CONFIG(LP_USB))
 		usb_initialize();
 
 	initscr();
@@ -310,7 +313,7 @@ int main(void)
 
 	werase(modwin);
 
-	for (i = 0; i < ARRAY_SIZE(categories); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(categories); i++) {
 		for (j = 0; j < categories[i].count; j++)
 			categories[i].modules[j]->init();
 	}

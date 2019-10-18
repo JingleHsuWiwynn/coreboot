@@ -14,20 +14,16 @@
  * GNU General Public License for more details.
  */
 
-#include <smbios.h>
-#include <string.h>
 #include <types.h>
 #include <arch/acpi.h>
 #include <arch/io.h>
-#include <arch/interrupt.h>
 #include <boot/coreboot_tables.h>
 #include <device/device.h>
 #include <device/pci_def.h>
-#include <device/pci_ops.h>
 #include <southbridge/intel/lynxpoint/pch.h>
 #include <vendorcode/google/chromeos/chromeos.h>
-#include "onboard.h"
 
+#include "onboard.h"
 
 void mainboard_suspend_resume(void)
 {

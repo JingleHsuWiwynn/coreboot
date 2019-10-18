@@ -12,13 +12,12 @@
  */
 
 #include <console/console.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <stdint.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <stdlib.h>
-#include <string.h>
 #include <cpu/cpu.h>
 #include "northbridge.h"
 #include "i440bx.h"

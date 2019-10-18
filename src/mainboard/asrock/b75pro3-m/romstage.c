@@ -14,7 +14,10 @@
  * GNU General Public License for more details.
  */
 
+#include <device/pci_ops.h>
+#include <device/pnp_ops.h>
 #include <northbridge/intel/sandybridge/raminit_native.h>
+#include <southbridge/intel/bd82x6x/pch.h>
 #include <superio/nuvoton/nct6776/nct6776.h>
 #include <superio/nuvoton/common/nuvoton.h>
 
@@ -22,9 +25,6 @@
 
 void pch_enable_lpc(void)
 {
-	pci_write_config16(PCH_LPC_DEV, LPC_EN,
-			CNF1_LPC_EN | KBC_LPC_EN | LPT_LPC_EN | COMA_LPC_EN);
-	pci_write_config16(PCH_LPC_DEV, LPC_IO_DEC, 0x0000);
 }
 
 void mainboard_rcba_config(void)

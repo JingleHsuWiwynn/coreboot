@@ -13,12 +13,9 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
-#include <assert.h>
+#include <device/mmio.h>
 #include <boardid.h>
 #include <console/console.h>
-#include <delay.h>
-#include <string.h>
 #include <soc/addressmap.h>
 #include <soc/dramc_common.h>
 #include <soc/dramc_register.h>

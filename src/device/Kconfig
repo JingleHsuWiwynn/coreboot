@@ -1,9 +1,6 @@
 ##
 ## This file is part of the coreboot project.
 ##
-## Copyright (C) 2007-2010 coresystems GmbH
-## (Written by Stefan Reinauer <stepan@coresystems.de> for coresystems GmbH)
-##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
 ## the Free Software Foundation; version 2 of the License.
@@ -76,7 +73,6 @@ config MAINBOARD_USE_LIBGFXINIT
 	depends on MAINBOARD_HAS_LIBGFXINIT
 	select HAVE_VGA_TEXT_FRAMEBUFFER
 	select HAVE_LINEAR_FRAMEBUFFER
-	select RAMSTAGE_LIBHWBASE
 	select VGA if VGA_TEXT_FRAMEBUFFER
 	help
 	  Use the SPARK library `libgfxinit` for the native graphics
@@ -256,6 +252,7 @@ menu "Display"
 config FRAMEBUFFER_SET_VESA_MODE
 	prompt "Set framebuffer graphics resolution"
 	bool
+	default y if CHROMEOS
 	depends on PCI_OPTION_ROM_RUN_YABEL || PCI_OPTION_ROM_RUN_REALMODE
 	select HAVE_VBE_LINEAR_FRAMEBUFFER
 	help
@@ -265,7 +262,7 @@ if FRAMEBUFFER_SET_VESA_MODE
 
 choice
 	prompt "framebuffer graphics resolution"
-	default FRAMEBUFFER_VESA_MODE_117
+	default FRAMEBUFFER_VESA_MODE_118
 	help
 	  This option sets the resolution used for the coreboot framebuffer (and
 	  bootsplash screen).
@@ -391,23 +388,13 @@ config FRAMEBUFFER_VESA_MODE
 	default 0x119 if FRAMEBUFFER_VESA_MODE_119
 	default 0x11A if FRAMEBUFFER_VESA_MODE_11A
 	default 0x11B if FRAMEBUFFER_VESA_MODE_11B
-	default 0x117 if FRAMEBUFFER_VESA_MODE_USER
-
-config BOOTSPLASH
-	prompt "Show graphical bootsplash"
-	bool
-	help
-	  This option shows a graphical bootsplash screen. The graphics are
-	  loaded from the CBFS file bootsplash.jpg.
-
-	  You can either specify the location and file name of the
-	  image in the 'General' section or add it manually to CBFS, using,
-	  for example, cbfstool.
-
+	default 0x118 if FRAMEBUFFER_VESA_MODE_USER
 endif # FRAMEBUFFER_SET_VESA_MODE
 
 choice
 	prompt "Framebuffer mode"
+	default VBE_LINEAR_FRAMEBUFFER if HAVE_VBE_LINEAR_FRAMEBUFFER && CHROMEOS
+	default GENERIC_LINEAR_FRAMEBUFFER if HAVE_LINEAR_FRAMEBUFFER && CHROMEOS
 	default VGA_TEXT_FRAMEBUFFER
 
 config VGA_TEXT_FRAMEBUFFER
@@ -444,6 +431,18 @@ endchoice
 config LINEAR_FRAMEBUFFER
 	def_bool y
 	depends on VBE_LINEAR_FRAMEBUFFER || GENERIC_LINEAR_FRAMEBUFFER
+
+config BOOTSPLASH
+	prompt "Show graphical bootsplash"
+	bool
+	depends on LINEAR_FRAMEBUFFER
+	help
+	  This option shows a graphical bootsplash screen. The graphics are
+	  loaded from the CBFS file bootsplash.jpg.
+
+	  You can either specify the location and file name of the
+	  image in the 'General' section or add it manually to CBFS, using,
+	  for example, cbfstool.
 
 config LINEAR_FRAMEBUFFER_MAX_WIDTH
 	int "Maximum width in pixels"
@@ -610,6 +609,41 @@ config VGA_BIOS_ID
 	  In the above example 1106 is the PCI vendor ID (in hex, but without
 	  the "0x" prefix) and 3230 specifies the PCI device ID of the
 	  video card (also in hex, without "0x" prefix).
+
+	  Under GNU/Linux you can run `lspci -nn` to list the IDs of your PCI devices.
+
+config VGA_BIOS_DGPU
+	bool "Add a discrete VGA BIOS image"
+	depends on VGA_BIOS
+	help
+	  Select this option if you have a VGA BIOS image for discrete GPU
+	  that you would like to add to your ROM.
+
+	  You will be able to specify the location and file name of the
+	  image later.
+
+config VGA_BIOS_DGPU_FILE
+	string "Discrete VGA BIOS path and filename"
+	depends on VGA_BIOS_DGPU
+	default "vgabios_dgpu.bin"
+	help
+	  The path and filename of the file to use as VGA BIOS for discrete GPU.
+
+config VGA_BIOS_DGPU_ID
+	string "Discrete VGA device PCI IDs"
+	depends on VGA_BIOS_DGPU
+	default "1002,6663"
+	help
+	  The comma-separated PCI vendor and device ID that would associate
+	  your VGA BIOS to your discrete video card.
+
+	  Examples:
+	      1002,6663 for HD 8570M
+	      1002,6665 for R5 M230
+
+	  In the above examples 1002 is the PCI vendor ID (in hex, but without
+	  the "0x" prefix) and 6663 / 6665 specifies the PCI device ID of the
+	  discrete video card (also in hex, without "0x" prefix).
 
 	  Under GNU/Linux you can run `lspci -nn` to list the IDs of your PCI devices.
 

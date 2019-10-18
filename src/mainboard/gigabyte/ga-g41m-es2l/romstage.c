@@ -16,13 +16,13 @@
 
 #include <stdint.h>
 #include <device/pci_def.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <southbridge/intel/i82801gx/i82801gx.h>
 #include <southbridge/intel/common/gpio.h>
+#include <southbridge/intel/common/pmclib.h>
 #include <northbridge/intel/x4x/x4x.h>
-#include <cpu/x86/bist.h>
-#include <cpu/intel/romstage.h>
+#include <arch/romstage.h>
 #include <superio/ite/it8718f/it8718f.h>
 #include <superio/ite/common/ite.h>
 #include <northbridge/intel/x4x/iomap.h>
@@ -96,16 +96,7 @@ static void mb_gpio_init(void)
 	RCBA8(OIC) = 0x03;
 	RCBA8(OIC);
 
-	RCBA32(GCS) = 0x00190464;
-	RCBA32(CG) = 0x00000000;
-	RCBA32(0x3430) = 0x00000001;
-	RCBA32(0x3e00) = 0xff000001;
-	RCBA32(0x3e08) = 0x00000080;
-	RCBA32(0x3e0c) = 0x00800000;
-	RCBA32(0x3e40) = 0xff000001;
-	RCBA32(0x3e48) = 0x00000080;
-	RCBA32(0x3e4c) = 0x00800000;
-	RCBA32(0x3f00) = 0x0000000b;
+	ich7_setup_cir();
 }
 
 static void ich7_enable_lpc(void)
@@ -121,7 +112,7 @@ static void ich7_enable_lpc(void)
 	pci_write_config32(PCI_DEV(0, 0x1f, 0), GEN2_DEC, 0x007c0291);
 }
 
-void mainboard_romstage_entry(unsigned long bist)
+void mainboard_romstage_entry(void)
 {
 	//                          ch0      ch1
 	const u8 spd_addrmap[4] = { 0x50, 0, 0x52, 0 };
@@ -138,7 +129,6 @@ void mainboard_romstage_entry(unsigned long bist)
 
 	console_init();
 
-	report_bist_failure(bist);
 	enable_smbus();
 
 	x4x_early_init();

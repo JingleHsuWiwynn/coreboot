@@ -15,6 +15,9 @@
  */
 
 #include <ctype.h>
+/* stat.h needs to be included before commonlib/helpers.h to avoid errors.*/
+#include <sys/stat.h>
+#include <commonlib/helpers.h>
 #include "sconfig.h"
 #include "sconfig.tab.h"
 
@@ -622,6 +625,22 @@ void add_register(struct chip_instance *chip_instance, char *name, char *val)
 	}
 }
 
+void add_slot_desc(struct bus *bus, char *type, char *length, char *designation,
+		   char *data_width)
+{
+	struct device *dev = bus->dev;
+
+	if (dev->bustype != PCI && dev->bustype != DOMAIN) {
+		printf("ERROR: 'slot_type' only allowed for PCI devices\n");
+		exit(1);
+	}
+
+	dev->smbios_slot_type = type;
+	dev->smbios_slot_length = length;
+	dev->smbios_slot_data_width = data_width;
+	dev->smbios_slot_designation = designation;
+}
+
 void add_pci_subsystem_ids(struct bus *bus, int vendor, int device,
 			   int inherit)
 {
@@ -677,20 +696,20 @@ static int dev_has_children(struct device *dev)
 	return 0;
 }
 
-static void pass0(FILE *fil, struct device *ptr, struct device *next)
+static void pass0(FILE *fil, FILE *head, struct device *ptr, struct device *next)
 {
 	if (ptr == &base_root_dev) {
-		fprintf(fil, "DEVTREE_CONST struct bus %s_links[];\n",
+		fprintf(fil, "STORAGE struct bus %s_links[];\n",
 			ptr->name);
 		return;
 	}
 
-	fprintf(fil, "DEVTREE_CONST static struct device %s;\n", ptr->name);
+	fprintf(fil, "STORAGE struct device %s;\n", ptr->name);
 	if (ptr->res)
-		fprintf(fil, "DEVTREE_CONST struct resource %s_res[];\n",
+		fprintf(fil, "STORAGE struct resource %s_res[];\n",
 			ptr->name);
 	if (dev_has_children(ptr))
-		fprintf(fil, "DEVTREE_CONST struct bus %s_links[];\n",
+		fprintf(fil, "STORAGE struct bus %s_links[];\n",
 			ptr->name);
 
 	if (next)
@@ -707,7 +726,7 @@ static void emit_resources(FILE *fil, struct device *ptr)
 		return;
 
 	int i = 1;
-	fprintf(fil, "DEVTREE_CONST struct resource %s_res[] = {\n", ptr->name);
+	fprintf(fil, "STORAGE struct resource %s_res[] = {\n", ptr->name);
 	struct resource *r = ptr->res;
 	while (r) {
 		fprintf(fil,
@@ -749,7 +768,7 @@ static void emit_bus(FILE *fil, struct bus *bus)
 
 static void emit_dev_links(FILE *fil, struct device *ptr)
 {
-	fprintf(fil, "DEVTREE_CONST struct bus %s_links[] = {\n",
+	fprintf(fil, "STORAGE struct bus %s_links[] = {\n",
 		ptr->name);
 
 	struct bus *bus = ptr->bus;
@@ -762,15 +781,17 @@ static void emit_dev_links(FILE *fil, struct device *ptr)
 	fprintf(fil, "\t};\n");
 }
 
-static void pass1(FILE *fil, struct device *ptr, struct device *next)
+static void pass1(FILE *fil, FILE *head, struct device *ptr, struct device *next)
 {
 	int pin;
 	struct chip_instance *chip_ins = ptr->chip_instance;
 	int has_children = dev_has_children(ptr);
 
-	if (ptr != &base_root_dev)
-		fprintf(fil, "static ");
-	fprintf(fil, "DEVTREE_CONST struct device %s = {\n", ptr->name);
+	if (ptr == &base_root_dev)
+		fprintf(fil, "DEVTREE_CONST struct device %s = {\n", ptr->name);
+	else
+		fprintf(fil, "STORAGE struct device %s = {\n", ptr->name);
+
 	fprintf(fil, "#if !DEVTREE_EARLY\n");
 
 	/*
@@ -794,18 +815,6 @@ static void pass1(FILE *fil, struct device *ptr, struct device *next)
 		fprintf(fil, "\t.subsystem_vendor = 0x%04x,\n",
 			ptr->subsystem_vendor);
 
-	for (pin = 0; pin < 4; pin++) {
-		if (ptr->pci_irq_info[pin].ioapic_irq_pin > 0)
-			fprintf(fil,
-				"\t.pci_irq_info[%d].ioapic_irq_pin = %d,\n",
-				pin, ptr->pci_irq_info[pin].ioapic_irq_pin);
-
-		if (ptr->pci_irq_info[pin].ioapic_dst_id > 0)
-			fprintf(fil,
-				"\t.pci_irq_info[%d].ioapic_dst_id = %d,\n",
-				pin, ptr->pci_irq_info[pin].ioapic_dst_id);
-	}
-
 	if (ptr->subsystem_device > 0)
 		fprintf(fil, "\t.subsystem_device = 0x%04x,\n",
 			ptr->subsystem_device);
@@ -822,6 +831,17 @@ static void pass1(FILE *fil, struct device *ptr, struct device *next)
 	if (ptr->sibling)
 		fprintf(fil, "\t.sibling = &%s,\n", ptr->sibling->name);
 	fprintf(fil, "#if !DEVTREE_EARLY\n");
+	for (pin = 0; pin < 4; pin++) {
+		if (ptr->pci_irq_info[pin].ioapic_irq_pin > 0)
+			fprintf(fil,
+				"\t.pci_irq_info[%d].ioapic_irq_pin = %d,\n",
+				pin, ptr->pci_irq_info[pin].ioapic_irq_pin);
+
+		if (ptr->pci_irq_info[pin].ioapic_dst_id > 0)
+			fprintf(fil,
+				"\t.pci_irq_info[%d].ioapic_dst_id = %d,\n",
+				pin, ptr->pci_irq_info[pin].ioapic_dst_id);
+	}
 	fprintf(fil, "\t.chip_ops = &%s_ops,\n",
 		chip_ins->chip->name_underscore);
 	if (chip_ins == &mainboard_instance)
@@ -831,13 +851,54 @@ static void pass1(FILE *fil, struct device *ptr, struct device *next)
 		fprintf(fil, "\t.chip_info = &%s_info_%d,\n",
 			chip_ins->chip->name_underscore, chip_ins->id);
 	if (next)
-		fprintf(fil, "\t.next=&%s\n", next->name);
+		fprintf(fil, "\t.next=&%s,\n", next->name);
+	if (ptr->smbios_slot_type || ptr->smbios_slot_data_width ||
+	    ptr->smbios_slot_designation || ptr->smbios_slot_length) {
+		fprintf(fil, "#if !DEVTREE_EARLY\n");
+		fprintf(fil, "#if CONFIG(GENERATE_SMBIOS_TABLES)\n");
+	}
+	/* SMBIOS types start at 1, if zero it hasn't been set */
+	if (ptr->smbios_slot_type)
+		fprintf(fil, "\t.smbios_slot_type = %s,\n",
+			ptr->smbios_slot_type);
+	if (ptr->smbios_slot_data_width)
+		fprintf(fil, "\t.smbios_slot_data_width = %s,\n",
+			ptr->smbios_slot_data_width);
+	if (ptr->smbios_slot_designation)
+		fprintf(fil, "\t.smbios_slot_designation = \"%s\",\n",
+			ptr->smbios_slot_designation);
+	if (ptr->smbios_slot_length)
+		fprintf(fil, "\t.smbios_slot_length = %s,\n",
+			ptr->smbios_slot_length);
+	if (ptr->smbios_slot_type || ptr->smbios_slot_data_width ||
+	    ptr->smbios_slot_designation || ptr->smbios_slot_length) {
+		fprintf(fil, "#endif\n");
+		fprintf(fil, "#endif\n");
+	}
 	fprintf(fil, "};\n");
 
 	emit_resources(fil, ptr);
 
 	if (has_children)
 		emit_dev_links(fil, ptr);
+}
+
+static void expose_device_names(FILE *fil, FILE *head, struct device *ptr, struct device *next)
+{
+	/* Only devices on root bus here. */
+	if (ptr->bustype == PCI && ptr->parent->dev->bustype == DOMAIN) {
+		fprintf(head, "extern DEVTREE_CONST struct device *DEVTREE_CONST __pci_0_%02x_%d;\n",
+			ptr->path_a, ptr->path_b);
+		fprintf(fil, "DEVTREE_CONST struct device *DEVTREE_CONST __pci_0_%02x_%d = &%s;\n",
+			ptr->path_a, ptr->path_b, ptr->name);
+	}
+
+	if (ptr->bustype == PNP) {
+		fprintf(head, "extern DEVTREE_CONST struct device *DEVTREE_CONST __pnp_%04x_%02x;\n",
+			ptr->path_a, ptr->path_b);
+		fprintf(fil, "DEVTREE_CONST struct device *DEVTREE_CONST __pnp_%04x_%02x = &%s;\n",
+			ptr->path_a, ptr->path_b, ptr->name);
+	}
 }
 
 static void add_siblings_to_queue(struct queue_entry **bfs_q_head,
@@ -861,8 +922,8 @@ static void add_children_to_queue(struct queue_entry **bfs_q_head,
 	}
 }
 
-static void walk_device_tree(FILE *fil, struct device *ptr,
-			     void (*func)(FILE *, struct device *,
+static void walk_device_tree(FILE *fil, FILE *head, struct device *ptr,
+			     void (*func)(FILE *, FILE *, struct device *,
 					  struct device *))
 {
 	struct queue_entry *bfs_q_head = NULL;
@@ -871,7 +932,7 @@ static void walk_device_tree(FILE *fil, struct device *ptr,
 
 	while ((ptr = dequeue_head(&bfs_q_head))) {
 		add_children_to_queue(&bfs_q_head, ptr);
-		func(fil, ptr, peek_queue_head(bfs_q_head));
+		func(fil, head, ptr, peek_queue_head(bfs_q_head));
 	}
 }
 
@@ -903,7 +964,7 @@ static void emit_chip_headers(FILE *fil, struct chip *chip)
 
 static void emit_chip_instance(FILE *fil, struct chip_instance *instance)
 {
-	fprintf(fil, "DEVTREE_CONST struct %s_config %s_info_%d = {",
+	fprintf(fil, "STORAGE struct %s_config %s_info_%d = {",
 		instance->chip->name_underscore,
 		instance->chip->name_underscore,
 		instance->id);
@@ -926,6 +987,8 @@ static void emit_chips(FILE *fil)
 
 	emit_chip_headers(fil, chip);
 
+	fprintf(fil, "\n#define STORAGE static __unused DEVTREE_CONST\n\n");
+
 	for (; chip; chip = chip->next) {
 		if (!chip->chiph_exists)
 			continue;
@@ -938,7 +1001,7 @@ static void emit_chips(FILE *fil)
 	}
 }
 
-static void inherit_subsystem_ids(FILE *file, struct device *dev,
+static void inherit_subsystem_ids(FILE *file, FILE *head, struct device *dev,
 				  struct device *next)
 {
 	struct device *p;
@@ -963,17 +1026,18 @@ static void inherit_subsystem_ids(FILE *file, struct device *dev,
 
 static void usage(void)
 {
-	printf("usage: sconfig devicetree_file output_file [override_devicetree_file]\n");
+	printf("usage: sconfig devicetree_file output_file header_file [override_devicetree_file]\n");
 	exit(1);
 }
 
 enum {
 	DEVICEFILE_ARG = 1,
 	OUTPUTFILE_ARG,
+	HEADERFILE_ARG,
 	OVERRIDE_DEVICEFILE_ARG,
 };
 
-#define MANDATORY_ARG_COUNT		3
+#define MANDATORY_ARG_COUNT		4
 #define OPTIONAL_ARG_COUNT		1
 #define TOTAL_ARG_COUNT		(MANDATORY_ARG_COUNT + OPTIONAL_ARG_COUNT)
 
@@ -1308,6 +1372,7 @@ int main(int argc, char **argv)
 
 	const char *base_devtree = argv[DEVICEFILE_ARG];
 	const char *outputc = argv[OUTPUTFILE_ARG];
+	const char *outputh = argv[HEADERFILE_ARG];
 	const char *override_devtree;
 
 	parse_devicetree(base_devtree, &base_root_bus);
@@ -1315,6 +1380,11 @@ int main(int argc, char **argv)
 	if (argc == TOTAL_ARG_COUNT) {
 		override_devtree = argv[OVERRIDE_DEVICEFILE_ARG];
 		parse_devicetree(override_devtree, &override_root_bus);
+
+		if (!dev_has_children(&override_root_dev)) {
+			fprintf(stderr, "ERROR: Override tree needs at least one device!\n");
+			exit(1);
+		}
 
 		override_devicetree(&base_root_bus, &override_root_bus);
 	}
@@ -1327,14 +1397,31 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	FILE *autohead = fopen(outputh, "w");
+	if (!autohead) {
+		fprintf(stderr, "Could not open file '%s' for writing: ", outputh);
+		perror(NULL);
+		fclose(autogen);
+		exit(1);
+	}
+	fprintf(autohead, "#ifndef __STATIC_DEVICE_TREE_H\n");
+	fprintf(autohead, "#define __STATIC_DEVICE_TREE_H\n\n");
+	fprintf(autohead, "#include <device/device.h>\n\n");
+
 	emit_chips(autogen);
 
-	walk_device_tree(autogen, &base_root_dev, inherit_subsystem_ids);
+	walk_device_tree(autogen, autohead, &base_root_dev, inherit_subsystem_ids);
 	fprintf(autogen, "\n/* pass 0 */\n");
-	walk_device_tree(autogen, &base_root_dev, pass0);
+	walk_device_tree(autogen, autohead, &base_root_dev, pass0);
 	fprintf(autogen, "\n/* pass 1 */\n");
-	walk_device_tree(autogen, &base_root_dev, pass1);
+	walk_device_tree(autogen, autohead, &base_root_dev, pass1);
 
+	/* Expose static devicenames to global namespace. */
+	fprintf(autogen, "\n/* expose_device_names */\n");
+	walk_device_tree(autogen, autohead, &base_root_dev, expose_device_names);
+
+	fprintf(autohead, "\n#endif /* __STATIC_DEVICE_TREE_H */\n");
+	fclose(autohead);
 	fclose(autogen);
 
 	return 0;

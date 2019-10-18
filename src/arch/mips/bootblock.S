@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2014 Imagination Technologies
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -33,7 +31,7 @@ _start:
 	addi	$t0, $t0, 4
 
 	/* Run main */
-	b	main
+	b	mips_main
 
 	/*
 	 * Should never return from main. Make sure there is no branch in the

@@ -16,50 +16,48 @@
  */
 
 #include <bootstate.h>
-#include <chip.h>
 #include <console/console.h>
+#include <device/mmio.h>
 #include <device/device.h>
-#include <device/pci_ops.h>
 #include <intelblocks/pmc.h>
 #include <intelblocks/pmclib.h>
 #include <intelblocks/rtc.h>
 #include <soc/pci_devs.h>
 #include <soc/pm.h>
 
+#include "chip.h"
+
 /*
  * Set which power state system will be after reapplying
  * the power (from G3 State)
  */
-void pmc_set_afterg3(struct device *dev, int s5pwr)
+void pmc_soc_set_afterg3_en(const bool on)
 {
 	uint8_t reg8;
-	uint8_t *pmcbase = pmc_mmio_regs();
+	uint8_t *const pmcbase = pmc_mmio_regs();
 
 	reg8 = read8(pmcbase + GEN_PMCON_A);
-
-	switch (s5pwr) {
-	case MAINBOARD_POWER_STATE_OFF:
-		reg8 |= 1;
-		break;
-	case MAINBOARD_POWER_STATE_ON:
-		reg8 &= ~1;
-		break;
-	case MAINBOARD_POWER_STATE_PREVIOUS:
-	default:
-		break;
-	}
-
+	if (on)
+		reg8 &= ~SLEEP_AFTER_POWER_FAIL;
+	else
+		reg8 |= SLEEP_AFTER_POWER_FAIL;
 	write8(pmcbase + GEN_PMCON_A, reg8);
 }
 
-/*
- * Set PMC register to know which state system should be after
- * power reapplied
- */
-void pmc_soc_restore_power_failure(void)
+static void pm1_enable_pwrbtn_smi(void *unused)
 {
-	pmc_set_afterg3(PCH_DEV_PMC, CONFIG_MAINBOARD_POWER_FAILURE_STATE);
+	/*
+	 * Enable power button SMI only before jumping to payload. This ensures
+	 * that:
+	 * 1. Power button SMI is enabled only after coreboot is done.
+	 * 2. On resume path, power button SMI is not enabled and thus avoids
+	 * any shutdowns because of power button presses due to power button
+	 * press in resume path.
+	 */
+	pmc_update_pm1_enable(PWRBTN_EN);
 }
+
+BOOT_STATE_INIT_ENTRY(BS_PAYLOAD_LOAD, BS_ON_EXIT, pm1_enable_pwrbtn_smi, NULL);
 
 static void config_deep_sX(uint32_t offset, uint32_t mask, int sx, int enable)
 {
@@ -102,49 +100,14 @@ static void config_deep_sx(uint32_t deepsx_config)
 	write32(pmcbase + DSX_CFG, reg);
 }
 
-static void pch_power_options(struct device *dev)
-{
-	const char *state;
-
-	const int pwr_on = CONFIG_MAINBOARD_POWER_FAILURE_STATE;
-
-	/*
-	 * Which state do we want to goto after g3 (power restored)?
-	 * 0 == S5 Soft Off
-	 * 1 == S0 Full On
-	 * 2 == Keep Previous State
-	 */
-	switch (pwr_on) {
-	case MAINBOARD_POWER_STATE_OFF:
-		state = "off";
-		break;
-	case MAINBOARD_POWER_STATE_ON:
-		state = "on";
-		break;
-	case MAINBOARD_POWER_STATE_PREVIOUS:
-		state = "state keep";
-		break;
-	default:
-		state = "undefined";
-	}
-	pmc_set_afterg3(dev, pwr_on);
-	printk(BIOS_INFO, "Set power %s after power failure.\n", state);
-
-	/* Set up GPE configuration. */
-	pmc_gpe_init();
-}
-
 static void pmc_init(void *unused)
 {
-	struct device *dev = PCH_DEV_PMC;
-	config_t *config = dev->chip_info;
+	const config_t *config = config_of_soc();
 
 	rtc_init();
 
-	/* Initialize power management */
-	pch_power_options(dev);
-
-	pmc_set_acpi_mode();
+	pmc_set_power_failure_state(true);
+	pmc_gpe_init();
 
 	config_deep_s3(config->deep_s3_enable_ac, config->deep_s3_enable_dc);
 	config_deep_s5(config->deep_s5_enable_ac, config->deep_s5_enable_dc);
@@ -159,3 +122,27 @@ static void pmc_init(void *unused)
 * allocate resources.
 */
 BOOT_STATE_INIT_ENTRY(BS_DEV_INIT_CHIPS, BS_ON_EXIT, pmc_init, NULL);
+
+static void soc_acpi_mode_init(void *unused)
+{
+	/*
+	 * PMC initialization happens earlier for this SoC because FSP-Silicon
+	 * init hides PMC from PCI bus. However, pmc_set_acpi_mode, which
+	 * disables ACPI mode doesn't need to happen that early and can be
+	 * delayed till typical BS_DEV_INIT. This ensures that ACPI mode
+	 * disabling happens the same way for all SoCs and hence the ordering of
+	 * events is the same.
+	 *
+	 * This is important to ensure that the ordering does not break the
+	 * assumptions of any other drivers (e.g. ChromeEC) which could be
+	 * taking different actions based on disabling of ACPI (e.g. flushing of
+	 * all EC hostevent bits).
+	 *
+	 * P.S.: This cannot be done as part of pmc_soc_init as PMC device is
+	 * hidden and hence the PMC driver never gets enumerated and so init is
+	 * not called for it.
+	 */
+	pmc_set_acpi_mode();
+}
+
+BOOT_STATE_INIT_ENTRY(BS_DEV_INIT, BS_ON_EXIT, soc_acpi_mode_init, NULL);

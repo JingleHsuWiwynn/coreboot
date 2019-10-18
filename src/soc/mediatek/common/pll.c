@@ -13,9 +13,10 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <assert.h>
 #include <soc/pll.h>
+#include <types.h>
 
 #define GENMASK(h, l) (BIT(h + 1) - BIT(l))
 

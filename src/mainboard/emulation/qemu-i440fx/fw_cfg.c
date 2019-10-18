@@ -11,12 +11,12 @@
  * GNU General Public License for more details.
  */
 
+#include <endian.h>
 #include <string.h>
-#include <swab.h>
 #include <smbios.h>
 #include <console/console.h>
 #include <arch/io.h>
-#include <arch/acpigen.h>
+#include <arch/acpi.h>
 #include <commonlib/endian.h>
 
 #include "fw_cfg.h"
@@ -24,20 +24,29 @@
 
 #define FW_CFG_PORT_CTL       0x0510
 #define FW_CFG_PORT_DATA      0x0511
+#define FW_CFG_DMA_ADDR_HIGH  0x0514
+#define FW_CFG_DMA_ADDR_LOW   0x0518
 
 static int fw_cfg_detected;
+static uint8_t fw_ver;
+
+static void fw_cfg_dma(int control, void *buf, int len);
 
 static int fw_cfg_present(void)
 {
 	static const char qsig[] = "QEMU";
-	unsigned char sig[4];
+	unsigned char sig[FW_CFG_SIG_SIZE];
 	int detected = 0;
 
 	if (fw_cfg_detected == 0) {
 		fw_cfg_get(FW_CFG_SIGNATURE, sig, sizeof(sig));
-		detected = memcmp(sig, qsig, 4) == 0;
+		detected = memcmp(sig, qsig, FW_CFG_SIG_SIZE) == 0;
 		printk(BIOS_INFO, "QEMU: firmware config interface %s\n",
 				detected ? "detected" : "not found");
+		if (detected) {
+			fw_cfg_get(FW_CFG_ID, &fw_ver, sizeof(fw_ver));
+			printk(BIOS_INFO, "Firmware config version id: %d\n", fw_ver);
+		}
 		fw_cfg_detected = detected + 1;
 	}
 	return fw_cfg_detected - 1;
@@ -50,7 +59,10 @@ static void fw_cfg_select(uint16_t entry)
 
 static void fw_cfg_read(void *dst, int dstlen)
 {
-	insb(FW_CFG_PORT_DATA, dst, dstlen);
+	if (fw_ver & FW_CFG_VERSION_DMA)
+		fw_cfg_dma(FW_CFG_DMA_CTL_READ, dst, dstlen);
+	else
+		insb(FW_CFG_PORT_DATA, dst, dstlen);
 }
 
 void fw_cfg_get(uint16_t entry, void *dst, int dstlen)
@@ -251,7 +263,7 @@ unsigned long fw_cfg_acpi_tables(unsigned long start)
 
 			printk(BIOS_DEBUG, "QEMU: loading \"%s\" to 0x%lx (len %d)\n",
 			       s[i].alloc.file, current, f.size);
-			fw_cfg_get(f.select, (void *)current, sizeof(current));
+			fw_cfg_get(f.select, (void *)current, f.size);
 			addrs[i] = current;
 			current += f.size;
 			break;
@@ -454,7 +466,7 @@ unsigned long fw_cfg_smbios_tables(int *handle, unsigned long *current)
 	 * We'll exclude the end marker as coreboot will add one.
 	 */
 	printk(BIOS_DEBUG, "QEMU: loading smbios tables to 0x%lx\n", start);
-	fw_cfg_get(f.select, (void *)start, sizeof(start));
+	fw_cfg_get(f.select, (void *)start, f.size);
 	end = start;
 	do {
 		t0 = (struct smbios_type0*)end;
@@ -495,8 +507,36 @@ const char *smbios_mainboard_serial_number(void)
 	return type1_serial_number ?: CONFIG_MAINBOARD_SERIAL_NUMBER;
 }
 
-void smbios_mainboard_set_uuid(u8 *uuid)
+void smbios_system_set_uuid(u8 *uuid)
 {
 	fw_cfg_smbios_init();
 	memcpy(uuid, type1_uuid, 16);
+}
+
+/*
+ * Configure DMA setup
+ */
+
+static void fw_cfg_dma(int control, void *buf, int len)
+{
+	volatile FwCfgDmaAccess dma;
+	uintptr_t dma_desc_addr;
+	uint32_t dma_desc_addr_hi, dma_desc_addr_lo;
+
+	dma.control = be32_to_cpu(control);
+	dma.length  = be32_to_cpu(len);
+	dma.address = be64_to_cpu((uintptr_t)buf);
+
+	dma_desc_addr = (uintptr_t)&dma;
+	dma_desc_addr_lo = (uint32_t)(dma_desc_addr & 0xFFFFFFFFU);
+	dma_desc_addr_hi = sizeof(uintptr_t) > sizeof(uint32_t)
+				? (uint32_t)(dma_desc_addr >> 32) : 0;
+
+	// Skip writing high half if unnecessary.
+	if (dma_desc_addr_hi)
+		outl(be32_to_cpu(dma_desc_addr_hi), FW_CFG_DMA_ADDR_HIGH);
+	outl(be32_to_cpu(dma_desc_addr_lo), FW_CFG_DMA_ADDR_LOW);
+
+	while (be32_to_cpu(dma.control) & ~FW_CFG_DMA_CTL_ERROR)
+		;
 }

@@ -29,12 +29,14 @@
 
 #include <arch/cpu.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <cpu/x86/lapic_def.h>
 #include <cpu/amd/msr.h>
 #include <device/pci_def.h>
 #include <northbridge/amd/amdfam10/raminit.h>
 #include <northbridge/amd/amdfam10/amdfam10.h>
+#include <types.h>
 
 /*----------------------------------------------------------------------------
  *			DEFINITIONS AND MACROS
@@ -1488,13 +1490,13 @@ static void selectOptimalWidthAndFrequency(sMainData *pDat)
 			cbPCBFreqLimit = ht_speed_mhz_to_hw(pDat->HtBlock->ht_link_configuration->ht_speed_limit);
 		cbPCBFreqLimit = min(cbPCBFreqLimit, cbPCBFreqLimit_NVRAM);
 
-#if IS_ENABLED(CONFIG_LIMIT_HT_DOWN_WIDTH_8)
+#if CONFIG(LIMIT_HT_DOWN_WIDTH_8)
 		cbPCBABDownstreamWidth = 8;
 #else
 		cbPCBABDownstreamWidth = 16;
 #endif
 
-#if IS_ENABLED(CONFIG_LIMIT_HT_UP_WIDTH_8)
+#if CONFIG(LIMIT_HT_UP_WIDTH_8)
 		cbPCBBAUpstreamWidth = 8;
 #else
 		cbPCBBAUpstreamWidth = 16;

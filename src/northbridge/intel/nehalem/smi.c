@@ -14,12 +14,12 @@
 #define __SIMPLE_DEVICE__
 
 #include <types.h>
-#include <string.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include "nehalem.h"
 
-#include <cpu/intel/smm/gen1/smi.h>
+#include <cpu/intel/smm_reloc.h>
 
 void northbridge_write_smram(u8 smram)
 {

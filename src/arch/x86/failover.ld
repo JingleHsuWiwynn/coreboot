@@ -1,9 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2006 Advanced Micro Devices, Inc.
- * Copyright (C) 2008-2010 coresystems GmbH
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -28,7 +25,7 @@ SECTIONS
 	 * boundary anyway, so no pad byte appears between _rom and _start.
 	 */
 	.bogus ROMLOC_MIN : {
-		. = CONFIG_SIPI_VECTOR_IN_ROM ?	ALIGN(4096) : ALIGN(4);
+		. = CONFIG(SIPI_VECTOR_IN_ROM) ? ALIGN(4096) : ALIGN(4);
 		ROMLOC = .;
 	} >rom = 0xff
 
@@ -50,10 +47,10 @@ SECTIONS
 	 * address gets applied.
 	 */
 	ROMLOC_MIN = 0xffffff00 - (_erom - _rom + 16) -
-		(CONFIG_SIPI_VECTOR_IN_ROM ? 4096 : 0);
+		(CONFIG(SIPI_VECTOR_IN_ROM) ? 4096 : 0);
 
 	/* Post-check proper SIPI vector. */
-	_bogus = ASSERT(!CONFIG_SIPI_VECTOR_IN_ROM || (ap_sipi_vector_in_rom == 0xff),
+	_bogus = ASSERT(!CONFIG(SIPI_VECTOR_IN_ROM) || (ap_sipi_vector_in_rom == 0xff),
 		"Address mismatch on AP_SIPI_VECTOR");
 
 	/DISCARD/ : {

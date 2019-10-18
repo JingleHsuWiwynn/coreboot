@@ -24,7 +24,6 @@ config CPU_SPECIFIC_OPTIONS
 	select PCIEXP_COMMON_CLOCK
 	select REG_SCRIPT
 	select RTC
-	select SMM_TSEG
 	select SMP
 	select SPI_FLASH
 	select SSE2
@@ -37,12 +36,11 @@ config CPU_SPECIFIC_OPTIONS
 	select HAVE_SPI_CONSOLE_SUPPORT
 	select INTEL_GMA_ACPI
 	select INTEL_GMA_SWSMISCI
-	select POSTCAR_STAGE
-	select POSTCAR_CONSOLE
 	select CPU_INTEL_COMMON
 	select CPU_HAS_L2_ENABLE_MSR
 
 config VBOOT
+	select VBOOT_MUST_REQUEST_DISPLAY
 	select VBOOT_STARTS_IN_ROMSTAGE
 
 config BOOTBLOCK_CPU_INIT
@@ -166,5 +164,15 @@ config REFCODE_BLOB_FILE
 	 The path and filename to the file to be added to cbfs.
 
 endif # HAVE_REFCODE_BLOB
+
+config VGA_BIOS_ID
+	string
+	depends on VGA_BIOS
+	default "8086,0f31"
+
+config VGA_BIOS_FILE
+	string
+	depends on VGA_BIOS
+	default "pci8086,0f31.rom"
 
 endif

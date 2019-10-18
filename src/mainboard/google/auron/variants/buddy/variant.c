@@ -14,8 +14,8 @@
 #include <cbfs.h>
 #include <fmap.h>
 #include <types.h>
-#include <string.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
@@ -35,7 +35,8 @@ int variant_smbios_data(struct device *dev, int *handle, unsigned long *current)
 		BOARD_TOUCHSCREEN_I2C_BUS,	/* segment */
 		BOARD_TOUCHSCREEN_I2C_ADDR,	/* bus */
 		0,				/* device */
-		0);				/* function */
+		0,				/* function */
+		SMBIOS_DEVICE_TYPE_OTHER);	/* device type */
 
 	return len;
 }
@@ -130,7 +131,7 @@ static void program_mac_address(u16 io_base)
 	u32 high_dword = 0xD0BA00A0;	/* high dword of mac address */
 	u32 low_dword = 0x0000AD0B;	/* low word of mac address as a dword */
 
-	if (IS_ENABLED(CONFIG_CHROMEOS)) {
+	if (CONFIG(CHROMEOS)) {
 		struct region_device rdev;
 
 		if (fmap_locate_area_as_rdev("RO_VPD", &rdev) == 0) {

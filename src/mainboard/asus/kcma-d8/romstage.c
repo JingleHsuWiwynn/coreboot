@@ -17,10 +17,9 @@
  * GNU General Public License for more details.
  */
 
-#include <stdint.h>
-#include <string.h>
 #include <device/pci_def.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <arch/cpu.h>
 #include <cpu/x86/lapic.h>
 #include <console/console.h>
@@ -44,15 +43,14 @@
 #include <cpu/amd/family_10h-family_15h/init_cpus.h>
 #include <arch/early_variables.h>
 #include <cbmem.h>
+#include <types.h>
 
 #include "cpu/amd/quadcore/quadcore.c"
 
 #define SERIAL_0_DEV PNP_DEV(0x2e, W83667HG_A_SP1)
 #define SERIAL_1_DEV PNP_DEV(0x2e, W83667HG_A_SP2)
 
-void activate_spd_rom(const struct mem_controller *ctrl);
 int spd_read_byte(unsigned int device, unsigned int address);
-extern struct sys_info sysinfo_car;
 
 inline int spd_read_byte(unsigned int device, unsigned int address)
 {
@@ -356,7 +354,7 @@ void cache_as_ram_main(unsigned long bist, unsigned long cpu_init_detectedx)
 		: "=r" (esp)
 		);
 
-	struct sys_info *sysinfo = &sysinfo_car;
+	struct sys_info *sysinfo = get_sysinfo();
 
 	/* Limit the maximum HT speed to 2.6GHz to prevent lockups
 	 * due to HT CPU <--> CPU wiring not being validated to 3.2GHz
@@ -463,7 +461,7 @@ void cache_as_ram_main(unsigned long bist, unsigned long cpu_init_detectedx)
 	sr5650_early_setup();
 	sb7xx_51xx_early_setup();
 
-	if (IS_ENABLED(CONFIG_LOGICAL_CPUS)) {
+	if (CONFIG(LOGICAL_CPUS)) {
 		/* Core0 on each node is configured. Now setup any additional cores. */
 		printk(BIOS_DEBUG, "start_other_cores()\n");
 		start_other_cores(bsp_apicid);
@@ -471,7 +469,7 @@ void cache_as_ram_main(unsigned long bist, unsigned long cpu_init_detectedx)
 		wait_all_other_cores_started(bsp_apicid);
 	}
 
-	if (IS_ENABLED(CONFIG_SET_FIDVID)) {
+	if (CONFIG(SET_FIDVID)) {
 		msr = rdmsr(MSR_COFVID_STS);
 		printk(BIOS_DEBUG, "\nBegin FIDVID MSR 0xc0010071 0x%08x 0x%08x\n", msr.hi, msr.lo);
 
@@ -480,7 +478,7 @@ void cache_as_ram_main(unsigned long bist, unsigned long cpu_init_detectedx)
 
 		post_code(0x39);
 
-		#if IS_ENABLED(CONFIG_SET_FIDVID)
+		#if CONFIG(SET_FIDVID)
 		if (!warm_reset_detect(0)) {			// BSP is node 0
 			init_fidvid_bsp(bsp_apicid, sysinfo->nodes);
 		} else {
@@ -525,7 +523,7 @@ void cache_as_ram_main(unsigned long bist, unsigned long cpu_init_detectedx)
 	post_code(0x3B);
 
 	/* Wait for all APs to be stopped, otherwise RAM initialization may hang */
-	if (IS_ENABLED(CONFIG_LOGICAL_CPUS))
+	if (CONFIG(LOGICAL_CPUS))
 		wait_all_other_cores_stopped(bsp_apicid);
 
 	/* It's the time to set ctrl in sysinfo now; */
@@ -539,9 +537,9 @@ void cache_as_ram_main(unsigned long bist, unsigned long cpu_init_detectedx)
 #if 0
 	/* FIXME
 	 * After the AMD K10 code has been converted to use
-	 * IS_ENABLED(CONFIG_DEBUG_SMBUS) uncomment this block
+	 * CONFIG(DEBUG_SMBUS) uncomment this block
 	 */
-	if (IS_ENABLED(CONFIG_DEBUG_SMBUS)) {
+	if (CONFIG(DEBUG_SMBUS)) {
 	        dump_spd_registers(&cpu[0]);
 		dump_smbus_registers();
 	}

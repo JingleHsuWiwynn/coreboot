@@ -14,10 +14,7 @@
  */
 
 #include <console/console.h>
-
-#include <arch/io.h>
-#include <arch/acpi.h>
-
+#include <device/mmio.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_def.h>
@@ -120,21 +117,24 @@ void hudson_enable(struct device *dev)
 	case PCI_DEVFN(0x12, 0):
 		if (dev->enabled == 0)
 			hudson_disable_usb(USB_EN_DEVFN_12_0);
-	case PCI_DEVFN(0x12, 2):	/* Fall through */
+		/* fall through */
+	case PCI_DEVFN(0x12, 2):
 		if (dev->enabled == 0)
 			hudson_disable_usb(USB_EN_DEVFN_12_2);
 		break;
 	case PCI_DEVFN(0x13, 0):
 		if (dev->enabled == 0)
 			hudson_disable_usb(USB_EN_DEVFN_13_0);
-	case PCI_DEVFN(0x13, 2):	/* Fall through */
+		/* fall through */
+	case PCI_DEVFN(0x13, 2):
 		if (dev->enabled == 0)
 			hudson_disable_usb(USB_EN_DEVFN_13_2);
 		break;
 	case PCI_DEVFN(0x16, 0):
 		if (dev->enabled == 0)
 			hudson_disable_usb(USB_EN_DEVFN_16_0);
-	case PCI_DEVFN(0x16, 2):	/* Fall through */
+		/* fall through */
+	case PCI_DEVFN(0x16, 2):
 		if (dev->enabled == 0)
 			hudson_disable_usb(USB_EN_DEVFN_16_2);
 		break;
@@ -157,7 +157,7 @@ static void hudson_init_acpi_ports(void)
 	/* CpuControl is in \_PR.CP00, 6 bytes */
 	pm_write16(0x66, ACPI_CPU_CONTROL);
 
-	if (IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)) {
+	if (CONFIG(HAVE_SMI_HANDLER)) {
 		pm_write16(0x6a, ACPI_SMI_CTL_PORT);
 		hudson_enable_acpi_cmd_smi();
 	} else {
@@ -178,8 +178,8 @@ static void hudson_init(void *chip_info)
 static void hudson_final(void *chip_info)
 {
 	/* AMD AGESA does not enable thermal zone, so we enable it here. */
-	if (IS_ENABLED(CONFIG_HUDSON_IMC_FWM) &&
-			!IS_ENABLED(CONFIG_ACPI_ENABLE_THERMAL_ZONE))
+	if (CONFIG(HUDSON_IMC_FWM) &&
+			!CONFIG(ACPI_ENABLE_THERMAL_ZONE))
 		enable_imc_thermal_zone();
 }
 

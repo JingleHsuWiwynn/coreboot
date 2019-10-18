@@ -15,9 +15,7 @@
 
 #include <types.h>
 #include <console/console.h>
-#include <arch/io.h>
-#include <stdint.h>
-#include <stdlib.h>
+#include <device/mmio.h>
 #include <delay.h>
 #include <soc/addressmap.h>
 #include <soc/clock.h>
@@ -26,6 +24,7 @@
 #include <soc/display.h>
 #include <soc/mipi_dsi.h>
 #include <soc/tegra_dsi.h>
+
 #include "jdi_25x18_display/panel-jdi-lpm102a188a.h"
 
 static unsigned long dsi_pads[] = {

@@ -15,6 +15,7 @@
 
 #include <arch/acpi.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <cpu/x86/smm.h>
 #include <device/pci.h>
@@ -65,7 +66,7 @@ static void pch_pmc_add_io_resources(struct device *dev,
 			cfg->abase_addr, cfg->abase_size,
 			 IORESOURCE_IO | IORESOURCE_ASSIGNED |
 			 IORESOURCE_FIXED);
-	if (IS_ENABLED(CONFIG_PMC_INVALID_READ_AFTER_WRITE)) {
+	if (CONFIG(PMC_INVALID_READ_AFTER_WRITE)) {
 		/*
 		 * The ACPI IO BAR (offset 0x20) is not PCI compliant. We've
 		 * observed cases where the BAR reads back as 0, but the IO
@@ -90,7 +91,8 @@ static void pch_pmc_read_resources(struct device *dev)
 	struct pmc_resource_config *config = &pmc_cfg;
 
 	if (pmc_soc_get_resources(config) < 0)
-		die("Unable to get PMC controller resource information!");
+		die_with_post_code(POST_HW_INIT_FAILURE,
+				   "Unable to get PMC controller resource information!");
 
 	/* Get the normal PCI resources of this device. */
 	pci_dev_read_resources(dev);
@@ -104,7 +106,7 @@ static void pch_pmc_read_resources(struct device *dev)
 
 void pmc_set_acpi_mode(void)
 {
-	if (IS_ENABLED(CONFIG_HAVE_SMI_HANDLER) && !acpi_is_wakeup_s3()) {
+	if (CONFIG(HAVE_SMI_HANDLER) && !acpi_is_wakeup_s3()) {
 		printk(BIOS_DEBUG, "Disabling ACPI via APMC:\n");
 		outb(APM_CNT_ACPI_DISABLE, APM_CNT);
 		printk(BIOS_DEBUG, "done.\n");
@@ -117,17 +119,20 @@ static struct device_operations device_ops = {
 	.enable_resources	= pci_dev_enable_resources,
 	.init			= pmc_soc_init,
 	.ops_pci		= &pci_dev_ops_pci,
-	.scan_bus		= scan_lpc_bus,
+	.scan_bus		= scan_static_bus,
 };
 
 static const unsigned short pci_device_ids[] = {
 	PCI_DEVICE_ID_INTEL_SPT_LP_PMC,
 	PCI_DEVICE_ID_INTEL_SPT_H_PMC,
+	PCI_DEVICE_ID_INTEL_LWB_PMC,
+	PCI_DEVICE_ID_INTEL_LWB_PMC_SUPER,
 	PCI_DEVICE_ID_INTEL_KBP_H_PMC,
 	PCI_DEVICE_ID_INTEL_APL_PMC,
 	PCI_DEVICE_ID_INTEL_GLK_PMC,
 	PCI_DEVICE_ID_INTEL_CNP_H_PMC,
 	PCI_DEVICE_ID_INTEL_ICP_PMC,
+	PCI_DEVICE_ID_INTEL_CMP_PMC,
 	0
 };
 

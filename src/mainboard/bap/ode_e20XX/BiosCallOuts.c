@@ -13,14 +13,15 @@
  * GNU General Public License for more details.
  */
 
+#include <console/console.h>
 #include <AGESA.h>
 #include <northbridge/amd/agesa/BiosCallOuts.h>
 #include <northbridge/amd/agesa/state_machine.h>
 #include <FchPlatform.h>
-#include <cbfs.h>
-#include "imc.h"
 #include <stdlib.h>
 #include <spd_bin.h>
+
+#include "imc.h"
 
 static AGESA_STATUS board_ReadSpd_from_cbfs(UINT32 Func, UINTN Data, VOID *ConfigPtr);
 
@@ -105,7 +106,7 @@ static const CODEC_TBL_LIST CodecTableList[] =
 static void oem_fan_control(FCH_DATA_BLOCK *FchParams)
 {
 	/* Enable IMC fan control. the recommand way */
-	if (IS_ENABLED(CONFIG_HUDSON_IMC_FWM)) {
+	if (CONFIG(HUDSON_IMC_FWM)) {
 		imc_reg_init();
 
 		/* HwMonitorEnable = TRUE &&  HwmFchtsiAutoOpll ==FALSE to call FchECfancontrolservice */
@@ -190,12 +191,13 @@ void board_FCH_InitEnv(struct sysinfo *cb_NA, FCH_DATA_BLOCK *FchParams_env)
 
 static AGESA_STATUS board_ReadSpd_from_cbfs(UINT32 Func, UINTN Data, VOID *ConfigPtr)
 {
-	AGESA_STATUS Status = AGESA_UNSUPPORTED;
-#ifdef __PRE_RAM__
 	AGESA_READ_SPD_PARAMS *info = ConfigPtr;
 	u8 index;
 
-	if (IS_ENABLED(CONFIG_BAP_E20_DDR3_1066))
+	if (!ENV_ROMSTAGE)
+		return AGESA_UNSUPPORTED;
+
+	if (CONFIG(BAP_E20_DDR3_1066))
 		index = 1;
 	else	/* CONFIG_BAP_E20_DDR3_800 */
 		index = 0;
@@ -211,7 +213,5 @@ static AGESA_STATUS board_ReadSpd_from_cbfs(UINT32 Func, UINTN Data, VOID *Confi
 	if (read_ddr3_spd_from_cbfs((u8 *)info->Buffer, index) < 0)
 		die("No SPD data\n");
 
-	Status = AGESA_SUCCESS;
-#endif
-	return Status;
+	return AGESA_SUCCESS;
 }

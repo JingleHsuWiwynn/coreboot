@@ -13,14 +13,13 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <console/console.h>
 #include <delay.h>
 #include <gpio.h>
 #include <soc/iomap.h>
 #include <soc/spi.h>
-#include <stdlib.h>
-#include <string.h>
+#include <types.h>
 
 #define SUCCESS		0
 
@@ -761,8 +760,8 @@ static int spi_ctrlr_setup(const struct spi_slave *slave)
 {
 	struct ipq_spi_slave *ds = NULL;
 	int i;
-	unsigned int bus = slave->bus;
-	unsigned int cs = slave->cs;
+	int bus = slave->bus;
+	int cs = slave->cs;
 
 	/*
 	 * IPQ GSBI (Generic Serial Bus Interface) supports SPI Flash

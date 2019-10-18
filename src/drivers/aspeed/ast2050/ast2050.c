@@ -12,18 +12,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include <delay.h>
+
 #include <stdlib.h>
-#include <string.h>
 #include <arch/io.h>
 #include <edid.h>
-
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
-#include <device/pci_ops.h>
-
 #include <pc80/vga.h>
 
 #include "../common/aspeed_coreboot.h"
@@ -40,13 +36,12 @@ static void aspeed_ast2050_set_resources(struct device *dev)
 
 static void aspeed_ast2050_init(struct device *dev)
 {
-	u8 ret;
 	struct drm_device drm_dev;
 
 	drm_dev.pdev = dev;
 
 	printk(BIOS_INFO, "ASpeed AST2050: initializing video device\n");
-	ret = ast_driver_load(&drm_dev, 0);
+	ast_driver_load(&drm_dev, 0);
 
 	/* Unlock extended configuration registers */
 	outb(0x80, 0x3d4); outb(0xa8, 0x3d5);

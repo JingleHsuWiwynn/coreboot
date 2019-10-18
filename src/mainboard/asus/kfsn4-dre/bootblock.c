@@ -15,6 +15,8 @@
  * GNU General Public License for more details.
  */
 
+#include <arch/io.h>
+#include <device/pnp_ops.h>
 #include <pc80/mc146818rtc.h>
 
 #include <superio/winbond/common/winbond.h>
@@ -62,7 +64,7 @@ void bootblock_mainboard_init(void)
 
 	recovery_enabled = bootblock_read_recovery_jumper(GPIO_DEV);
 	if (recovery_enabled) {
-#if IS_ENABLED(CONFIG_USE_OPTION_TABLE)
+#if CONFIG(USE_OPTION_TABLE)
 		/* Clear NVRAM checksum */
 		for (addr = LB_CKS_RANGE_START; addr <= LB_CKS_RANGE_END; addr++) {
 			cmos_write(0x0, addr);

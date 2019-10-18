@@ -15,9 +15,7 @@
  */
 
 #include <stdint.h>
-#include <string.h>
-#include <timestamp.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <cpu/x86/lapic.h>
 #include <arch/acpi.h>
@@ -27,7 +25,6 @@
 #include <northbridge/intel/sandybridge/raminit_native.h>
 #include <southbridge/intel/bd82x6x/pch.h>
 #include <southbridge/intel/common/gpio.h>
-#include <halt.h>
 #include <bootmode.h>
 #include <ec/quanta/it8518/ec.h>
 #include "ec.h"
@@ -44,9 +41,6 @@ void pch_enable_lpc(void)
 	 */
 	pci_write_config16(PCH_LPC_DEV, LPC_EN, KBC_LPC_EN | MC_LPC_EN |
 			CNF1_LPC_EN | FDD_LPC_EN);
-
-	/* Stout EC Decode Range Port68/6C */
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN1_DEC, (0x68 | 0x40001));
 }
 
 void mainboard_rcba_config(void)

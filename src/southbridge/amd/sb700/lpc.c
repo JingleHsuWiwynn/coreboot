@@ -24,9 +24,7 @@
 #include <pc80/i8254.h>
 #include <pc80/i8259.h>
 #include <arch/acpi.h>
-#include <arch/acpigen.h>
 #include <pc80/isa-dma.h>
-#include <arch/io.h>
 #include <arch/ioapic.h>
 #include <cpu/amd/powernow.h>
 #include "sb700.h"
@@ -46,13 +44,13 @@ static void lpc_init(struct device *dev)
 	pci_write_config32(sm_dev, 0x64, dword);
 
 	/* Initialize isa dma */
-#if IS_ENABLED(CONFIG_SOUTHBRIDGE_AMD_SB700_SKIP_ISA_DMA_INIT)
+#if CONFIG(SOUTHBRIDGE_AMD_SB700_SKIP_ISA_DMA_INIT)
 	printk(BIOS_DEBUG, "Skipping isa_dma_init() to avoid getting stuck.\n");
 #else
 	isa_dma_init();
 #endif
 
-	if (!IS_ENABLED(CONFIG_SOUTHBRIDGE_AMD_SB700_DISABLE_ISA_DMA)) {
+	if (!CONFIG(SOUTHBRIDGE_AMD_SB700_DISABLE_ISA_DMA)) {
 		/* Enable DMA transaction on the LPC bus */
 		byte = pci_read_config8(dev, 0x40);
 		byte |= (1 << 2);
@@ -67,7 +65,7 @@ static void lpc_init(struct device *dev)
 	/* Disable LPC MSI Capability */
 	byte = pci_read_config8(dev, 0x78);
 	byte &= ~(1 << 1);
-#if IS_ENABLED(CONFIG_SOUTHBRIDGE_AMD_SUBTYPE_SP5100)
+#if CONFIG(SOUTHBRIDGE_AMD_SUBTYPE_SP5100)
 	/* Disable FlowContrl, Always service the request from Host
 	 * whenever there is a request from Host pending
 	 */
@@ -230,11 +228,13 @@ static void sb700_lpc_enable_childrens_resources(struct device *dev)
 	pci_write_config32(dev, 0x48, reg_x);
 	/* Set WideIO for as many IOs found (fall through is on purpose) */
 	switch (var_num) {
-	case 2:
+	case 3:
 		pci_write_config16(dev, 0x90, reg_var[2]);
-	case 1:
+		/* fall through */
+	case 2:
 		pci_write_config16(dev, 0x66, reg_var[1]);
-	case 0:
+		/* fall through */
+	case 1:
 		pci_write_config16(dev, 0x64, reg_var[0]);
 		break;
 	}
@@ -247,7 +247,7 @@ static void sb700_lpc_enable_resources(struct device *dev)
 	sb700_lpc_enable_childrens_resources(dev);
 }
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 
 static void southbridge_acpi_fill_ssdt_generator(struct device *device) {
 	amd_generate_powernow(ACPI_CPU_CONTROL, 6, 1);
@@ -276,13 +276,13 @@ static struct device_operations lpc_ops = {
 	.read_resources = sb700_lpc_read_resources,
 	.set_resources = sb700_lpc_set_resources,
 	.enable_resources = sb700_lpc_enable_resources,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_name = lpc_acpi_name,
 	.write_acpi_tables = acpi_write_hpet,
 	.acpi_fill_ssdt_generator = southbridge_acpi_fill_ssdt_generator,
 #endif
 	.init = lpc_init,
-	.scan_bus = scan_lpc_bus,
+	.scan_bus = scan_static_bus,
 	.ops_pci = &lops_pci,
 };
 static const struct pci_driver lpc_driver __pci_driver = {

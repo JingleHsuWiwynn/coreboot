@@ -15,7 +15,8 @@
 
 #include <string.h>
 #include <bootmode.h>
-#include <arch/io.h>
+#include <boot/coreboot_tables.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
@@ -26,54 +27,28 @@
 #include "ec.h"
 #include <ec/quanta/it8518/ec.h>
 
-#ifndef __PRE_RAM__
-#include <boot/coreboot_tables.h>
-
-#define GPIO_COUNT	7
-
 void fill_lb_gpios(struct lb_gpios *gpios)
 {
-	gpios->size = sizeof(*gpios) + (GPIO_COUNT * sizeof(struct lb_gpio));
-	gpios->count = GPIO_COUNT;
+	struct lb_gpio chromeos_gpios[] = {
+		/* Write Protect: GPIO7 */
+		{7, ACTIVE_LOW, !get_write_protect_state(), "write protect"},
 
-	/* Write Protect: GPIO7 */
-	gpios->gpios[0].port = 7;
-	gpios->gpios[0].polarity = ACTIVE_LOW;
-	gpios->gpios[0].value = !get_write_protect_state();
-	strncpy((char *)gpios->gpios[0].name,"write protect",
-							GPIO_MAX_NAME_LENGTH);
+		/* Lid Switch: Virtual switch */
+		{-1, ACTIVE_HIGH, get_lid_switch(), "lid"},
 
-	/* Recovery: Virtual switch */
-	gpios->gpios[1].port = -1;
-	gpios->gpios[1].polarity = ACTIVE_HIGH;
-	gpios->gpios[1].value = get_recovery_mode_switch();
-	strncpy((char *)gpios->gpios[1].name,"recovery", GPIO_MAX_NAME_LENGTH);
+		/* Power Button: Virtual switch */
+		/* Hard-code value to de-asserted */
+		{-1, ACTIVE_HIGH, 0, "power"},
 
-	/* Lid Switch: Virtual switch */
-	gpios->gpios[3].port = -1;
-	gpios->gpios[3].polarity = ACTIVE_HIGH;
-	gpios->gpios[3].value = get_lid_switch();
-	strncpy((char *)gpios->gpios[3].name,"lid", GPIO_MAX_NAME_LENGTH);
+		/* Was VGA Option ROM loaded? */
+		/* -1 indicates that this is a pseudo GPIO */
+		{-1, ACTIVE_HIGH, gfx_get_init_done(), "oprom"},
 
-	/* Power Button: Virtual switch */
-	gpios->gpios[4].port = -1;
-	gpios->gpios[4].polarity = ACTIVE_HIGH;
-	gpios->gpios[4].value = 0; /* Hard-code to de-asserted */
-	strncpy((char *)gpios->gpios[4].name,"power", GPIO_MAX_NAME_LENGTH);
-
-	/* Was VGA Option ROM loaded? */
-	gpios->gpios[5].port = -1; /* Indicate that this is a pseudo GPIO */
-	gpios->gpios[5].polarity = ACTIVE_HIGH;
-	gpios->gpios[5].value = gfx_get_init_done();
-	strncpy((char *)gpios->gpios[5].name,"oprom", GPIO_MAX_NAME_LENGTH);
-
-	/* EC is in RW mode when it isn't in recovery mode. */
-	gpios->gpios[6].port = -1;
-	gpios->gpios[6].polarity = ACTIVE_HIGH;
-	gpios->gpios[6].value = !get_recovery_mode_switch();
-	strncpy((char *)gpios->gpios[6].name,"ec_in_rw", GPIO_MAX_NAME_LENGTH);
+		/* EC is in RW mode when it isn't in recovery mode. */
+		{-1, ACTIVE_HIGH, !get_recovery_mode_switch(), "ec_in_rw"}
+	};
+	lb_add_gpios(gpios, chromeos_gpios, ARRAY_SIZE(chromeos_gpios));
 }
-#endif
 
 int get_write_protect_state(void)
 {
@@ -96,31 +71,24 @@ int get_lid_switch(void)
  */
 int get_recovery_mode_switch(void)
 {
-#ifdef __PRE_RAM__
+	MAYBE_STATIC_BSS int ec_in_rec_mode = 0;
+	MAYBE_STATIC_BSS int ec_rec_flag_good = 0;
+
+	if (ec_rec_flag_good)
+		return ec_in_rec_mode;
+
 	pci_devfn_t dev = PCI_DEV(0, 0x1f, 0);
-#else
-	static int ec_in_rec_mode = 0;
-	static int ec_rec_flag_good = 0;
-	struct device *dev = pcidev_on_root(0x1f, 0);
-#endif
+	u8 reg8 = pci_s_read_config8(dev, GEN_PMCON_3);
 
 	u8 ec_status = ec_read(EC_STATUS_REG);
-	u8 reg8 = pci_read_config8(dev, GEN_PMCON_3);
 
 	printk(BIOS_SPEW,"%s:  EC status:%#x   RTC_BAT: %x\n",
 			__func__, ec_status, reg8 & RTC_BATTERY_DEAD);
 
-#ifdef __PRE_RAM__
-	return (((reg8 & RTC_BATTERY_DEAD) != 0) &&
-	         ((ec_status & 0x3) == EC_IN_RECOVERY_MODE));
-#else
-	if (!ec_rec_flag_good) {
-		ec_in_rec_mode = (((reg8 & RTC_BATTERY_DEAD) != 0) &&
-		                     ((ec_status & 0x3) == EC_IN_RECOVERY_MODE));
-		ec_rec_flag_good = 1;
-	}
+	ec_in_rec_mode = (((reg8 & RTC_BATTERY_DEAD) != 0) &&
+				((ec_status & 0x3) == EC_IN_RECOVERY_MODE));
+	ec_rec_flag_good = 1;
 	return ec_in_rec_mode;
-#endif
 }
 
 static const struct cros_gpio cros_gpios[] = {

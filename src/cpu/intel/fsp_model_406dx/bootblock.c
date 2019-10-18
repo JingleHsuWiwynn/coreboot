@@ -1,9 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2011 Google Inc.
- * Copyright (C) 2013-2014 Sage Electronic Engineering LLC.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -20,7 +17,7 @@
 #include <cpu/x86/msr.h>
 #include <cpu/x86/mtrr.h>
 #include <arch/io.h>
-#include <reset.h>
+#include <device/pci_ops.h>
 #include <southbridge/intel/fsp_rangeley/soc.h>
 
 #include "model_406dx.h"

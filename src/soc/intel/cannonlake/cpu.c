@@ -16,14 +16,13 @@
 #include <arch/cpu.h>
 #include <console/console.h>
 #include <device/pci.h>
-#include <chip.h>
 #include <cpu/x86/lapic.h>
 #include <cpu/x86/mp.h>
 #include <cpu/x86/msr.h>
+#include <cpu/intel/smm_reloc.h>
 #include <cpu/intel/turbo.h>
 #include <intelblocks/cpulib.h>
 #include <intelblocks/mp_init.h>
-#include <intelblocks/smm.h>
 #include <romstage_handoff.h>
 #include <soc/cpu.h>
 #include <soc/msr.h>
@@ -31,6 +30,11 @@
 #include <soc/pm.h>
 #include <soc/smm.h>
 #include <soc/systemagent.h>
+#include <cpu/x86/mtrr.h>
+#include <cpu/intel/microcode.h>
+#include <cpu/intel/common/common.h>
+
+#include "chip.h"
 
 /* Convert time in seconds to POWER_LIMIT_1_TIME MSR value */
 static const u8 power_limit_time_sec_to_msr[] = {
@@ -101,11 +105,11 @@ void set_power_limits(u8 power_limit_1_time)
 	unsigned int power_unit;
 	unsigned int tdp, min_power, max_power, max_time, tdp_pl2, tdp_pl1;
 	u8 power_limit_1_val;
-	struct device *dev = SA_DEV_ROOT;
-	config_t *conf = dev->chip_info;
 
-	if (power_limit_1_time > ARRAY_SIZE(power_limit_time_sec_to_msr))
-		power_limit_1_time = 28;
+	config_t *conf = config_of_soc();
+
+	if (power_limit_1_time >= ARRAY_SIZE(power_limit_time_sec_to_msr))
+		power_limit_1_time = ARRAY_SIZE(power_limit_time_sec_to_msr) - 1;
 
 	if (!(msr.lo & PLATFORM_INFO_SET_TDP))
 		return;
@@ -230,11 +234,10 @@ static void soc_fsp_load(void)
 
 static void configure_isst(void)
 {
-	struct device *dev = SA_DEV_ROOT;
-	config_t *conf = dev->chip_info;
+	config_t *conf = config_of_soc();
 	msr_t msr;
 
-	if (conf && conf->speed_shift_enable) {
+	if (conf->speed_shift_enable) {
 		/*
 		 * Kernel driver checks CPUID.06h:EAX[Bit 7] to determine if HWP
 		 * is supported or not. coreboot needs to configure MSR 0x1AA
@@ -256,21 +259,14 @@ static void configure_isst(void)
 
 static void configure_misc(void)
 {
-	struct device *dev = SA_DEV_ROOT;
-	if (!dev) {
-		printk(BIOS_ERR, "SA_DEV_ROOT device not found!\n");
-		return;
-	}
-	config_t *conf = dev->chip_info;
+	config_t *conf = config_of_soc();
 	msr_t msr;
 
 	msr = rdmsr(IA32_MISC_ENABLE);
 	msr.lo |= (1 << 0);	/* Fast String enable */
 	msr.lo |= (1 << 3);	/* TM1/TM2/EMTTM enable */
-	if (conf && conf->eist_enable)
-		cpu_enable_eist();
-	else
-		cpu_disable_eist();
+	/* Set EIST status */
+	cpu_set_eist(conf->eist_enable);
 	wrmsr(IA32_MISC_ENABLE, msr);
 
 	/* Disable Thermal interrupts */
@@ -365,8 +361,7 @@ static void configure_c_states(void)
 
 static void configure_thermal_target(void)
 {
-	struct device *dev = SA_DEV_ROOT;
-	config_t *conf = dev->chip_info;
+	config_t *conf = config_of_soc();
 	msr_t msr;
 
 	/* Set TCC activation offset if supported */
@@ -389,8 +384,14 @@ static void configure_thermal_target(void)
  */
 static void enable_pm_timer_emulation(void)
 {
-	/* ACPI PM timer emulation */
+	const struct soc_intel_cannonlake_config *config;
 	msr_t msr;
+
+	config = config_of_soc();
+
+	/* Enable PM timer emulation only if ACPI PM timer is disabled */
+	if (!config->PmTimerDisabled)
+		return;
 	/*
 	 * The derived frequency is calculated as follows:
 	 *    (CTC_FREQ * msr[63:32]) >> 32 = target frequency.
@@ -411,7 +412,7 @@ void soc_core_init(struct device *cpu)
 	/* TODO(adurbin): This should only be done on a cold boot. Also, some
 	 * of these banks are core vs package scope. For now every CPU clears
 	 * every bank. */
-	mca_configure(NULL);
+	mca_configure();
 
 	/* Enable the local CPU apics */
 	enable_lapic_tpr();
@@ -437,6 +438,9 @@ void soc_core_init(struct device *cpu)
 
 	/* Enable Turbo */
 	enable_turbo();
+
+	/* Enable Vmx */
+	set_vmx_and_lock();
 }
 
 static void per_cpu_smm_trigger(void)
@@ -454,7 +458,7 @@ static void post_mp_init(void)
 	 * Now that all APs have been relocated as well as the BSP let SMIs
 	 * start flowing.
 	 */
-	smm_southbridge_enable(PWRBTN_EN | GBL_EN);
+	smm_southbridge_enable(GBL_EN);
 
 	/* Lock down the SMRAM space. */
 	smm_lock();
@@ -483,4 +487,35 @@ void soc_init_cpus(struct bus *cpu_bus)
 
 	/* Thermal throttle activation offset */
 	configure_thermal_target();
+}
+
+int soc_skip_ucode_update(u32 current_patch_id, u32 new_patch_id)
+{
+	msr_t msr1;
+	msr_t msr2;
+
+	/*
+	 * CFL and WHL CPU die are based on KBL CPU so we need to
+	 * have this check, where CNL CPU die is not based on KBL CPU
+	 * so skip this check for CNL.
+	 */
+	if (!CONFIG(SOC_INTEL_CANNONLAKE_ALTERNATE_HEADERS))
+		return 0;
+
+	/*
+	 * If PRMRR/SGX is supported the FIT microcode load will set the msr
+	 * 0x08b with the Patch revision id one less than the id in the
+	 * microcode binary. The PRMRR support is indicated in the MSR
+	 * MTRRCAP[12]. If SGX is not enabled, check and avoid reloading the
+	 * same microcode during CPU initialization. If SGX is enabled, as
+	 * part of SGX BIOS initialization steps, the same microcode needs to
+	 * be reloaded after the core PRMRR MSRs are programmed.
+	 */
+	msr1 = rdmsr(MTRR_CAP_MSR);
+	msr2 = rdmsr(MSR_PRMRR_PHYS_BASE);
+	if (msr2.lo && (current_patch_id == new_patch_id - 1))
+		return 0;
+
+	return (msr1.lo & PRMRR_SUPPORTED) &&
+		(current_patch_id == new_patch_id - 1);
 }

@@ -14,11 +14,10 @@
 // Use simple device model for this file even in ramstage
 #define __SIMPLE_DEVICE__
 
-#include <arch/io.h>
-#include <arch/cpu.h>
+#include <device/pci_ops.h>
+#include <arch/romstage.h>
 #include <cbmem.h>
 #include <console/console.h>
-#include <cpu/intel/romstage.h>
 #include <cpu/x86/mtrr.h>
 #include <program_loading.h>
 #include "e7505.h"
@@ -35,18 +34,17 @@ void *cbmem_top(void)
 	return (void *)tolm;
 }
 
-#define ROMSTAGE_RAM_STACK_SIZE 0x5000
+void northbridge_write_smram(u8 smram);
 
-/* platform_enter_postcar() determines the stack to use after
- * cache-as-ram is torn down as well as the MTRR settings to use,
- * and continues execution in postcar stage. */
-void platform_enter_postcar(void)
+void northbridge_write_smram(u8 smram)
 {
-	struct postcar_frame pcf;
-	uintptr_t top_of_ram;
+	pci_devfn_t mch = PCI_DEV(0, 0, 0);
+	pci_write_config8(mch, SMRAMC, smram);
+}
 
-	if (postcar_frame_init(&pcf, ROMSTAGE_RAM_STACK_SIZE))
-		die("Unable to initialize postcar frame.\n");
+void fill_postcar_frame(struct postcar_frame *pcf)
+{
+	uintptr_t top_of_ram;
 
 	/*
 	 * Choose to NOT set ROM as WP cacheable here.
@@ -55,15 +53,13 @@ void platform_enter_postcar(void)
 	 * operations when source is left as UC.
 	 */
 
+	pcf->skip_common_mtrr = 1;
+
 	/* Cache RAM as WB from 0 -> CACHE_TMP_RAMTOP. */
-	postcar_frame_add_mtrr(&pcf, 0, CACHE_TMP_RAMTOP, MTRR_TYPE_WRBACK);
+	postcar_frame_add_mtrr(pcf, 0, CACHE_TMP_RAMTOP, MTRR_TYPE_WRBACK);
 
 	/* Cache CBMEM region as WB. */
 	top_of_ram = (uintptr_t)cbmem_top();
-	postcar_frame_add_mtrr(&pcf, top_of_ram - 8*MiB, 8*MiB,
+	postcar_frame_add_mtrr(pcf, top_of_ram - 8*MiB, 8*MiB,
 		MTRR_TYPE_WRBACK);
-
-	run_postcar_phase(&pcf);
-
-	/* We do not return here. */
 }

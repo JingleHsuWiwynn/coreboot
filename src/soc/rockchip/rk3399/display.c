@@ -15,7 +15,7 @@
 
 #include <arch/cache.h>
 #include <arch/mmu.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <delay.h>
@@ -23,7 +23,6 @@
 #include <gpio.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include <string.h>
 #include <soc/addressmap.h>
 #include <soc/clock.h>
 #include <soc/display.h>

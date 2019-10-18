@@ -18,11 +18,11 @@
  * SMI handler for Hudson southbridges
  */
 
+#include <arch/io.h>
+#include <cpu/x86/smm.h>
+
 #include "hudson.h"
 #include "smi.h"
-
-#include <cpu/x86/smm.h>
-#include <delay.h>
 
 #define SMI_0x88_ACPI_COMMAND		(1 << 11)
 
@@ -120,7 +120,7 @@ static void process_smi_0x90(void)
 	smi_write32(0x90, status);
 }
 
-void southbridge_smi_handler(unsigned int node, smm_state_save_area_t *state_save)
+void southbridge_smi_handler(void)
 {
 	const uint16_t smi_src = smi_read16(0x94);
 

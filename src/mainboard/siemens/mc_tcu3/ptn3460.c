@@ -16,6 +16,9 @@
 #include <console/console.h>
 #include <hwilib.h>
 #include <string.h>
+#include <delay.h>
+#include <types.h>
+
 #include "soc/i2c.h"
 #include "ptn3460.h"
 

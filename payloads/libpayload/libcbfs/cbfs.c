@@ -31,11 +31,11 @@
 
 #ifdef LIBPAYLOAD
 # include <libpayload-config.h>
-# if IS_ENABLED(CONFIG_LP_LZMA)
+# if CONFIG(LP_LZMA)
 #  include <lzma.h>
 #  define CBFS_CORE_WITH_LZMA
 # endif
-# if IS_ENABLED(CONFIG_LP_LZ4)
+# if CONFIG(LP_LZ4)
 #  include <lz4.h>
 #  define CBFS_CORE_WITH_LZ4
 # endif
@@ -114,8 +114,9 @@ void * cbfs_load_stage(struct cbfs_media *media, const char *name)
 	final_size = cbfs_decompress(stage->compression,
 				     ((unsigned char *) stage) +
 				     sizeof(struct cbfs_stage),
+				     stage->len,
 				     (void *) (uintptr_t) stage->load,
-				     stage->len);
+				     stage->memlen);
 	if (!final_size) {
 		entry = -1;
 		goto out;

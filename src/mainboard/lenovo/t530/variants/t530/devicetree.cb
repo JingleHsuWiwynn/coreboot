@@ -62,7 +62,6 @@ chip northbridge/intel/sandybridge
 			# Enable zero-based linear PCIe root port functions
 			register "pcie_port_coalesce" = "1"
 			register "c2_latency" = "101"  # c2 not supported
-			register "p_cnt_throttling_supported" = "1"
 
 			register "pcie_hotplug_map" = "{ 0, 0, 1, 0, 0, 0, 0, 0 }"
 
@@ -83,7 +82,9 @@ chip northbridge/intel/sandybridge
 			device pci 1b.0 on end # High Definition Audio
 			device pci 1c.0 on end # PCIe Port #1
 			device pci 1c.1 on end # PCIe Port #2
-			device pci 1c.2 on end # PCIe Port #3 (expresscard)
+			device pci 1c.2 on
+				smbios_slot_desc "7" "3" "ExpressCard Slot" "8"
+			end # PCIe Port #3 (expresscard)
 			device pci 1c.3 off end # PCIe Port #4
 			device pci 1c.4 off end # PCIe Port #5
 			device pci 1c.5 off end # PCIe Port #6

@@ -16,6 +16,7 @@
 #ifndef SOUTHBRIDGE_INTEL_BD82X6X_CHIP_H
 #define SOUTHBRIDGE_INTEL_BD82X6X_CHIP_H
 
+#include <southbridge/intel/common/spi.h>
 #include <stdint.h>
 
 struct southbridge_intel_bd82x6x_config {
@@ -82,7 +83,6 @@ struct southbridge_intel_bd82x6x_config {
 	uint8_t pcie_aspm_f6;
 	uint8_t pcie_aspm_f7;
 
-	int p_cnt_throttling_supported;
 	int c2_latency;
 	int docking_supported;
 
@@ -97,14 +97,7 @@ struct southbridge_intel_bd82x6x_config {
 
 	uint32_t spi_uvscc;
 	uint32_t spi_lvscc;
-	struct {
-		uint8_t opprefixes[2];
-		struct {
-			uint8_t needs_address;
-			uint8_t is_write;
-			uint8_t op;
-		} ops[8];
-	} spi;
+	struct intel_swseq_spi_config spi;
 };
 
 #endif				/* SOUTHBRIDGE_INTEL_BD82X6X_CHIP_H */

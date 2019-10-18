@@ -15,7 +15,6 @@
 
 /* RAM driver for the SMSC SIO1036 Super I/O chip */
 
-#include <arch/io.h>
 #include <device/device.h>
 #include <device/pnp.h>
 #include <superio/conf_mode.h>
@@ -25,9 +24,8 @@
 
 static void sio1036_init(struct device *dev)
 {
-	if (!dev->enabled) {
+	if (!dev->enabled)
 		return;
-	}
 }
 
 static struct device_operations ops = {

@@ -19,6 +19,7 @@
 #include <cbfs.h>
 #include <chip.h>
 #include <commonlib/cbfs_serialized.h>
+#include <console/console.h>
 #include <device/device.h>
 #include <drivers/intel/gma/opregion.h>
 #include <ec/google/chromeec/ec.h>
@@ -104,7 +105,7 @@ uint32_t variant_board_sku(void)
 	return sku_id;
 }
 
-const char *smbios_mainboard_sku(void)
+const char *smbios_system_sku(void)
 {
 	static char sku_str[14]; /* sku{0..4294967295} */
 
@@ -195,6 +196,8 @@ const char *mainboard_vbt_filename(void)
 	case SKU_0_PANTHEON:
 	case SKU_1_PANTHEON:
 	case SKU_2_PANTHEON:
+	case SKU_3_PANTHEON:
+	case SKU_4_PANTHEON:
 		return "vbt-pantheon.bin";
 	case SKU_0_VAYNE:
 	case SKU_1_VAYNE:
@@ -209,10 +212,13 @@ const char *mainboard_vbt_filename(void)
 	case SKU_1_BARD:
 	case SKU_2_BARD:
 	case SKU_3_BARD:
+	case SKU_4_BARD:
+	case SKU_5_BARD:
+	case SKU_6_BARD:
+	case SKU_7_BARD:
 		return "vbt-bard.bin";
 	default:
 		return "vbt.bin";
-		break;
 	}
 }
 
@@ -232,9 +238,10 @@ void variant_devtree_update(void)
 	uint32_t sku_id = variant_board_sku();
 	uint32_t i;
 	int oem_index;
-	struct device *root = SA_DEV_ROOT;
-	config_t *cfg = root->chip_info;
 	uint8_t pl2_id = PL2_ID_DEFAULT;
+	struct device *spi_fpmcu = PCH_DEV_GSPI1;
+
+	config_t *cfg = config_of_soc();
 
 	switch (sku_id) {
 	case SKU_0_SONA:
@@ -248,6 +255,7 @@ void variant_devtree_update(void)
 	case SKU_6_SYNDRA:
 	case SKU_7_SYNDRA:
 		pl2_id = PL2_ID_SONA_SYNDRA;
+		/* fallthrough */
 	case SKU_0_VAYNE:
 	case SKU_1_VAYNE:
 	case SKU_2_VAYNE:
@@ -257,15 +265,24 @@ void variant_devtree_update(void)
 	case SKU_3_PANTHEON:
 	case SKU_4_PANTHEON:
 		cfg->usb2_ports[5].enable = 0;
+		spi_fpmcu->enabled = 0;
 		break;
 	case SKU_0_BARD:
 	case SKU_1_BARD:
 	case SKU_2_BARD:
 	case SKU_3_BARD:
+	case SKU_4_BARD:
+	case SKU_5_BARD:
+	case SKU_6_BARD:
+	case SKU_7_BARD:
 	case SKU_0_EKKO:
 	case SKU_1_EKKO:
 	case SKU_2_EKKO:
 	case SKU_3_EKKO:
+	case SKU_4_EKKO:
+	case SKU_5_EKKO:
+	case SKU_6_EKKO:
+	case SKU_7_EKKO:
 		pl2_id = PL2_ID_BARD_EKKO;
 		cfg->usb2_ports[5].enable = 0;
 		cfg->usb2_ports[7].enable = 0;

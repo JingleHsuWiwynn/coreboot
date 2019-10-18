@@ -23,7 +23,6 @@
 #include <device/pci_def.h>
 #include <pc80/mc146818rtc.h>
 #include <pc80/isa-dma.h>
-#include <arch/io.h>
 #include <arch/ioapic.h>
 #include <arch/acpi.h>
 #include <pc80/i8254.h>
@@ -344,11 +343,11 @@ static struct device_operations lpc_ops = {
 	.read_resources = hudson_lpc_read_resources,
 	.set_resources = hudson_lpc_set_resources,
 	.enable_resources = hudson_lpc_enable_resources,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.write_acpi_tables = acpi_write_hpet,
 #endif
 	.init = lpc_init,
-	.scan_bus = scan_lpc_bus,
+	.scan_bus = scan_static_bus,
 	.ops_pci = &lops_pci,
 	.acpi_name = lpc_acpi_name,
 };

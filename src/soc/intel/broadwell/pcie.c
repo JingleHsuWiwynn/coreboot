@@ -135,10 +135,8 @@ static void root_port_init_config(struct device *dev)
 		root_port_config_update_gbe_port();
 
 		pci_update_config8(dev, 0xe2, ~(3 << 4), (3 << 4));
-		if (dev->chip_info != NULL) {
-			config_t *config = dev->chip_info;
-			rpc.coalesce = config->pcie_port_coalesce;
-		}
+		config_t *config = config_of(dev);
+		rpc.coalesce = config->pcie_port_coalesce;
 	}
 
 	rp = root_port_number(dev);
@@ -449,7 +447,7 @@ static void pcie_add_0x0202000_iobp(u32 reg)
 
 static void pch_pcie_early(struct device *dev)
 {
-	config_t *config = dev->chip_info;
+	config_t *config = config_of(dev);
 	int do_aspm = 0;
 	int rp = root_port_number(dev);
 
@@ -481,7 +479,7 @@ static void pch_pcie_early(struct device *dev)
 	}
 
 	/* Allow ASPM to be forced on in devicetree */
-	if (config && (config->pcie_port_force_aspm & (1 << (rp - 1))))
+	if ((config->pcie_port_force_aspm & (1 << (rp - 1))))
 		do_aspm = 1;
 
 	printk(BIOS_DEBUG, "PCIe Root Port %d ASPM is %sabled\n",
@@ -555,7 +553,7 @@ static void pch_pcie_early(struct device *dev)
 	pci_update_config8(dev, 0xf5, 0x0f, 0);
 
 	/* Set AER Extended Cap ID to 01h and Next Cap Pointer to 200h. */
-	if (IS_ENABLED(CONFIG_PCIEXP_AER))
+	if (CONFIG(PCIEXP_AER))
 		pci_update_config32(dev, 0x100, ~(1 << 29) & ~0xfffff,
 			(1 << 29) | 0x10001);
 	else
@@ -563,7 +561,7 @@ static void pch_pcie_early(struct device *dev)
 			(1 << 29));
 
 	/* Set L1 Sub-State Cap ID to 1Eh and Next Cap Pointer to None. */
-	if (IS_ENABLED(CONFIG_PCIEXP_L1_SUB_STATE))
+	if (CONFIG(PCIEXP_L1_SUB_STATE))
 		pci_update_config32(dev, 0x200, ~0xfffff, 0x001e);
 	else
 		pci_update_config32(dev, 0x200, ~0xfffff, 0);
@@ -606,10 +604,10 @@ static void pch_pcie_init(struct device *dev)
 	/* Set Cache Line Size to 0x10 */
 	pci_write_config8(dev, 0x0c, 0x10);
 
-	reg16 = pci_read_config16(dev, 0x3e);
-	reg16 &= ~(1 << 0); /* disable parity error response */
-	reg16 |= (1 << 2); /* ISA enable */
-	pci_write_config16(dev, 0x3e, reg16);
+	reg16 = pci_read_config16(dev, PCI_BRIDGE_CONTROL);
+	reg16 &= ~PCI_BRIDGE_CTL_PARITY;
+	reg16 |= PCI_BRIDGE_CTL_NO_ISA;
+	pci_write_config16(dev, PCI_BRIDGE_CONTROL, reg16);
 
 #ifdef EVEN_MORE_DEBUG
 	reg32 = pci_read_config32(dev, 0x20);
@@ -649,24 +647,16 @@ static void pch_pcie_enable(struct device *dev)
 		root_port_commit_config();
 }
 
-static void pcie_set_subsystem(struct device *dev, unsigned int vendor,
-	unsigned int device)
-{
-	/* NOTE: This is not the default position! */
-	if (!vendor || !device)
-		pci_write_config32(dev, 0x94, pci_read_config32(dev, 0));
-	else
-		pci_write_config32(dev, 0x94, (device << 16) | vendor);
-}
-
 static void pcie_set_L1_ss_max_latency(struct device *dev, unsigned int off)
 {
 	/* Set max snoop and non-snoop latency for Broadwell */
-	pci_write_config32(dev, off, 0x10031003);
+	pci_write_config32(dev, off,
+		PCIE_LTR_MAX_NO_SNOOP_LATENCY_3146US << 16 |
+		PCIE_LTR_MAX_SNOOP_LATENCY_3146US);
 }
 
 static struct pci_operations pcie_ops = {
-	.set_subsystem = pcie_set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 	.set_L1_ss_latency = pcie_set_L1_ss_max_latency,
 };
 

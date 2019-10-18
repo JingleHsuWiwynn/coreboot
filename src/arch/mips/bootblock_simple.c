@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2014 Imagination Technologies
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2 of
@@ -19,23 +17,26 @@
 #include <halt.h>
 #include <program_loading.h>
 
-void main(void)
+/* called from assembly in bootblock.S */
+void mips_main(void);
+
+void mips_main(void)
 {
 	bootblock_cpu_init();
 
 	/* Mainboard basic init */
 	bootblock_mainboard_init();
 
-#if IS_ENABLED(CONFIG_BOOTBLOCK_CONSOLE)
+#if CONFIG(BOOTBLOCK_CONSOLE)
 	console_init();
 #endif
 
 	bootblock_mmu_init();
 
-	if (init_extra_hardware()) {
+	if (init_extra_hardware())
 		printk(BIOS_ERR, "bootblock_simple: failed to init HW.\n");
-	} else {
+	else
 		run_romstage();
-	}
+
 	halt();
 }

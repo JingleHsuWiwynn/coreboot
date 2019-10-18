@@ -15,13 +15,14 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/pnp_ops.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
-#include <cpu/intel/romstage.h>
-#include <cpu/x86/bist.h>
+#include <arch/romstage.h>
 #include <northbridge/intel/x4x/iomap.h>
 #include <northbridge/intel/x4x/x4x.h>
 #include <southbridge/intel/common/gpio.h>
+#include <southbridge/intel/common/pmclib.h>
 #include <southbridge/intel/i82801gx/i82801gx.h>
 #include <superio/nuvoton/common/nuvoton.h>
 #include <superio/nuvoton/nct6776/nct6776.h>
@@ -35,7 +36,6 @@
 
 static void mb_lpc_setup(void)
 {
-	u32 reg32;
 	/* Set the value for GPIO base address register and enable GPIO. */
 	pci_write_config32(LPC_DEV, GPIO_BASE, (DEFAULT_GPIOBASE | 1));
 	pci_write_config8(LPC_DEV, GPIO_CNTL, 0x10);
@@ -43,7 +43,7 @@ static void mb_lpc_setup(void)
 	setup_pch_gpios(&mainboard_gpio_map);
 
 	/* Set GPIOs on superio, enable UART */
-	if (IS_ENABLED(CONFIG_SUPERIO_NUVOTON_NCT6776)) {
+	if (CONFIG(SUPERIO_NUVOTON_NCT6776)) {
 		nuvoton_pnp_enter_conf_state(SERIAL_DEV_R2);
 		pnp_set_logical_device(SERIAL_DEV_R2);
 
@@ -64,11 +64,7 @@ static void mb_lpc_setup(void)
 	RCBA8(OIC) = 0x03;
 	RCBA8(OIC);
 
-	reg32 = RCBA32(GCS);
-	reg32 |= (1 << 5);
-	RCBA32(GCS) = reg32;
-
-	RCBA32(CG) = 0x00000001;
+	ich7_setup_cir();
 }
 
 static void ich7_enable_lpc(void)
@@ -80,7 +76,7 @@ static void ich7_enable_lpc(void)
 	pci_write_config32(PCI_DEV(0, 0x1f, 0), GEN1_DEC, 0x000c0291);
 }
 
-void mainboard_romstage_entry(unsigned long bist)
+void mainboard_romstage_entry(void)
 {
 	//                          ch0      ch1
 	const u8 spd_addrmap[4] = { 0x50, 0, 0x52, 0 };
@@ -93,7 +89,6 @@ void mainboard_romstage_entry(unsigned long bist)
 
 	console_init();
 
-	report_bist_failure(bist);
 	enable_smbus();
 
 	x4x_early_init();

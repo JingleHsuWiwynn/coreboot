@@ -51,46 +51,63 @@
 #ifndef __ACPI__
 #define DEBUG_PERIODIC_SMIS 0
 
-#if !defined(__ASSEMBLER__)
-#if !defined(__PRE_RAM__)
-#if !defined(__SIMPLE_DEVICE__)
-#include "chip.h"
-void pch_enable(struct device *dev);
-#endif
-int pch_silicon_revision(void);
-int pch_silicon_type(void);
-int pch_silicon_supported(int type, int rev);
 void pch_iobp_update(u32 address, u32 andvalue, u32 orvalue);
-void gpi_route_interrupt(u8 gpi, u8 mode);
-#if IS_ENABLED(CONFIG_ELOG)
-void pch_log_state(void);
-#endif
-#else /* __PRE_RAM__ */
 void enable_smbus(void);
 void enable_usb_bar(void);
+
+#if ENV_ROMSTAGE
 int smbus_read_byte(unsigned device, unsigned address);
 int smbus_write_byte(unsigned device, unsigned address, u8 data);
 int smbus_block_read(unsigned device, unsigned cmd, u8 bytes, u8 *buf);
 int smbus_block_write(unsigned device, unsigned cmd, u8 bytes, const u8 *buf);
-int early_spi_read(u32 offset, u32 size, u8 *buffer);
+#endif
+
+void early_pch_init(void);
+
 void early_thermal_init(void);
 void southbridge_configure_default_intmap(void);
-#endif
+void pch_setup_cir(int chipset_type);
+
+enum current_lookup_idx {
+	IF1_F57 = 0,
+	IF1_F5F,
+	IF1_753,
+	IF1_75F,
+	IF1_14B,
+	IF1_74B,
+	IF1_557,
+	IF1_757,
+	IF1_55F,
+	IF1_54B,
+};
+
+struct southbridge_usb_port {
+	int enabled;
+	enum current_lookup_idx current;
+	int oc_pin;
+};
+
+void early_usb_init(const struct southbridge_usb_port *portmap);
+
+#ifndef __ROMCC__
+extern const struct southbridge_usb_port mainboard_usb_ports[14];
+#include <device/device.h>
+void pch_enable(struct device *dev);
 #endif
 
 #define MAINBOARD_POWER_OFF	0
 #define MAINBOARD_POWER_ON	1
 #define MAINBOARD_POWER_KEEP	2
 
+/* PM I/O Space */
+#define UPRWC			0x3c
+#define  UPRWC_WR_EN		(1 << 1) /* USB Per-Port Registers Write Enable */
+
 /* PCI Configuration Space (D30:F0): PCI2PCI */
 #define PSTS	0x06
 #define SMLT	0x1b
 #define SECSTS	0x1e
 #define INTR	0x3c
-#define BCTRL	0x3e
-#define   SBR	(1 << 6)
-#define   SEE	(1 << 1)
-#define   PERE	(1 << 0)
 
 #define PCH_EHCI1_DEV		PCI_DEV(0, 0x1d, 0)
 #define PCH_EHCI2_DEV		PCI_DEV(0, 0x1a, 0)
@@ -108,6 +125,9 @@ void southbridge_configure_default_intmap(void);
 #define ETR3			0xac
 #define  ETR3_CWORWRE		(1 << 18)
 #define  ETR3_CF9GR		(1 << 20)
+
+#define CIR4			0xa9
+#define PMIR			0xac
 
 /* GEN_PMCON_3 bits */
 #define RTC_BATTERY_DEAD	(1 << 2)
@@ -357,6 +377,23 @@ void southbridge_configure_default_intmap(void);
 #define SOFT_RESET_CTRL 0x38f4
 #define SOFT_RESET_DATA 0x38f8
 
+#define PRSTS		0x3310
+#define CIR6		0x2024
+#define CIR7		0x3314
+#define CIR8		0x3324
+#define CIR9		0x3330
+#define CIR10		0x3340
+#define CIR13		0x3350
+#define CIR14		0x3368
+#define CIR15		0x3378
+#define CIR16		0x3388
+#define CIR17		0x33a0
+#define CIR18		0x33a8
+#define CIR19		0x33c0
+#define CIR20		0x33cc
+#define CIR21		0x33d0
+#define CIR22		0x33d4
+
 #define DIR_ROUTE(x,a,b,c,d) \
   RCBA32(x) = (((d) << DIR_IDR) | ((c) << DIR_ICR) | \
                ((b) << DIR_IBR) | ((a) << DIR_IAR))
@@ -391,6 +428,36 @@ void southbridge_configure_default_intmap(void);
 #define PCH_DISABLE_MEI2	(1 << 2)
 #define PCH_DISABLE_MEI1	(1 << 1)
 #define PCH_ENABLE_DBDF		(1 << 0)
+
+/* USB Initialization Registers[13:0] */
+#define USBIR0		0x3500	/* 32bit */
+#define USBIR1		0x3504	/* 32bit */
+#define USBIR2		0x3508	/* 32bit */
+#define USBIR3		0x350c	/* 32bit */
+#define USBIR4		0x3510	/* 32bit */
+#define USBIR5		0x3514	/* 32bit */
+#define USBIR6		0x3518	/* 32bit */
+#define USBIR7		0x351c	/* 32bit */
+#define USBIR8		0x3520	/* 32bit */
+#define USBIR9		0x3524	/* 32bit */
+#define USBIR10		0x3528	/* 32bit */
+#define USBIR11		0x352c	/* 32bit */
+#define USBIR12		0x3530	/* 32bit */
+#define USBIR13		0x3534	/* 32bit */
+
+#define USBIRC		0x3564	/* 32bit */
+#define USBIRA		0x3570	/* 32bit */
+#define USBIRB		0x357c	/* 32bit */
+
+/* Miscellaneous Control Register */
+#define MISCCTL		0x3590	/* 32bit */
+/* USB Port Disable Override */
+#define USBPDO		0x359c	/* 32bit */
+/* USB Overcurrent MAP Register */
+#define USBOCM1		0x35a0	/* 32bit */
+#define USBOCM2		0x35a4	/* 32bit */
+/* Rate Matching Hub Wake Control Register */
+#define RMHWKCTL	0x35b0	/* 32bit */
 
 /* ICH7 PMBASE */
 #define PM1_STS		0x00
@@ -456,47 +523,6 @@ void southbridge_configure_default_intmap(void);
 #define TCO1_STS	0x64
 #define   DMISCI_STS	(1 << 9)
 #define TCO2_STS	0x66
-
-/*
- * SPI Opcode Menu setup for SPIBAR lockdown
- * should support most common flash chips.
- */
-
-#define SPI_OPMENU_0 0x01 /* WRSR: Write Status Register */
-#define SPI_OPTYPE_0 0x01 /* Write, no address */
-
-#define SPI_OPMENU_1 0x02 /* BYPR: Byte Program */
-#define SPI_OPTYPE_1 0x03 /* Write, address required */
-
-#define SPI_OPMENU_2 0x03 /* READ: Read Data */
-#define SPI_OPTYPE_2 0x02 /* Read, address required */
-
-#define SPI_OPMENU_3 0x05 /* RDSR: Read Status Register */
-#define SPI_OPTYPE_3 0x00 /* Read, no address */
-
-#define SPI_OPMENU_4 0x20 /* SE20: Sector Erase 0x20 */
-#define SPI_OPTYPE_4 0x03 /* Write, address required */
-
-#define SPI_OPMENU_5 0x9f /* RDID: Read ID */
-#define SPI_OPTYPE_5 0x00 /* Read, no address */
-
-#define SPI_OPMENU_6 0xd8 /* BED8: Block Erase 0xd8 */
-#define SPI_OPTYPE_6 0x03 /* Write, address required */
-
-#define SPI_OPMENU_7 0x0b /* FAST: Fast Read */
-#define SPI_OPTYPE_7 0x02 /* Read, address required */
-
-#define SPI_OPMENU_UPPER ((SPI_OPMENU_7 << 24) | (SPI_OPMENU_6 << 16) | \
-			  (SPI_OPMENU_5 << 8) | SPI_OPMENU_4)
-#define SPI_OPMENU_LOWER ((SPI_OPMENU_3 << 24) | (SPI_OPMENU_2 << 16) | \
-			  (SPI_OPMENU_1 << 8) | SPI_OPMENU_0)
-
-#define SPI_OPTYPE ((SPI_OPTYPE_7 << 14) | (SPI_OPTYPE_6 << 12) | \
-		    (SPI_OPTYPE_5 << 10) | (SPI_OPTYPE_4 << 8) |  \
-		    (SPI_OPTYPE_3 << 6) | (SPI_OPTYPE_2 << 4) |	  \
-		    (SPI_OPTYPE_1 << 2) | (SPI_OPTYPE_0))
-
-#define SPI_OPPREFIX ((0x50 << 8) | 0x06) /* EWSR and WREN */
 
 #define SPIBAR_HSFS                 0x3804   /* SPI hardware sequence status */
 #define  SPIBAR_HSFS_SCIP           (1 << 5) /* SPI Cycle In Progress */

@@ -14,14 +14,15 @@
  * GNU General Public License for more details.
  */
 
+#include <arch/romstage.h>
 #include <arch/ebda.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <cbmem.h>
-#include <chip.h>
 #include <console/console.h>
+#include <cpu/x86/mtrr.h>
+#include <cpu/x86/smm.h>
 #include <device/device.h>
 #include <device/pci.h>
-#include <fsp/memmap.h>
 #include <intelblocks/ebda.h>
 #include <intelblocks/systemagent.h>
 #include <soc/msr.h>
@@ -29,69 +30,12 @@
 #include <soc/systemagent.h>
 #include <stdlib.h>
 
-size_t mmap_region_granularity(void)
-{
-	if (IS_ENABLED(CONFIG_HAVE_SMI_HANDLER))
-		/* Align to TSEG size when SMM is in use */
-		if (CONFIG_SMM_TSEG_SIZE != 0)
-			return CONFIG_SMM_TSEG_SIZE;
+#include "chip.h"
 
-	/* Make it 8MiB by default. */
-	return 8*MiB;
-}
-
-void smm_region(void **start, size_t *size)
+void smm_region(uintptr_t *start, size_t *size)
 {
-	*start = (void *)sa_get_tseg_base();
+	*start = sa_get_tseg_base();
 	*size = sa_get_tseg_size();
-}
-
-/*
- *        Subregions within SMM
- *     +-------------------------+ BGSM
- *     |          IED            | IED_REGION_SIZE
- *     +-------------------------+
- *     |  External Stage Cache   | SMM_RESERVED_SIZE
- *     +-------------------------+
- *     |      code and data      |
- *     |         (TSEG)          |
- *     +-------------------------+ TSEG
- */
-int smm_subregion(int sub, void **start, size_t *size)
-{
-	uintptr_t sub_base;
-	size_t sub_size;
-	void *smm_base;
-	const size_t ied_size = CONFIG_IED_REGION_SIZE;
-	const size_t cache_size = CONFIG_SMM_RESERVED_SIZE;
-
-	smm_region(&smm_base, &sub_size);
-	sub_base = (uintptr_t)smm_base;
-
-	switch (sub) {
-	case SMM_SUBREGION_HANDLER:
-		/* Handler starts at the base of TSEG. */
-		sub_size -= ied_size;
-		sub_size -= cache_size;
-		break;
-	case SMM_SUBREGION_CACHE:
-		/* External cache is in the middle of TSEG. */
-		sub_base += sub_size - (ied_size + cache_size);
-		sub_size = cache_size;
-		break;
-	case SMM_SUBREGION_CHIPSET:
-		/* IED is at the top. */
-		sub_base += sub_size - ied_size;
-		sub_size = ied_size;
-		break;
-	default:
-		return -1;
-	}
-
-	*start = (void *)sub_base;
-	*size = sub_size;
-
-	return 0;
 }
 
 static bool is_ptt_enable(void)
@@ -142,7 +86,7 @@ static size_t get_prmrr_size(uintptr_t dram_base,
 	uintptr_t prmrr_base = dram_base;
 	size_t prmrr_size;
 
-	if (IS_ENABLED(CONFIG_PLATFORM_USES_FSP1_1))
+	if (CONFIG(PLATFORM_USES_FSP1_1))
 		prmrr_size = 1*MiB;
 	else
 		prmrr_size = config->PrmrrSize;
@@ -169,13 +113,13 @@ static size_t get_prmrr_size(uintptr_t dram_base,
 }
 
 /* Calculate Intel Traditional Memory size based on GSM, DSM, TSEG and DPR. */
-static size_t calculate_traditional_mem_size(uintptr_t dram_base,
-		const struct device *dev)
+static size_t calculate_traditional_mem_size(uintptr_t dram_base)
 {
+	const struct device *igd_dev = pcidev_path_on_root(SA_DEVFN_IGD);
 	uintptr_t traditional_mem_base = dram_base;
 	size_t traditional_mem_size;
 
-	if (dev->enabled) {
+	if (igd_dev && igd_dev->enabled) {
 		/* Read BDSM from Host Bridge */
 		traditional_mem_base -= sa_get_dsm_size();
 
@@ -186,7 +130,7 @@ static size_t calculate_traditional_mem_size(uintptr_t dram_base,
 	traditional_mem_base -= sa_get_tseg_size();
 
 	/* Get DPR size */
-	if (IS_ENABLED(CONFIG_SA_ENABLE_DPR))
+	if (CONFIG(SA_ENABLE_DPR))
 		traditional_mem_base -= sa_get_dpr_size();
 
 	/* Traditional Area Size */
@@ -199,14 +143,14 @@ static size_t calculate_traditional_mem_size(uintptr_t dram_base,
  * Calculate Intel Reserved Memory size based on
  * PRMRR size, Trace Hub config and PTT selection.
  */
-static size_t calculate_reserved_mem_size(uintptr_t dram_base,
-		const struct device *dev)
+static size_t calculate_reserved_mem_size(uintptr_t dram_base)
 {
+	const struct device *dev = pcidev_path_on_root(SA_DEVFN_ROOT);
 	uintptr_t reserve_mem_base = dram_base;
 	size_t reserve_mem_size;
 	const struct soc_intel_skylake_config *config;
 
-	config = dev->chip_info;
+	config = config_of(dev);
 
 	/* Get PRMRR size */
 	reserve_mem_base -= get_prmrr_size(reserve_mem_base, config);
@@ -258,20 +202,15 @@ static size_t calculate_reserved_mem_size(uintptr_t dram_base,
 static uintptr_t calculate_dram_base(size_t *reserved_mem_size)
 {
 	uintptr_t dram_base;
-	const struct device *dev;
-
-	dev = dev_find_slot(0, PCI_DEVFN(SA_DEV_SLOT_IGD, 0));
-	if (!dev)
-		die("ERROR - IGD device not found!");
 
 	/* Read TOLUD from Host Bridge offset */
 	dram_base = sa_get_tolud_base();
 
 	/* Get Intel Traditional Memory Range Size */
-	dram_base -= calculate_traditional_mem_size(dram_base, dev);
+	dram_base -= calculate_traditional_mem_size(dram_base);
 
 	/* Get Intel Reserved Memory Range Size */
-	*reserved_mem_size = calculate_reserved_mem_size(dram_base, dev);
+	*reserved_mem_size = calculate_reserved_mem_size(dram_base);
 
 	dram_base -= *reserved_mem_size;
 
@@ -352,3 +291,24 @@ void *cbmem_top(void)
 
 	return (void *)(uintptr_t)ebda_cfg.tolum_base;
 }
+
+#if CONFIG(PLATFORM_USES_FSP2_0)
+void fill_postcar_frame(struct postcar_frame *pcf)
+{
+	uintptr_t top_of_ram;
+
+	/*
+	 * We need to make sure ramstage will be run cached. At this
+	 * point exact location of ramstage in cbmem is not known.
+	 * Instruct postcar to cache 16 megs under cbmem top which is
+	 * a safe bet to cover ramstage.
+	 */
+	top_of_ram = (uintptr_t) cbmem_top();
+	printk(BIOS_DEBUG, "top_of_ram = 0x%lx\n", top_of_ram);
+	top_of_ram -= 16*MiB;
+	postcar_frame_add_mtrr(pcf, top_of_ram, 16*MiB, MTRR_TYPE_WRBACK);
+
+	/* Cache the TSEG region */
+	postcar_enable_tseg_cache(pcf);
+}
+#endif

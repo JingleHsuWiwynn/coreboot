@@ -14,10 +14,6 @@
  * GNU General Public License for more details.
  */
 
-/* These come from the dynamically created CPU SSDT */
-External(PDC0)
-External(PDC1)
-
 /* The APM port can be used for generating software SMIs */
 
 OperationRegion (APMP, SystemIO, 0xb2, 2)
@@ -63,6 +59,10 @@ Method(_PTS,1)
 
 Method(_WAK,1)
 {
+	/* ME may not be up yet.  */
+	Store (0, \_TZ.MEB1)
+	Store (0, \_TZ.MEB2)
+
 	/* Wake the HKEY to init BT/WWAN */
 	\_SB.PCI0.LPCB.EC.HKEY.WAKE (Arg0)
 

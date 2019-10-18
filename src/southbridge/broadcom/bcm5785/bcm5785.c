@@ -16,6 +16,7 @@
 
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <device/pci_ids.h>
 #include "bcm5785.h"
 
@@ -83,6 +84,13 @@ void bcm5785_enable(struct device *dev)
 		}
 	}
 #endif
+}
+
+void bcm5785_set_subsystem(struct device *dev, unsigned int vendor,
+			       unsigned int device)
+{
+	pci_write_config32(dev, 0x40,
+		((device & 0xffff) << 16) | (vendor & 0xffff));
 }
 
 struct chip_operations southbridge_broadcom_bcm5785_ops = {

@@ -18,9 +18,10 @@
 #define _SOC_RAMSTAGE_H_
 
 #include <arch/cpu.h>
-#include <chip.h>
 #include <device/device.h>
 #include <soc/QuarkNcSocId.h>
+
+#include "../../chip.h"
 
 void mainboard_gpio_i2c_init(struct device *dev);
 asmlinkage void chipset_teardown_car(void);

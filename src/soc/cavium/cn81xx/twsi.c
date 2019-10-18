@@ -20,9 +20,8 @@
 #include <soc/clock.h>
 #include <device/i2c.h>
 #include <device/i2c_simple.h>
-#include <assert.h>
 #include <delay.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <soc/addressmap.h>
 
 #define TWSI_THP		24

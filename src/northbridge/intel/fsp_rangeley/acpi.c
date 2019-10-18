@@ -17,13 +17,12 @@
  */
 
 #include <types.h>
-#include <string.h>
-#include <arch/io.h>
 #include <arch/acpi.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <arch/acpigen.h>
+
 #include "northbridge.h"
 
 unsigned long acpi_fill_mcfg(unsigned long current)

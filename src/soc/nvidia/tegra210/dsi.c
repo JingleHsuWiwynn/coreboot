@@ -12,9 +12,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#include <commonlib/helpers.h>
 #include <console/console.h>
-#include <arch/io.h>
-#include <stdint.h>
+#include <device/mmio.h>
 #include <stdlib.h>
 #include <delay.h>
 #include <timer.h>
@@ -24,14 +25,15 @@
 #include <edid.h>
 #include <soc/nvidia/tegra/types.h>
 #include <soc/nvidia/tegra/dc.h>
-#include "chip.h"
 #include <soc/display.h>
 #include <soc/mipi_dsi.h>
 #include <soc/mipi_display.h>
 #include <soc/tegra_dsi.h>
 #include <soc/mipi-phy.h>
+#include <types.h>
+
+#include "chip.h"
 #include "jdi_25x18_display/panel-jdi-lpm102a188a.h"
-#include <commonlib/helpers.h>
 
 struct tegra_mipi_device mipi_device_data[NUM_DSI];
 
@@ -378,8 +380,8 @@ static int tegra_dsi_configure(struct tegra_dsi *dsi, unsigned int pipe,
 		}
 
 		tegra_dsi_writel(dsi, 0, DSI_PKT_LEN_0_1);
-		tegra_dsi_writel(dsi, bytes << 16, DSI_PKT_LEN_2_3);
-		tegra_dsi_writel(dsi, bytes << 16, DSI_PKT_LEN_4_5);
+		tegra_dsi_writel(dsi, (u32)bytes << 16, DSI_PKT_LEN_2_3);
+		tegra_dsi_writel(dsi, (u32)bytes << 16, DSI_PKT_LEN_4_5);
 		tegra_dsi_writel(dsi, 0, DSI_PKT_LEN_6_7);
 
 		value = MIPI_DCS_WRITE_MEMORY_START << 8 |
@@ -767,7 +769,7 @@ static ssize_t tegra_dsi_host_transfer(struct mipi_dsi_host *host,
 	tegra_dsi_writel(dsi, value, DSI_WR_DATA);
 
 	/* write payload (if any) */
-	if (msg->tx_len > 2) {
+	if (tx && msg->tx_len > 2) {
 		for (j = 2; j < msg->tx_len; j += 4) {
 			value = 0;
 

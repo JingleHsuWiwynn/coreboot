@@ -15,16 +15,13 @@
  */
 
 #include <types.h>
-#include <string.h>
 #include <device/device.h>
 #include <device/pci_def.h>
-#include <device/pci_ops.h>
 #include <console/console.h>
-#if IS_ENABLED(CONFIG_VGA_ROM_RUN)
+#if CONFIG(VGA_ROM_RUN)
 #include <x86emu/x86emu.h>
 #endif
 #include <arch/acpi.h>
-#include <arch/io.h>
 #include <arch/interrupt.h>
 #include <boot/coreboot_tables.h>
 #include <smbios.h>
@@ -38,7 +35,7 @@ void mainboard_suspend_resume(void)
 {
 }
 
-#if IS_ENABLED(CONFIG_VGA_ROM_RUN)
+#if CONFIG(VGA_ROM_RUN)
 static int int15_handler(void)
 {
 	int res = 1;
@@ -127,7 +124,7 @@ static int int15_handler(void)
 static void mainboard_init(struct device *dev)
 {
 	mainboard_ec_init();
-#if IS_ENABLED(CONFIG_BOARD_GOOGLE_NINJA) || IS_ENABLED(CONFIG_BOARD_GOOGLE_SUMO)
+#if CONFIG(BOARD_GOOGLE_NINJA) || CONFIG(BOARD_GOOGLE_SUMO)
 	lan_init();
 #endif
 }
@@ -144,7 +141,8 @@ static int mainboard_smbios_data(struct device *dev, int *handle,
 		BOARD_TRACKPAD_I2C_BUS,         /* segment */
 		BOARD_TRACKPAD_I2C_ADDR,        /* bus */
 		0,                              /* device */
-		0);                             /* function */
+		0,                             /* function */
+		SMBIOS_DEVICE_TYPE_OTHER);	/* device type */
 #endif
 #ifdef BOARD_TOUCHSCREEN_NAME
 	len += smbios_write_type41(
@@ -154,7 +152,8 @@ static int mainboard_smbios_data(struct device *dev, int *handle,
 		BOARD_TOUCHSCREEN_I2C_BUS,      /* segment */
 		BOARD_TOUCHSCREEN_I2C_ADDR,     /* bus */
 		0,                              /* device */
-		0);                             /* function */
+		0,                             /* function */
+		SMBIOS_DEVICE_TYPE_OTHER);	/* device type */
 #endif
 	return len;
 }
@@ -167,7 +166,7 @@ static void mainboard_enable(struct device *dev)
 	dev->ops->init = mainboard_init;
 	dev->ops->get_smbios_data = mainboard_smbios_data;
 	dev->ops->acpi_inject_dsdt_generator = chromeos_dsdt_generator;
-#if IS_ENABLED(CONFIG_VGA_ROM_RUN)
+#if CONFIG(VGA_ROM_RUN)
 	/* Install custom int15 handler for VGA OPROM */
 	mainboard_interrupt_handlers(0x15, &int15_handler);
 #endif

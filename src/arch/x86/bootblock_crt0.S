@@ -1,14 +1,5 @@
 /*
- * This is the modern bootblock. It is used by platforms which select
- * C_ENVIRONMENT_BOOTBLOCK, and it prepares the system for C environment runtime
- * setup. The actual setup is done by hardware-specific code.
- *
- * It provides a bootflow similar to other architectures, and thus is considered
- * to be the modern approach.
- *
  * This file is part of the coreboot project.
- *
- * Copyright (C) 2015 Alexandru Gagniuc <mr.nuke.me@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +10,14 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
+ * This is the modern bootblock. It is used by platforms which select
+ * C_ENVIRONMENT_BOOTBLOCK, and it prepares the system for C environment runtime
+ * setup. The actual setup is done by hardware-specific code.
+ *
+ * It provides a bootflow similar to other architectures, and thus is considered
+ * to be the modern approach.
+ *
  */
 
 #include <cpu/x86/cr.h>
@@ -32,7 +31,7 @@
 #include <cpu/x86/16bit/reset16.inc>
 #include <cpu/x86/32bit/entry32.inc>
 
-#if IS_ENABLED(CONFIG_BOOTBLOCK_DEBUG_SPINLOOP)
+#if CONFIG(BOOTBLOCK_DEBUG_SPINLOOP)
 
 	/* Wait for a JTAG debugger to break in and set EBX non-zero */
 	xor	%ebx, %ebx
@@ -44,25 +43,24 @@ debug_spinloop:
 
 bootblock_protected_mode_entry:
 
-#if !IS_ENABLED(CONFIG_USE_MARCH_586)
+#if !CONFIG(USE_MARCH_586)
 	/* MMX registers required here */
 
 	/* BIST result in eax */
-	movl	%eax, %ebx
+	movd	%eax, %mm0
 
 	/* Get an early timestamp */
 	rdtsc
-	movd	%ebx, %mm0
 	movd	%eax, %mm1
 	movd	%edx, %mm2
 #endif
 
-#if IS_ENABLED(CONFIG_SSE)
+#if CONFIG(SSE)
 enable_sse:
 	mov	%cr4, %eax
 	or	$CR4_OSFXSR, %ax
 	mov	%eax, %cr4
-#endif /* IS_ENABLED(CONFIG_SSE) */
+#endif /* CONFIG(SSE) */
 
 	/* We're done. Now it's up to platform-specific code */
 	jmp	bootblock_pre_c_entry

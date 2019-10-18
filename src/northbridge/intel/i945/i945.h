@@ -17,7 +17,6 @@
 #define NORTHBRIDGE_INTEL_I945_H
 
 /* Northbridge BARs */
-#define DEFAULT_PCIEXBAR	CONFIG_MMCONF_BASE_ADDRESS	/* 4 KB per PCIe device */
 #define DEFAULT_X60BAR		0xfed13000
 #ifndef __ACPI__
 #define DEFAULT_MCHBAR		((u8 *)0xfed14000)	/* 16 KB */
@@ -84,10 +83,7 @@
 /* Device 0:1.0 PCI configuration space (PCI Express) */
 
 #define PCISTS1		0x06	/* 16bit */
-#define SBUSN1		0x19	/*  8bit */
-#define SUBUSN1		0x1a	/*  8bit */
 #define SSTS1		0x1e	/* 16bit */
-#define BCTRL1		0x3e	/* 16bit */
 #define PEG_CAP		0xa2	/* 16bit */
 #define DSTS		0xaa	/* 16bit */
 #define SLOTCAP		0xb4	/* 32bit */
@@ -376,6 +372,7 @@ void print_pci_devices(void);
 void dump_pci_device(unsigned int dev);
 void dump_pci_devices(void);
 void dump_spd_registers(void);
+void sdram_dump_mchbar_registers(void);
 
 u32 decode_igd_memory_size(u32 gms);
 u32 decode_tseg_size(const u8 esmramc);

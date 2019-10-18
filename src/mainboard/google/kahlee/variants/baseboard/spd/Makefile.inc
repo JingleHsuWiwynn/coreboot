@@ -14,7 +14,7 @@
 ## GNU General Public License for more details.
 ##
 
-LIB_SPD_DEPS = $(foreach f, $(SPD_SOURCES), src/mainboard/$(MAINBOARDDIR)/variants/baseboard/spd/$(f).spd.hex)
+LIB_SPD_DEPS = $(foreach f, $(SPD_SOURCES), src/mainboard/$(MAINBOARDDIR)/spd/$(f).spd.hex)
 
 SPD_SOURCES =  hynix-H5AN8G6NAFR-UH		# 0b0000
 SPD_SOURCES += hynix-H5ANAG6NAMR-UH		# 0b0001
@@ -27,7 +27,7 @@ SPD_SOURCES += hynix-H5ANAG6NCMR-VKC		# 0b0111
 SPD_SOURCES += hynix-H5AN8G6NCJR-VKC		# 0b1000
 SPD_SOURCES += samsung-K4A8G165WC-BCTD		# 0b1001
 SPD_SOURCES += samsung-K4AAG165WB-MCTD		# 0b1010
-SPD_SOURCES += empty				# 0b1011
+SPD_SOURCES += micron-MT40A512M16TB-062E-J	# 0b1011
 SPD_SOURCES += empty				# 0b1100
 SPD_SOURCES += empty				# 0b1101
 SPD_SOURCES += empty				# 0b1110

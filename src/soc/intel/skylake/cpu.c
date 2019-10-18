@@ -15,14 +15,11 @@
  * GNU General Public License for more details.
  */
 
-#include <assert.h>
 #include <arch/cpu.h>
 #include <bootstate.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
-#include <string.h>
-#include <chip.h>
 #include <cpu/x86/mtrr.h>
 #include <cpu/x86/msr.h>
 #include <cpu/x86/lapic.h>
@@ -34,12 +31,11 @@
 #include <cpu/x86/cache.h>
 #include <cpu/x86/name.h>
 #include <cpu/x86/smm.h>
-#include <delay.h>
+#include <cpu/intel/smm_reloc.h>
 #include <intelblocks/cpulib.h>
 #include <intelblocks/fast_spi.h>
 #include <intelblocks/mp_init.h>
 #include <intelblocks/sgx.h>
-#include <intelblocks/smm.h>
 #include <soc/cpu.h>
 #include <soc/msr.h>
 #include <soc/pci_devs.h>
@@ -48,6 +44,8 @@
 #include <soc/smm.h>
 #include <soc/systemagent.h>
 #include <timer.h>
+
+#include "chip.h"
 
 /* Convert time in seconds to POWER_LIMIT_1_TIME MSR value */
 static const u8 power_limit_time_sec_to_msr[] = {
@@ -118,11 +116,11 @@ void set_power_limits(u8 power_limit_1_time)
 	unsigned int power_unit;
 	unsigned int tdp, min_power, max_power, max_time, tdp_pl2, tdp_pl1;
 	u8 power_limit_1_val;
-	struct device *dev = SA_DEV_ROOT;
-	config_t *conf = dev->chip_info;
 
-	if (power_limit_1_time > ARRAY_SIZE(power_limit_time_sec_to_msr))
-		power_limit_1_time = 28;
+	config_t *conf = config_of_soc();
+
+	if (power_limit_1_time >= ARRAY_SIZE(power_limit_time_sec_to_msr))
+		power_limit_1_time = ARRAY_SIZE(power_limit_time_sec_to_msr) - 1;
 
 	if (!(msr.lo & PLATFORM_INFO_SET_TDP))
 		return;
@@ -242,13 +240,13 @@ void set_power_limits(u8 power_limit_1_time)
 
 static void configure_thermal_target(void)
 {
-	struct device *dev = SA_DEV_ROOT;
-	config_t *conf = dev->chip_info;
+	config_t *conf = config_of_soc();
 	msr_t msr;
+
 
 	/* Set TCC activation offset if supported */
 	msr = rdmsr(MSR_PLATFORM_INFO);
-	if ((msr.lo & (1 << 30)) && conf && conf->tcc_offset) {
+	if ((msr.lo & (1 << 30)) && conf->tcc_offset) {
 		msr = rdmsr(MSR_TEMPERATURE_TARGET);
 		msr.lo &= ~(0xf << 24); /* Bits 27:24 */
 		msr.lo |= (conf->tcc_offset & 0xf) << 24;
@@ -262,9 +260,9 @@ static void configure_thermal_target(void)
 
 static void configure_isst(void)
 {
-	struct device *dev = SA_DEV_ROOT;
-	config_t *conf = dev->chip_info;
+	config_t *conf = config_of_soc();
 	msr_t msr;
+
 
 	if (conf->speed_shift_enable) {
 		/*
@@ -288,21 +286,19 @@ static void configure_isst(void)
 
 static void configure_misc(void)
 {
-	struct device *dev = SA_DEV_ROOT;
-	if (!dev) {
-		printk(BIOS_ERR, "SA_DEV_ROOT device not found!\n");
-		return;
-	}
-	config_t *conf = dev->chip_info;
+	config_t *conf = config_of_soc();
 	msr_t msr;
+
 
 	msr = rdmsr(IA32_MISC_ENABLE);
 	msr.lo |= (1 << 0);	/* Fast String enable */
 	msr.lo |= (1 << 3);	/* TM1/TM2/EMTTM enable */
+
 	if (conf->eist_enable)
 		msr.lo |= (1 << 16);	/* Enhanced SpeedStep Enable */
 	else
 		msr.lo &= ~(1 << 16);	/* Enhanced SpeedStep Disable */
+
 	wrmsr(IA32_MISC_ENABLE, msr);
 
 	/* Disable Thermal interrupts */
@@ -317,6 +313,7 @@ static void configure_misc(void)
 
 	msr = rdmsr(MSR_POWER_CTL);
 	msr.lo |= (1 << 0);	/* Enable Bi-directional PROCHOT as an input*/
+	msr.lo |= (1 << 18);	/* Enable Energy/Performance Bias control */
 	msr.lo &= ~POWER_CTL_C1E_MASK;	/* Disable C1E */
 	msr.lo |= (1 << 23);	/* Lock it */
 	wrmsr(MSR_POWER_CTL, msr);
@@ -426,11 +423,13 @@ static void enable_pm_timer_emulation(void)
 /* All CPUs including BSP will run the following function. */
 void soc_core_init(struct device *cpu)
 {
+	config_t *conf = config_of_soc();
+
 	/* Clear out pending MCEs */
 	/* TODO(adurbin): This should only be done on a cold boot. Also, some
 	 * of these banks are core vs package scope. For now every CPU clears
 	 * every bank. */
-	mca_configure(NULL);
+	mca_configure();
 
 	/* Enable the local CPU apics */
 	enable_lapic_tpr();
@@ -458,7 +457,8 @@ void soc_core_init(struct device *cpu)
 	enable_turbo();
 
 	/* Configure Core PRMRR for SGX. */
-	prmrr_core_configure();
+	if (conf->sgx_enable)
+		prmrr_core_configure();
 }
 
 static void per_cpu_smm_trigger(void)
@@ -479,6 +479,9 @@ static void fc_lock_configure(void *unused)
 
 static void post_mp_init(void)
 {
+	int ret = 0;
+	config_t *conf = config_of_soc();
+
 	/* Set Max Ratio */
 	cpu_set_max_ratio();
 
@@ -489,15 +492,18 @@ static void post_mp_init(void)
 	smm_southbridge_enable(GBL_EN);
 
 	/* Lock down the SMRAM space. */
-#if IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)
-	smm_lock();
-#endif
+	if (CONFIG(HAVE_SMI_HANDLER))
+		smm_lock();
 
-	mp_run_on_all_cpus(vmx_configure, NULL, 2 * USECS_PER_MSEC);
+	ret |= mp_run_on_all_cpus(vmx_configure, NULL);
 
-	mp_run_on_all_cpus(sgx_configure, NULL, 14 * USECS_PER_MSEC);
+	if (conf->sgx_enable)
+		ret |= mp_run_on_all_cpus(sgx_configure, NULL);
 
-	mp_run_on_all_cpus(fc_lock_configure, NULL, 2 * USECS_PER_MSEC);
+	ret |= mp_run_on_all_cpus(fc_lock_configure, NULL);
+
+	if (ret)
+		printk(BIOS_CRIT, "CRITICAL ERROR: MP post init failed\n");
 }
 
 static const struct mp_ops mp_ops = {
@@ -557,24 +563,4 @@ void cpu_lock_sgx_memory(void)
 		msr.lo |= 1; /* Lock it */
 		wrmsr(MSR_LT_LOCK_MEMORY, msr);
 	}
-}
-
-int soc_fill_sgx_param(struct sgx_param *sgx_param)
-{
-	struct device *dev = SA_DEV_ROOT;
-	config_t *conf;
-
-	if (!dev) {
-		printk(BIOS_ERR, "Failed to get root dev for checking SGX param\n");
-		return -1;
-	}
-
-	conf = dev->chip_info;
-	if (!conf) {
-		printk(BIOS_ERR, "Failed to get chip_info for SGX param\n");
-		return -1;
-	}
-
-	sgx_param->enable = conf->sgx_enable;
-	return 0;
 }

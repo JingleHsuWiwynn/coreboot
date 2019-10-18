@@ -19,8 +19,7 @@
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
-#include <arch/io.h>
-#include <delay.h>
+#include <device/mmio.h>
 #include <soc/adsp.h>
 #include <soc/device_nvs.h>
 #include <soc/iobp.h>
@@ -32,7 +31,7 @@
 
 static void adsp_init(struct device *dev)
 {
-	config_t *config = dev->chip_info;
+	config_t *config = config_of(dev);
 	struct resource *bar0, *bar1;
 	u32 tmp32;
 

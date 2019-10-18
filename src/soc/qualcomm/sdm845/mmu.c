@@ -17,21 +17,23 @@
 #include <arch/mmu.h>
 #include <arch/cache.h>
 #include <soc/mmu.h>
+#include <soc/mmu_common.h>
 #include <soc/symbols.h>
-
-#define   CACHED_RAM (MA_MEM | MA_S | MA_RW)
-#define UNCACHED_RAM (MA_MEM | MA_S | MA_RW | MA_MEM_NC)
-#define      DEV_MEM (MA_DEV | MA_S | MA_RW)
 
 void sdm845_mmu_init(void)
 {
 	mmu_init();
 
 	mmu_config_range((void *)(4 * KiB), ((4UL * GiB) - (4 * KiB)), DEV_MEM);
-	mmu_config_range((void *)_ssram, _ssram_size, CACHED_RAM);
-	mmu_config_range((void *)_bsram, _bsram_size, CACHED_RAM);
-	mmu_config_range((void *)_dma_coherent, _dma_coherent_size,
+	mmu_config_range((void *)_ssram, REGION_SIZE(ssram), CACHED_RAM);
+	mmu_config_range((void *)_bsram, REGION_SIZE(bsram), CACHED_RAM);
+	mmu_config_range((void *)_dma_coherent, REGION_SIZE(dma_coherent),
 			 UNCACHED_RAM);
 
 	mmu_enable();
+}
+
+void soc_mmu_dram_config_post_dram_init(void)
+{
+	mmu_config_range((void *)_aop, REGION_SIZE(aop), CACHED_RAM);
 }

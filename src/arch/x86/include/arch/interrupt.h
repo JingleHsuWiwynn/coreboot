@@ -1,9 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2009 coresystems GmbH
- * Copyright (C) 2009 Libra Li <libra.li@technexion.com>
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -21,9 +18,9 @@
 #include "registers.h"
 
 /* setup interrupt handlers for mainboard */
-#if IS_ENABLED(CONFIG_PCI_OPTION_ROM_RUN_REALMODE)
+#if CONFIG(PCI_OPTION_ROM_RUN_REALMODE)
 extern void mainboard_interrupt_handlers(int intXX, int (*intXX_func)(void));
-#elif IS_ENABLED(CONFIG_PCI_OPTION_ROM_RUN_YABEL)
+#elif CONFIG(PCI_OPTION_ROM_RUN_YABEL)
 #include <device/oprom/yabel/biosemu.h>
 #else
 static inline void mainboard_interrupt_handlers(int intXX,

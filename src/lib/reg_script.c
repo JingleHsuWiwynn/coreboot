@@ -14,6 +14,8 @@
  */
 
 #include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <delay.h>
 #include <device/device.h>
@@ -22,19 +24,20 @@
 #include <stdint.h>
 #include <reg_script.h>
 
-#if IS_ENABLED(CONFIG_ARCH_X86)
+#if CONFIG(ARCH_X86)
 #include <cpu/x86/msr.h>
 #endif
 
-#define HAS_IOSF (IS_ENABLED(CONFIG_SOC_INTEL_BAYTRAIL) || \
-		IS_ENABLED(CONFIG_SOC_INTEL_FSP_BAYTRAIL))
+#define HAS_IOSF (CONFIG(SOC_INTEL_BAYTRAIL) || \
+		CONFIG(SOC_INTEL_FSP_BAYTRAIL))
 
 #if HAS_IOSF
 #include <soc/iosf.h>	/* TODO: wrap in <soc/reg_script.h, remove #ifdef? */
 #endif
 
 #define POLL_DELAY 100 /* 100us */
-#if defined(__PRE_RAM__)
+
+#ifdef __SIMPLE_DEVICE__
 #define EMPTY_DEV 0
 #else
 #define EMPTY_DEV NULL
@@ -66,7 +69,7 @@ reg_script_get_step(struct reg_script_context *ctx)
 
 static struct resource *reg_script_get_resource(struct reg_script_context *ctx)
 {
-#if defined(__PRE_RAM__)
+#ifdef __SIMPLE_DEVICE__
 	return NULL;
 #else
 	struct resource *res;
@@ -374,7 +377,7 @@ static void reg_script_write_iosf(struct reg_script_context *ctx)
 
 static uint64_t reg_script_read_msr(struct reg_script_context *ctx)
 {
-#if IS_ENABLED(CONFIG_ARCH_X86)
+#if CONFIG(ARCH_X86)
 	const struct reg_script *step = reg_script_get_step(ctx);
 	msr_t msr = rdmsr(step->reg);
 	uint64_t value = msr.hi;
@@ -386,7 +389,7 @@ static uint64_t reg_script_read_msr(struct reg_script_context *ctx)
 
 static void reg_script_write_msr(struct reg_script_context *ctx)
 {
-#if IS_ENABLED(CONFIG_ARCH_X86)
+#if CONFIG(ARCH_X86)
 	const struct reg_script *step = reg_script_get_step(ctx);
 	msr_t msr;
 	msr.hi = step->value >> 32;

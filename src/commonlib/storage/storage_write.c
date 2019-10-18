@@ -1,12 +1,5 @@
 /*
- * Copyright 2008, Freescale Semiconductor, Inc
- * Andy Fleming
- *
- * Copyright 2013 Google Inc.  All rights reserved.
- * Copyright 2017 Intel Corporation
- *
- * MultiMediaCard (MMC), eMMC and Secure Digital (SD) write support code.
- * This code is controller independent.
+ * This file is part of the coreboot project.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -17,11 +10,15 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
+ * MultiMediaCard (MMC), eMMC and Secure Digital (SD) write support code.
+ * This code is controller independent.
  */
+
+#include <stdlib.h>
 
 #include "sd_mmc.h"
 #include "storage.h"
-#include <string.h>
 
 static uint32_t storage_write(struct storage_media *media, uint32_t start,
 	uint64_t block_count, const void *src)

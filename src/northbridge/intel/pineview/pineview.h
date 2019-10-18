@@ -84,7 +84,6 @@
 
 /* Device 0:1.0 PCI configuration space (PCI Express) */
 
-#define BCTRL1		0x3e	/* 16bit */
 #define PEGSTS		0x214	/* 32bit */
 
 /* Device 0:2.0 PCI configuration space (Graphics Device) */
@@ -236,7 +235,6 @@ u32 decode_igd_gtt_size(const u32 gsm);
 u8 decode_pciebar(u32 *const base, u32 *const len);
 
 /* Mainboard romstage callback functions */
-void mb_enable_lpc(void);
 void get_mb_spd_addrmap(u8 *spd_addr_map);
 void mb_pirq_setup(void); /* optional */
 

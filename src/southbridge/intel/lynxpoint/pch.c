@@ -17,7 +17,7 @@
 
 #include <console/console.h>
 #include <delay.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_def.h>
@@ -100,7 +100,7 @@ static void pch_enable_d3hot(struct device *dev)
 	pci_write_config32(dev, PCH_PCS, reg32);
 }
 
-/* Set bit in Function Disble register to hide this device */
+/* Set bit in function disable register to hide this device */
 void pch_disable_devfn(struct device *dev)
 {
 	switch (dev->path.pci.devfn) {

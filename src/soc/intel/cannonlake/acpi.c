@@ -17,22 +17,27 @@
 
 #include <arch/acpi.h>
 #include <arch/acpigen.h>
-#include <arch/io.h>
 #include <arch/smp/mpspec.h>
 #include <cbmem.h>
-#include <chip.h>
+#include <console/console.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <ec/google/chromeec/ec.h>
 #include <intelblocks/cpulib.h>
 #include <intelblocks/pmclib.h>
 #include <intelblocks/acpi.h>
+#include <intelblocks/p2sb.h>
 #include <soc/cpu.h>
 #include <soc/iomap.h>
 #include <soc/nvs.h>
 #include <soc/pci_devs.h>
 #include <soc/pm.h>
+#include <soc/systemagent.h>
 #include <string.h>
 #include <vendorcode/google/chromeos/gnvs.h>
 #include <wrdd.h>
+
+#include "chip.h"
 
 /*
  * List of supported C-states in this processor.
@@ -139,8 +144,9 @@ acpi_cstate_t *soc_get_cstate_map(size_t *entries)
 				ARRAY_SIZE(cstate_set_non_s0ix))];
 	int *set;
 	int i;
-	struct device *dev = SA_DEV_ROOT;
-	config_t *config = dev->chip_info;
+
+	config_t *config = config_of_soc();
+
 	int is_s0ix_enable = config->s0ix_enable;
 
 	if (is_s0ix_enable) {
@@ -160,18 +166,18 @@ acpi_cstate_t *soc_get_cstate_map(size_t *entries)
 
 void soc_power_states_generation(int core_id, int cores_per_package)
 {
-	struct device *dev = SA_DEV_ROOT;
-	config_t *config = dev->chip_info;
+	config_t *config = config_of_soc();
+
+	/* Generate P-state tables */
 	if (config->eist_enable)
-		/* Generate P-state tables */
 		generate_p_state_entries(core_id, cores_per_package);
 }
 
 void soc_fill_fadt(acpi_fadt_t *fadt)
 {
 	const uint16_t pmbase = ACPI_BASE_ADDRESS;
-	const struct device *dev = PCH_DEV_LPC;
-	const struct soc_intel_cannonlake_config *config = dev->chip_info;
+	const struct soc_intel_cannonlake_config *config;
+	config = config_of_soc();
 
 	if (!config->PmTimerDisabled) {
 		fadt->pm_tmr_blk = pmbase + PM1_TMR;
@@ -179,7 +185,7 @@ void soc_fill_fadt(acpi_fadt_t *fadt)
 		fadt->x_pm_tmr_blk.space_id = 1;
 		fadt->x_pm_tmr_blk.bit_width = fadt->pm_tmr_len * 8;
 		fadt->x_pm_tmr_blk.bit_offset = 0;
-		fadt->x_pm_tmr_blk.resv = 0;
+		fadt->x_pm_tmr_blk.access_size = 0;
 		fadt->x_pm_tmr_blk.addrl = pmbase + PM1_TMR;
 		fadt->x_pm_tmr_blk.addrh = 0x0;
 	}
@@ -195,8 +201,8 @@ uint32_t soc_read_sci_irq_select(void)
 
 void acpi_create_gnvs(struct global_nvs_t *gnvs)
 {
-	const struct device *dev = PCH_DEV_LPC;
-	const struct soc_intel_cannonlake_config *config = dev->chip_info;
+	const struct soc_intel_cannonlake_config *config;
+	config = config_of_soc();
 
 	/* Set unknown wake source */
 	gnvs->pm1i = -1;
@@ -204,14 +210,14 @@ void acpi_create_gnvs(struct global_nvs_t *gnvs)
 	/* CPU core count */
 	gnvs->pcnt = dev_count_cpu();
 
-	if (IS_ENABLED(CONFIG_CONSOLE_CBMEM))
 	/* Update the mem console pointer. */
-	gnvs->cbmc = (uintptr_t)cbmem_find(CBMEM_ID_CONSOLE);
+	if (CONFIG(CONSOLE_CBMEM))
+		gnvs->cbmc = (uintptr_t)cbmem_find(CBMEM_ID_CONSOLE);
 
-	if (IS_ENABLED(CONFIG_CHROMEOS)) {
+	if (CONFIG(CHROMEOS)) {
 		/* Initialize Verified Boot data */
 		chromeos_init_chromeos_acpi(&(gnvs->chromeos));
-		if (IS_ENABLED(CONFIG_EC_GOOGLE_CHROMEEC)) {
+		if (CONFIG(EC_GOOGLE_CHROMEEC)) {
 			gnvs->chromeos.vbt2 = google_ec_running_ro() ?
 				ACTIVE_ECFW_RO : ACTIVE_ECFW_RW;
 		} else
@@ -284,4 +290,82 @@ int acpigen_soc_set_tx_gpio(unsigned int gpio_num)
 int acpigen_soc_clear_tx_gpio(unsigned int gpio_num)
 {
 	return acpigen_soc_gpio_op("\\_SB.PCI0.CTXS", gpio_num);
+}
+
+static unsigned long soc_fill_dmar(unsigned long current)
+{
+	struct device *const igfx_dev = pcidev_path_on_root(SA_DEVFN_IGD);
+	uint64_t gfxvtbar = MCHBAR64(GFXVTBAR) & VTBAR_MASK;
+	bool gfxvten = MCHBAR32(GFXVTBAR) & VTBAR_ENABLED;
+
+	if (igfx_dev && igfx_dev->enabled && gfxvtbar && gfxvten) {
+		unsigned long tmp = current;
+
+		current += acpi_create_dmar_drhd(current, 0, 0, gfxvtbar);
+		current += acpi_create_dmar_ds_pci(current, 0, 2, 0);
+
+		acpi_dmar_drhd_fixup(tmp, current);
+	}
+
+	struct device *const ipu_dev = pcidev_path_on_root(SA_DEVFN_IPU);
+	uint64_t ipuvtbar = MCHBAR64(IPUVTBAR) & VTBAR_MASK;
+	bool ipuvten = MCHBAR32(IPUVTBAR) & VTBAR_ENABLED;
+
+	if (ipu_dev && ipu_dev->enabled && ipuvtbar && ipuvten) {
+		unsigned long tmp = current;
+
+		current += acpi_create_dmar_drhd(current, 0, 0, ipuvtbar);
+		current += acpi_create_dmar_ds_pci(current, 0, 5, 0);
+
+		acpi_dmar_drhd_fixup(tmp, current);
+	}
+
+	uint64_t vtvc0bar = MCHBAR64(VTVC0BAR) & VTBAR_MASK;
+	bool vtvc0en = MCHBAR32(VTVC0BAR) & VTBAR_ENABLED;
+
+	if (vtvc0bar && vtvc0en) {
+		const unsigned long tmp = current;
+
+		current += acpi_create_dmar_drhd(current,
+				DRHD_INCLUDE_PCI_ALL, 0, vtvc0bar);
+		current += acpi_create_dmar_ds_ioapic(current,
+				2, V_P2SB_CFG_IBDF_BUS, V_P2SB_CFG_IBDF_DEV,
+				V_P2SB_CFG_IBDF_FUNC);
+		current += acpi_create_dmar_ds_msi_hpet(current,
+				0, V_P2SB_CFG_HBDF_BUS, V_P2SB_CFG_HBDF_DEV,
+				V_P2SB_CFG_HBDF_FUNC);
+
+		acpi_dmar_drhd_fixup(tmp, current);
+	}
+
+	/* Add RMRR entry */
+	const unsigned long tmp = current;
+	current += acpi_create_dmar_rmrr(current, 0,
+		sa_get_gsm_base(), sa_get_tolud_base() - 1);
+	current += acpi_create_dmar_ds_pci(current, 0, 2, 0);
+	acpi_dmar_rmrr_fixup(tmp, current);
+
+	return current;
+}
+
+unsigned long sa_write_acpi_tables(struct device *dev, unsigned long current,
+				   struct acpi_rsdp *rsdp)
+{
+	acpi_dmar_t *const dmar = (acpi_dmar_t *)current;
+
+	/* Create DMAR table only if we have VT-d capability
+	 * and FSP does not override its feature.
+	 */
+	if ((pci_read_config32(dev, CAPID0_A) & VTD_DISABLE) ||
+	    !(MCHBAR32(VTVC0BAR) & VTBAR_ENABLED))
+		return current;
+
+	printk(BIOS_DEBUG, "ACPI:    * DMAR\n");
+	acpi_create_dmar(dmar, DMAR_INTR_REMAP, soc_fill_dmar);
+
+	current += dmar->header.length;
+	current = acpi_align_current(current);
+	acpi_add_table(rsdp, dmar);
+
+	return current;
 }

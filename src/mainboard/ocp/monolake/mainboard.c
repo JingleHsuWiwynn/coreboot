@@ -15,9 +15,11 @@
  */
 
 #include <device/device.h>
-#if IS_ENABLED(CONFIG_VGA_ROM_RUN)
-#include <x86emu/x86emu.h>
-#endif
+#include <pc80/mc146818rtc.h>
+#include <cf9_reset.h>
+#include <smbios.h>
+#include <string.h>
+#include "ipmi.h"
 
 /*
  * mainboard_enable is executed as first thing after enumerate_buses().
@@ -25,9 +27,31 @@
  */
 static void mainboard_enable(struct device *dev)
 {
+	ipmi_oem_rsp_t rsp;
 
+	if (is_ipmi_clear_cmos_set(&rsp)) {
+		/* TODO: Should also try to restore CMOS to cmos.default
+		 * if USE_OPTION_TABLE is set */
+		cmos_init(1);
+		clear_ipmi_flags(&rsp);
+		system_reset();
+	}
 }
 
 struct chip_operations mainboard_ops = {
 	.enable_dev = mainboard_enable,
 };
+
+void smbios_fill_dimm_locator(const struct dimm_info *dimm, struct smbios_type17 *t)
+{
+
+	char locator[64] = {0};
+
+	snprintf(locator, sizeof(locator), "DIMM_%c%u", 'A' + dimm->channel_num,
+		 dimm->dimm_num);
+	t->device_locator = smbios_add_string(t->eos, locator);
+
+	snprintf(locator, sizeof(locator), "_Node0_Channel%d_Dimm%d", dimm->channel_num,
+		 dimm->dimm_num);
+	t->bank_locator = smbios_add_string(t->eos, locator);
+}

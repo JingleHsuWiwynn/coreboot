@@ -20,17 +20,15 @@
 #include <AGESA.h>
 #include <AMD.h>
 
-#define HAS_LEGACY_WRAPPER IS_ENABLED(CONFIG_BINARYPI_LEGACY_WRAPPER)
+#define HAS_LEGACY_WRAPPER CONFIG(BINARYPI_LEGACY_WRAPPER)
 
 /* eventlog */
-const char *agesa_struct_name(int state);
-const char *heap_status_name(int status);
 void agesawrapper_trace(AGESA_STATUS ret, AMD_CONFIG_PARAMS *StdHeader, const char *func);
 AGESA_STATUS agesawrapper_amdreadeventlog(UINT8 HeapStatus);
 
 /* For suspend-to-ram support. */
 
-#if !IS_ENABLED(CONFIG_CPU_AMD_PI)
+#if !CONFIG(CPU_AMD_PI)
 /* TODO: With binaryPI we need different interface. */
 AGESA_STATUS OemInitResume(AMD_S3_PARAMS *dataBlock);
 AGESA_STATUS OemS3LateRestore(AMD_S3_PARAMS *dataBlock);
@@ -55,6 +53,19 @@ void board_BeforeAgesa(struct sysinfo *cb);
 void platform_once(struct sysinfo *cb);
 
 void agesa_set_interface(struct sysinfo *cb);
+
+struct agesa_state {
+	u8 apic_id;
+
+	AGESA_STRUCT_NAME func;
+	const char *function_name;
+	uint32_t ts_entry_id;
+	uint32_t ts_exit_id;
+};
+
+void agesa_state_on_entry(struct agesa_state *task, AGESA_STRUCT_NAME func);
+void agesa_state_on_exit(struct agesa_state *task,
+	AMD_CONFIG_PARAMS *StdHeader);
 int agesa_execute_state(struct sysinfo *cb, AGESA_STRUCT_NAME func);
 
 /* AGESA dispatchers */
@@ -89,18 +100,18 @@ void platform_AfterInitResume(struct sysinfo *cb, AMD_RESUME_PARAMS *Resume);
 void platform_BeforeS3LateRestore(struct sysinfo *cb, AMD_S3LATE_PARAMS *S3Late);
 void platform_AfterS3LateRestore(struct sysinfo *cb, AMD_S3LATE_PARAMS *S3Late);
 
-#if IS_ENABLED(CONFIG_CPU_AMD_PI_00660F01)
+#if CONFIG(CPU_AMD_PI_00660F01)
 typedef void AMD_S3SAVE_PARAMS;
 #endif
 void platform_AfterS3Save(struct sysinfo *cb, AMD_S3SAVE_PARAMS *S3Save);
 
 /* FCH callouts, not used with CIMx. */
 #define HAS_AGESA_FCH_OEM_CALLOUT \
-	IS_ENABLED(CONFIG_SOUTHBRIDGE_AMD_AGESA_HUDSON) || \
-	IS_ENABLED(CONFIG_SOUTHBRIDGE_AMD_AGESA_YANGTZE) || \
-	IS_ENABLED(CONFIG_SOUTHBRIDGE_AMD_PI_AVALON) || \
-	IS_ENABLED(CONFIG_SOUTHBRIDGE_AMD_PI_BOLTON) || \
-	IS_ENABLED(CONFIG_SOUTHBRIDGE_AMD_PI_KERN)
+	CONFIG(SOUTHBRIDGE_AMD_AGESA_HUDSON) || \
+	CONFIG(SOUTHBRIDGE_AMD_AGESA_YANGTZE) || \
+	CONFIG(SOUTHBRIDGE_AMD_PI_AVALON) || \
+	CONFIG(SOUTHBRIDGE_AMD_PI_BOLTON) || \
+	CONFIG(SOUTHBRIDGE_AMD_PI_KERN)
 
 #if HAS_AGESA_FCH_OEM_CALLOUT
 /* FIXME:  Structures included here were supposed to be private to AGESA. */

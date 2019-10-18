@@ -15,6 +15,7 @@
 #include <cpu/cpu.h>
 #include <cpu/x86/lapic_def.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <arch/ioapic.h>
 #include <stdint.h>
 #include <device/device.h>
@@ -71,7 +72,7 @@ static void cpu_pci_domain_read_resources(struct device *dev)
 		for (i = 0; i < f.size / sizeof(*list); i++) {
 			switch (list[i].type) {
 			case 1: /* RAM */
-				printk(BIOS_DEBUG, "QEMU: e820/ram: 0x%08llx +0x%08llx\n",
+				printk(BIOS_DEBUG, "QEMU: e820/ram: 0x%08llx + 0x%08llx\n",
 				       list[i].address, list[i].length);
 				if (list[i].address == 0) {
 					tomk = list[i].length / 1024;
@@ -165,7 +166,7 @@ static void cpu_pci_domain_read_resources(struct device *dev)
 		     IORESOURCE_ASSIGNED;
 }
 
-#if IS_ENABLED(CONFIG_GENERATE_SMBIOS_TABLES)
+#if CONFIG(GENERATE_SMBIOS_TABLES)
 static int qemu_get_smbios_data16(int handle, unsigned long *current)
 {
 	struct smbios_type16 *t = (struct smbios_type16 *)*current;
@@ -228,7 +229,7 @@ static struct device_operations pci_domain_ops = {
 	.enable_resources	= NULL,
 	.init			= NULL,
 	.scan_bus		= pci_domain_scan_bus,
-#if IS_ENABLED(CONFIG_GENERATE_SMBIOS_TABLES)
+#if CONFIG(GENERATE_SMBIOS_TABLES)
 	.get_smbios_data	= qemu_get_smbios_data,
 #endif
 };

@@ -15,23 +15,14 @@
  */
 
 #include <stdint.h>
-#include <string.h>
-#include <arch/byteorder.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <northbridge/intel/sandybridge/sandybridge.h>
 #include <northbridge/intel/sandybridge/raminit_native.h>
 #include <southbridge/intel/bd82x6x/pch.h>
 
-
 void pch_enable_lpc(void)
 {
-	pci_write_config16(PCI_DEV(0, 0x1f, 0), 0x82, 0x2400);
-	pci_write_config32(PCI_DEV(0, 0x1f, 0), 0x84, 0x000c0291);
-	pci_write_config32(PCI_DEV(0, 0x1f, 0), 0x88, 0x000c0a01);
-	pci_write_config32(PCI_DEV(0, 0x1f, 0), 0x8c, 0x00000000);
-	pci_write_config32(PCI_DEV(0, 0x1f, 0), 0x90, 0x00000000);
-	pci_write_config16(PCI_DEV(0, 0x1f, 0), 0x80, 0x0000);
 	pci_write_config32(PCI_DEV(0, 0x1f, 0), 0xac, 0x00010000);
 }
 

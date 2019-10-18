@@ -15,13 +15,10 @@
  * GNU General Public License for more details.
  */
 
-#include "chip.h"
-#include <delay.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <pc80/isa-dma.h>
 #include <pc80/i8259.h>
-#include <arch/io.h>
 #include <arch/ioapic.h>
 #include <intelblocks/itss.h>
 #include <intelblocks/lpc_lib.h>
@@ -30,6 +27,8 @@
 #include <soc/iomap.h>
 #include <soc/pcr_ids.h>
 #include <soc/intel/common/block/lpc/lpc_def.h>
+
+#include "chip.h"
 
 /**
   PCH preserved MMIO range, 24 MB, from 0xFD000000 to 0xFE7FFFFF
@@ -70,7 +69,7 @@ static void pch_enable_ioapic(struct device *dev)
 
 void soc_get_gen_io_dec_range(const struct device *dev, uint32_t *gen_io_dec)
 {
-	const config_t *config = dev->chip_info;
+	const config_t *config = config_of(dev);
 
 	gen_io_dec[0] = config->gen1_dec;
 	gen_io_dec[1] = config->gen2_dec;
@@ -97,18 +96,10 @@ static const struct reg_script pch_misc_init_script[] = {
 	REG_SCRIPT_END
 };
 
-static void clock_gate_8254(struct device *dev)
-{
-	const config_t *config = dev->chip_info;
-
-	if (!config->clock_gate_8254)
-		return;
-
-	itss_clock_gate_8254();
-}
-
 void lpc_soc_init(struct device *dev)
 {
+	const config_t *const config = config_of(dev);
+
 	/* Legacy initialization */
 	isa_dma_init();
 	reg_script_run_on_dev(PCH_DEV_LPC, pch_misc_init_script);
@@ -117,15 +108,11 @@ void lpc_soc_init(struct device *dev)
 	lpc_enable_pci_clk_cntl();
 
 	/* Set LPC Serial IRQ mode */
-	if (IS_ENABLED(CONFIG_SERIRQ_CONTINUOUS_MODE))
-		lpc_set_serirq_mode(SERIRQ_CONTINUOUS);
-	else
-		lpc_set_serirq_mode(SERIRQ_QUIET);
+	lpc_set_serirq_mode(config->serirq_mode);
 
 	/* Interrupt configuration */
 	pch_enable_ioapic(dev);
 	soc_pch_pirq_init(dev);
 	setup_i8259();
 	i8259_configure_irq_trigger(9, 1);
-	clock_gate_8254(dev);
 }

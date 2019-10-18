@@ -108,6 +108,9 @@ static int ahci_dev_init(hba_ctrl_t *const ctrl,
 
 	const int ncs = HBA_CAPS_DECODE_NCS(ctrl->caps);
 
+	if (ahci_cmdengine_stop(port))
+		return 1;
+
 	/* Allocate command list, one command table and received FIS. */
 	cmd_t *const cmdlist = memalign(1024, ncs * sizeof(cmd_t));
 	cmdtable_t *const cmdtable = memalign(128, sizeof(cmdtable_t));
@@ -121,12 +124,10 @@ static int ahci_dev_init(hba_ctrl_t *const ctrl,
 	memset((void *)rcvd_fis, '\0', sizeof(*rcvd_fis));
 
 	/* Set command list base and received FIS base. */
-	if (ahci_cmdengine_stop(port))
-		return 1;
 	port->cmdlist_base = virt_to_phys(cmdlist);
 	port->frameinfo_base = virt_to_phys(rcvd_fis);
 	if (ahci_cmdengine_start(port))
-		return 1;
+		goto _cleanup_ret;
 	/* Put port into active state. */
 	port->cmd_stat |= HBA_PxCMD_ICC_ACTIVE;
 
@@ -153,7 +154,7 @@ static int ahci_dev_init(hba_ctrl_t *const ctrl,
 	switch (port->signature) {
 	case HBA_PxSIG_ATA:
 		printf("ahci: ATA drive on port #%d.\n", portnum);
-#if IS_ENABLED(CONFIG_LP_STORAGE_ATA)
+#if CONFIG(LP_STORAGE_ATA)
 		dev->ata_dev.identify = ahci_identify_device;
 		dev->ata_dev.read_sectors = ahci_ata_read_sectors;
 		return ata_attach_device(&dev->ata_dev, PORT_TYPE_SATA);
@@ -161,7 +162,7 @@ static int ahci_dev_init(hba_ctrl_t *const ctrl,
 		break;
 	case HBA_PxSIG_ATAPI:
 		printf("ahci: ATAPI drive on port #%d.\n", portnum);
-#if IS_ENABLED(CONFIG_LP_STORAGE_ATAPI)
+#if CONFIG(LP_STORAGE_ATAPI)
 		dev->atapi_dev.identify = ahci_identify_device;
 		dev->atapi_dev.packet_read_cmd = ahci_packet_read_cmd;
 		return atapi_attach_device(&dev->atapi_dev, PORT_TYPE_SATA);
@@ -178,6 +179,8 @@ _cleanup_ret:
 	/* Clean up (not reached for initialized devices). */
 	if (dev)
 		free(dev);
+	/* Only free if stopping succeeds, since otherwise the controller may
+	   still use the resources for DMA. */
 	if (!ahci_cmdengine_stop(port)) {
 		port->cmdlist_base = 0;
 		port->frameinfo_base = 0;
@@ -218,12 +221,13 @@ static void ahci_port_probe(hba_ctrl_t *const ctrl,
 	ahci_dev_init(ctrl, port, portnum);
 }
 
-#if IS_ENABLED(CONFIG_LP_STORAGE_AHCI_ONLY_TESTED)
+#if CONFIG(LP_STORAGE_AHCI_ONLY_TESTED)
 static u32 working_controllers[] = {
 	0x8086 | 0x2929 << 16, /* Mobile ICH9 */
 	0x8086 | 0x1c03 << 16, /* Mobile Cougar Point PCH */
 	0x8086 | 0x1e03 << 16, /* Mobile Panther Point PCH */
 	0x8086 | 0xa102 << 16, /* Desktop / Mobile-Wks  Sunrise Point PCH */
+	0x8086 | 0x5ae3 << 16, /* Apollo Lake */
 };
 #endif
 static void ahci_init_pci(pcidev_t dev)
@@ -236,7 +240,7 @@ static void ahci_init_pci(pcidev_t dev)
 	const u16 vendor = pci_read_config16(dev, 0x00);
 	const u16 device = pci_read_config16(dev, 0x02);
 
-#if IS_ENABLED(CONFIG_LP_STORAGE_AHCI_ONLY_TESTED)
+#if CONFIG(LP_STORAGE_AHCI_ONLY_TESTED)
 	const u32 vendor_device = pci_read_config32(dev, 0x0);
 	for (i = 0; i < ARRAY_SIZE(working_controllers); ++i)
 		if (vendor_device == working_controllers[i])

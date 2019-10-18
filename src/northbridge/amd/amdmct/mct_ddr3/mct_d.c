@@ -40,9 +40,12 @@
 #include <cpu/x86/msr.h>
 #include <cpu/amd/msr.h>
 #include <cpu/x86/mtrr.h>
+#include <device/pci_ops.h>
 #include <arch/acpi.h>
 #include <string.h>
+#include <types.h>
 #include <device/dram/ddr3.h>
+
 #include "s3utils.h"
 #include "mct_d_gcc.h"
 #include "mct_d.h"
@@ -2619,7 +2622,7 @@ restartinit:
 			mct_ForceNBPState0_En_Fam15(pMCTstat, pDCTstat);
 		}
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_RESUME)
+#if CONFIG(HAVE_ACPI_RESUME)
 		printk(BIOS_DEBUG, "mctAutoInitMCT_D: Restoring DCT configuration from NVRAM\n");
 		if (restore_mct_information_from_nvram(0) != 0)
 			printk(BIOS_CRIT, "%s: ERROR: Unable to restore DCT configuration from NVRAM\n", __func__);
@@ -2691,11 +2694,11 @@ restartinit:
 		nvram = 0;
 		set_option("allow_spd_nvram_cache_restore", &nvram);
 
-#if IS_ENABLED(CONFIG_DIMM_VOLTAGE_SET_SUPPORT)
+#if CONFIG(DIMM_VOLTAGE_SET_SUPPORT)
 		printk(BIOS_DEBUG, "%s: DIMMSetVoltage\n", __func__);
 		DIMMSetVoltages(pMCTstat, pDCTstatA);	/* Set the DIMM voltages (mainboard specific) */
 #endif
-		if (!IS_ENABLED(CONFIG_DIMM_VOLTAGE_SET_SUPPORT)) {
+		if (!CONFIG(DIMM_VOLTAGE_SET_SUPPORT)) {
 			/* Assume 1.5V operation */
 			for (Node = 0; Node < MAX_NODES_SUPPORTED; Node++) {
 				struct DCTStatStruc *pDCTstat;
@@ -3068,11 +3071,6 @@ void fam15EnableTrainingMode(struct MCTStatStruc *pMCTstat,
 		 */
 		uint8_t dimm_event_l_pin_support = 0;
 
-		if (pDCTstat->DIMMValidDCT[dct] == 0)
-			ddr_voltage_index = 1;
-		else
-			ddr_voltage_index = dct_ddr_voltage_index(pDCTstat, dct);
-
 		ddr_voltage_index = dct_ddr_voltage_index(pDCTstat, dct);
 		max_dimms_installable = mctGet_NVbits(NV_MAX_DIMMS_PER_CH);
 
@@ -3086,12 +3084,6 @@ void fam15EnableTrainingMode(struct MCTStatStruc *pMCTstat,
 
 		if (pDCTstat->DIMMValidDCT[0] && pDCTstat->DIMMValidDCT[1] && mctGet_NVbits(NV_Unganged))
 			interleave_channels = 1;
-
-		dword = (Get_NB32_DCT(dev, dct, 0x240) >> 4) & 0xf;
-		if (dword > 6)
-			read_odt_delay = dword - 6;
-		else
-			read_odt_delay = 0;
 
 		dword = Get_NB32_DCT(dev, dct, 0x240);
 		delay = (dword >> 4) & 0xf;
@@ -3673,7 +3665,7 @@ retry_dqs_training_and_levelization:
 
 		mct_WriteLevelization_HW(pMCTstat, pDCTstatA, SecondPass);
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_RESUME)
+#if CONFIG(HAVE_ACPI_RESUME)
 		printk(BIOS_DEBUG, "mctAutoInitMCT_D: Restoring DIMM training configuration from NVRAM\n");
 		if (restore_mct_information_from_nvram(1) != 0)
 			printk(BIOS_CRIT, "%s: ERROR: Unable to restore DCT configuration from NVRAM\n", __func__);
@@ -3807,7 +3799,7 @@ static void HTMemMapInit_D(struct MCTStatStruc *pMCTstat,
 {
 	u8 Node;
 	u32 NextBase, BottomIO;
-	u8 _MemHoleRemap, DramHoleBase, DramHoleOffset;
+	u8 _MemHoleRemap, DramHoleBase;
 	u32 HoleSize, DramSelBaseAddr;
 
 	u32 val;
@@ -3866,7 +3858,6 @@ static void HTMemMapInit_D(struct MCTStatStruc *pMCTstat,
 					if ((DramSelBaseAddr > 0) && (DramSelBaseAddr < BottomIO))
 						base = DramSelBaseAddr;
 					val = ((base + HoleSize) >> (24-8)) & 0xFF;
-					DramHoleOffset = val;
 					val <<= 8; /* shl 16, rol 24 */
 					val |= DramHoleBase << 24;
 					val |= 1  << DramHoleValid;
@@ -5163,9 +5154,7 @@ static u8 AutoConfig_D(struct MCTStatStruc *pMCTstat,
 		/* Special Jedec SPD diagnostic bit - "enable all clocks" */
 		if (!(pDCTstat->Status & (1<<SB_DiagClks))) {
 			const u8 *p;
-			const u32 *q;
 			p = Tab_ManualCLKDis;
-			q = (u32 *)p;
 
 			byte = mctGet_NVbits(NV_PACK_TYPE);
 			if (byte == PT_L1)
@@ -5417,7 +5406,7 @@ static void StitchMemory_D(struct MCTStatStruc *pMCTstat,
 	u8 b = 0;
 	u32 nxtcsBase, curcsBase;
 	u8 p, q;
-	u32 Sizeq, BiggestBank;
+	u32 BiggestBank;
 	u8 _DSpareEn;
 
 	u16 word;
@@ -5470,7 +5459,6 @@ static void StitchMemory_D(struct MCTStatStruc *pMCTstat,
 					val >>= 19;
 					val++;
 					val <<= 19;
-					Sizeq = val;  /* never used */
 					if (val > BiggestBank) {
 						/*Bingo! possibly Map this chip-select next! */
 						BiggestBank = val;
@@ -5835,7 +5823,7 @@ static void mct_preInitDCT(struct MCTStatStruc *pMCTstat,
 		}
 	}
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_RESUME)
+#if CONFIG(HAVE_ACPI_RESUME)
 	calculate_and_store_spd_hashes(pMCTstat, pDCTstat);
 
 	if (load_spd_hashes_from_nvram(pMCTstat, pDCTstat) < 0) {
@@ -5852,7 +5840,7 @@ static void mct_preInitDCT(struct MCTStatStruc *pMCTstat,
 	if (get_option(&nvram, "allow_spd_nvram_cache_restore") == CB_SUCCESS)
 		allow_config_restore = !!nvram;
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_RESUME)
+#if CONFIG(HAVE_ACPI_RESUME)
 	if (pMCTstat->nvram_checksum != calculate_nvram_mct_hash())
 		allow_config_restore = 0;
 #else
@@ -6982,7 +6970,6 @@ static void SetODTTriState(struct MCTStatStruc *pMCTstat,
 	u32 index_reg = 0x98;
 	u8 cs;
 	u8 odt;
-	u8 max_dimms;
 
 	dev = pDCTstat->dev_dct;
 
@@ -6992,7 +6979,6 @@ static void SetODTTriState(struct MCTStatStruc *pMCTstat,
 		/* FIXME: skip for Ax */
 
 		/* Tri-state unused ODTs when motherboard termination is available */
-		max_dimms = (u8) mctGet_NVbits(NV_MAX_DIMMS);
 		odt = 0x0f;	/* ODT tri-state setting */
 
 		if (pDCTstat->Status & (1 <<SB_Registered)) {

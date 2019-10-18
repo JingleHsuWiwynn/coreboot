@@ -15,7 +15,6 @@
  * GNU General Public License for more details.
  */
 
-#include <chip.h>
 #include <console/console.h>
 #include <device/pci_def.h>
 #include <intelblocks/fast_spi.h>
@@ -26,6 +25,8 @@
 #include <soc/pci_devs.h>
 #include <soc/pcr_ids.h>
 #include <soc/pm.h>
+
+#include "chip.h"
 
 #define CSME0_FBE	0xf
 #define CSME0_BAR	0x0
@@ -77,23 +78,16 @@ static void pch_disable_heci(void)
 void smihandler_soc_at_finalize(void)
 {
 	const struct soc_intel_cannonlake_config *config;
-	const struct device *dev = dev_find_slot(0, PCH_DEVFN_CSE);
 
-	if (!dev || !dev->chip_info) {
-		printk(BIOS_ERR, "%s: Could not find SoC devicetree config!\n",
-		       __func__);
-		return ;
-	}
+	config = config_of_soc();
 
-	config = dev->chip_info;
-
-	if (config->HeciEnabled == 0)
+	if (!config->HeciEnabled && CONFIG(HECI_DISABLE_USING_SMM))
 		pch_disable_heci();
 }
 
 void smihandler_soc_check_illegal_access(uint32_t tco_sts)
 {
-	if (!((tco_sts & (1 << 8)) && IS_ENABLED(CONFIG_SPI_FLASH_SMM)
+	if (!((tco_sts & (1 << 8)) && CONFIG(SPI_FLASH_SMM)
 			&& fast_spi_wpd_status()))
 		return;
 

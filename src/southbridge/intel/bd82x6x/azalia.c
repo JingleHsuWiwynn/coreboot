@@ -20,9 +20,11 @@
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <delay.h>
 #include <device/azalia_device.h>
+
+#include "chip.h"
 #include "pch.h"
 
 #define HDA_ICII_REG 0x68
@@ -242,11 +244,11 @@ static void azalia_init(struct device *dev)
 	base = res2mmio(res, 0, 0);
 	printk(BIOS_DEBUG, "Azalia: base = %08x\n", (u32)base);
 
-	if (RCBA32(0x2030) & (1 << 31)) {
+	if (RCBA32(CIR31) & (1 << 31)) {
 		reg32 = pci_read_config32(dev, 0x120);
 		reg32 &= 0xf8ffff01;
 		reg32 |= (1 << 24); // 2 << 24 for server
-		reg32 |= RCBA32(0x2030) & 0xfe;
+		reg32 |= RCBA32(CIR31) & 0xfe;
 		pci_write_config32(dev, 0x120, reg32);
 
 		reg16 = pci_read_config16(dev, 0x78);
@@ -336,20 +338,8 @@ static const char *azalia_acpi_name(const struct device *dev)
 	return "HDEF";
 }
 
-static void azalia_set_subsystem(struct device *dev, unsigned vendor,
-				 unsigned device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
-}
-
 static struct pci_operations azalia_pci_ops = {
-	.set_subsystem    = azalia_set_subsystem,
+	.set_subsystem    = pci_dev_set_subsystem,
 };
 
 static struct device_operations azalia_ops = {

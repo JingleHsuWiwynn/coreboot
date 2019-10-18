@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2011 The ChromiumOS Authors. All rights reserved.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2 of
@@ -22,7 +20,7 @@
 /* SandyBridge/IvyBridge bus clock is fixed at 100MHz */
 #define SANDYBRIDGE_BCLK		100
 
-#define CORE_THREAD_COUNT_MSR		0x35
+#define MSR_CORE_THREAD_COUNT		0x35
 #define MSR_FEATURE_CONFIG		0x13c
 #define MSR_FLEX_RATIO			0x194
 #define  FLEX_RATIO_LOCK		(1 << 20)
@@ -81,17 +79,9 @@
 #define PSS_LATENCY_TRANSITION		10
 #define PSS_LATENCY_BUSMASTER		10
 
-/*
- * Region of SMM space is reserved for multipurpose use. It falls below
- * the IED region and above the SMM handler.
- */
-#define RESERVED_SMM_SIZE CONFIG_SMM_RESERVED_SIZE
-#define RESERVED_SMM_OFFSET \
-	(CONFIG_SMM_TSEG_SIZE - CONFIG_IED_REGION_SIZE - RESERVED_SMM_SIZE)
-
 /* Sanity check config options. */
-#if (CONFIG_SMM_TSEG_SIZE <= (CONFIG_IED_REGION_SIZE + RESERVED_SMM_SIZE))
-# error "CONFIG_SMM_TSEG_SIZE <= (CONFIG_IED_REGION_SIZE + RESERVED_SMM_SIZE)"
+#if (CONFIG_SMM_TSEG_SIZE <= (CONFIG_IED_REGION_SIZE + CONFIG_SMM_RESERVED_SIZE))
+# error "CONFIG_SMM_TSEG_SIZE <= (CONFIG_IED_REGION_SIZE + CONFIG_SMM_RESERVED_SIZE)"
 #endif
 #if (CONFIG_SMM_TSEG_SIZE < 0x800000)
 # error "CONFIG_SMM_TSEG_SIZE must at least be 8MiB"

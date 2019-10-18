@@ -14,7 +14,6 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <console/console.h>
 #include <delay.h>
 #include <soc/dp.h>
@@ -24,7 +23,6 @@
 #include <soc/sysreg.h>
 #include <stdlib.h>
 #include <string.h>
-#include <timer.h>
 
 /*
  * Here is the rough outline of how we bring up the display:

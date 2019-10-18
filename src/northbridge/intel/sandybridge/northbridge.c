@@ -16,7 +16,7 @@
 
 #include <console/console.h>
 #include <arch/acpi.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <stdint.h>
 #include <delay.h>
 #include <cpu/intel/model_206ax/model_206ax.h>
@@ -25,11 +25,10 @@
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <stdlib.h>
-#include <string.h>
 #include <cpu/cpu.h>
 #include "chip.h"
 #include "sandybridge.h"
-#include <cpu/intel/smm/gen1/smi.h>
+#include <cpu/intel/smm_reloc.h>
 
 static int bridge_revision_id = -1;
 
@@ -98,7 +97,7 @@ static void add_fixed_resources(struct device *dev, int index)
 	reserved_ram_resource(dev, index++, 0xc0000 >> 10,
 			(0x100000 - 0xc0000) >> 10);
 
-#if IS_ENABLED(CONFIG_CHROMEOS_RAMOOPS)
+#if CONFIG(CHROMEOS_RAMOOPS)
 	reserved_ram_resource(dev, index++,
 			CONFIG_CHROMEOS_RAMOOPS_RAM_START >> 10,
 			CONFIG_CHROMEOS_RAMOOPS_RAM_SIZE >> 10);
@@ -286,18 +285,6 @@ static void mc_read_resources(struct device *dev)
 	}
 }
 
-static void intel_set_subsystem(struct device *dev, unsigned int vendor,
-				unsigned int device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
-}
-
 static void northbridge_dmi_init(struct device *dev)
 {
 	u32 reg32;
@@ -457,35 +444,13 @@ static void northbridge_init(struct device *dev)
 	MCHBAR32(0x5500) = 0x00100001;
 }
 
-static u32 northbridge_get_base_reg(struct device *dev, int reg)
-{
-	u32 value;
-
-	value = pci_read_config32(dev, reg);
-	/* Base registers are at 1MiB granularity. */
-	value &= ~((1 << 20) - 1);
-	return value;
-}
-
-u32 northbridge_get_tseg_base(void)
-{
-	struct device *dev = pcidev_on_root(0, 0);
-
-	return northbridge_get_base_reg(dev, TSEG);
-}
-
-u32 northbridge_get_tseg_size(void)
-{
-	return CONFIG_SMM_TSEG_SIZE;
-}
-
 void northbridge_write_smram(u8 smram)
 {
 	pci_write_config8(pcidev_on_root(0, 0), SMRAM, smram);
 }
 
 static struct pci_operations intel_pci_ops = {
-	.set_subsystem    = intel_set_subsystem,
+	.set_subsystem    = pci_dev_set_subsystem,
 };
 
 static struct device_operations mc_ops = {
@@ -528,16 +493,11 @@ static const struct pci_driver mc_driver_158 __pci_driver = {
 	.device = 0x0158, /* Ivy bridge */
 };
 
-static void cpu_bus_init(struct device *dev)
-{
-	bsp_init_and_start_aps(dev->link_list);
-}
-
 static struct device_operations cpu_bus_ops = {
 	.read_resources   = DEVICE_NOOP,
 	.set_resources    = DEVICE_NOOP,
 	.enable_resources = DEVICE_NOOP,
-	.init             = cpu_bus_init,
+	.init             = mp_cpu_bus_init,
 	.scan_bus         = 0,
 };
 

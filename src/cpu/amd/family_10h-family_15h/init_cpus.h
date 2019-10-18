@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2016 Damien Zammit <damien@zamaudio.com>
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -16,13 +14,10 @@
 #ifndef INIT_CPUS_H
 #define INIT_CPUS_H
 
-#include <stdlib.h>
-#include <console/console.h>
 #include <cpu/x86/lapic.h>
 #include <cpu/x86/mtrr.h>
 #include <cpu/amd/msr.h>
 #include <cpu/amd/multicore.h>
-#include <reset.h>
 #include <northbridge/amd/amdfam10/raminit.h>
 #include "defaults.h"
 

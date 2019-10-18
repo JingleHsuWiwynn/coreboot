@@ -1,20 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * It was originally based on the Linux kernel (arch/i386/kernel/pci-pc.c).
- *
- * Modifications are:
- * Copyright (C) 2003 Eric Biederman <ebiederm@xmission.com>
- * Copyright (C) 2003-2004 Linux Networx
- * (Written by Eric Biederman <ebiederman@lnxi.com> for Linux Networx)
- * Copyright (C) 2003 Ronald G. Minnich <rminnich@gmail.com>
- * Copyright (C) 2004-2005 Li-Ta Lo <ollie@lanl.gov>
- * Copyright (C) 2005-2006 Tyan
- * (Written by Yinghai Lu <yhlu@tyan.com> for Tyan)
- * Copyright (C) 2005-2006 Stefan Reinauer <stepan@openbios.org>
- * Copyright (C) 2009 Myles Watson <mylesgw@gmail.com>
- * Copyright (c) 1999--2000 Martin Mares <mj@suse.cz>
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -26,27 +12,17 @@
  */
 
 /*
- * Lots of mods by Ron Minnich <rminnich@lanl.gov>, with
- * the final architecture guidance from Tom Merritt <tjm@codegen.com>.
- *
- * In particular, we changed from the one-pass original version to
- * Tom's recommended multiple-pass version. I wasn't sure about doing
- * it with multiple passes, until I actually started doing it and saw
- * the wisdom of Tom's recommendations...
- *
- * Lots of cleanups by Eric Biederman to handle bridges, and to
- * handle resource allocation for non-PCI devices.
+ * Originally based on the Linux kernel (arch/i386/kernel/pci-pc.c).
  */
 
 #include <console/console.h>
-#include <arch/io.h>
 #include <device/device.h>
 #include <device/pci_def.h>
 #include <device/pci_ids.h>
 #include <stdlib.h>
 #include <string.h>
 #include <smp/spinlock.h>
-#if IS_ENABLED(CONFIG_ARCH_X86)
+#if CONFIG(ARCH_X86)
 #include <arch/ebda.h>
 #endif
 #include <timer.h>
@@ -100,7 +76,7 @@ void dev_finalize_chips(void)
 
 DECLARE_SPIN_LOCK(dev_lock)
 
-#if IS_ENABLED(CONFIG_GFXUMA)
+#if CONFIG(GFXUMA)
 /* IGD UMA memory */
 uint64_t uma_memory_base = 0;
 uint64_t uma_memory_size = 0;
@@ -341,6 +317,9 @@ static void compute_resources(struct bus *bus, struct resource *bridge,
 	resource_t base;
 	base = round(bridge->base, bridge->align);
 
+	if (!bus)
+		return;
+
 	printk(BIOS_SPEW,  "%s %s: base: %llx size: %llx align: %d gran: %d"
 	       " limit: %llx\n", dev_path(bus->dev), resource2str(bridge),
 	       base, bridge->size, bridge->align,
@@ -484,6 +463,9 @@ static void allocate_resources(struct bus *bus, struct resource *bridge,
 	struct resource *resource;
 	resource_t base;
 	base = bridge->base;
+
+	if (!bus)
+		return;
 
 	printk(BIOS_SPEW, "%s %s: base:%llx size:%llx align:%d gran:%d "
 	       "limit:%llx\n", dev_path(bus->dev),
@@ -777,6 +759,10 @@ static void set_vga_bridge_bits(void)
 			continue;
 
 		printk(BIOS_DEBUG, "found VGA at %s\n", dev_path(dev));
+		if (dev->bus->no_vga16) {
+			printk(BIOS_WARNING,
+				"A bridge on the path doesn't support 16-bit VGA decoding!");
+		}
 
 		if (dev->on_mainboard) {
 			vga_onboard = dev;
@@ -791,12 +777,12 @@ static void set_vga_bridge_bits(void)
 	if (!vga)
 		vga = vga_onboard;
 
-	if (CONFIG_ONBOARD_VGA_IS_PRIMARY && vga_onboard)
+	if (CONFIG(ONBOARD_VGA_IS_PRIMARY) && vga_onboard)
 		vga = vga_onboard;
 
 	/* If we prefer plugin VGA over chipset VGA, the chipset might
 	   want to know. */
-	if (!CONFIG_ONBOARD_VGA_IS_PRIMARY && (vga != vga_onboard) &&
+	if (!CONFIG(ONBOARD_VGA_IS_PRIMARY) && (vga != vga_onboard) &&
 		vga_onboard && vga_onboard->ops && vga_onboard->ops->disable) {
 		printk(BIOS_DEBUG, "Use plugin graphics over integrated.\n");
 		vga_onboard->ops->disable(vga_onboard);
@@ -815,7 +801,7 @@ static void set_vga_bridge_bits(void)
 	while (bus) {
 		printk(BIOS_DEBUG, "Setting PCI_BRIDGE_CTL_VGA for bridge %s\n",
 		       dev_path(bus->dev));
-		bus->bridge_ctrl |= PCI_BRIDGE_CTL_VGA;
+		bus->bridge_ctrl |= PCI_BRIDGE_CTL_VGA | PCI_BRIDGE_CTL_VGA16;
 		bus = (bus == bus->dev->bus) ? 0 : bus->dev->bus;
 	}
 }
@@ -1130,7 +1116,7 @@ static void init_dev(struct device *dev)
 		return;
 
 	if (!dev->initialized && dev->ops && dev->ops->init) {
-#if IS_ENABLED(CONFIG_HAVE_MONOTONIC_TIMER)
+#if CONFIG(HAVE_MONOTONIC_TIMER)
 		struct stopwatch sw;
 		stopwatch_init(&sw);
 #endif
@@ -1142,7 +1128,7 @@ static void init_dev(struct device *dev)
 		printk(BIOS_DEBUG, "%s init ...\n", dev_path(dev));
 		dev->initialized = 1;
 		dev->ops->init(dev);
-#if IS_ENABLED(CONFIG_HAVE_MONOTONIC_TIMER)
+#if CONFIG(HAVE_MONOTONIC_TIMER)
 		printk(BIOS_DEBUG, "%s init finished in %ld usecs\n", dev_path(dev),
 			stopwatch_duration_usecs(&sw));
 #endif
@@ -1178,12 +1164,12 @@ void dev_initialize(void)
 
 	printk(BIOS_INFO, "Initializing devices...\n");
 
-#if IS_ENABLED(CONFIG_ARCH_X86)
+#if CONFIG(ARCH_X86)
 	/*
 	 * Initialize EBDA area in ramstage if early
 	 * initialization is not done.
 	 */
-	if (!IS_ENABLED(CONFIG_EARLY_EBDA_INIT))
+	if (!CONFIG(EARLY_EBDA_INIT))
 		/* Ensure EBDA is prepared before Option ROMs. */
 		setup_default_ebda();
 #endif

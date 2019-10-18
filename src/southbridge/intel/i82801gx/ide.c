@@ -17,7 +17,9 @@
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <device/pci_ids.h>
+#include "chip.h"
 #include "i82801gx.h"
 
 typedef struct southbridge_intel_i82801gx_config config_t;
@@ -91,20 +93,8 @@ static void ide_init(struct device *dev)
 	printk(BIOS_DEBUG, "\n");
 }
 
-static void ide_set_subsystem(struct device *dev, unsigned int vendor,
-			      unsigned int device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
-}
-
 static struct pci_operations ide_pci_ops = {
-	.set_subsystem    = ide_set_subsystem,
+	.set_subsystem    = pci_dev_set_subsystem,
 };
 
 static struct device_operations ide_ops = {

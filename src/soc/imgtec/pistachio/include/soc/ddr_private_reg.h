@@ -18,6 +18,7 @@
 #ifndef __SOC_IMGTEC_PISTACHIO_DDR_PRIVATE_REG_H__
 #define __SOC_IMGTEC_PISTACHIO_DDR_PRIVATE_REG_H__
 
+#include <device/mmio.h>
 #include <timer.h>
 
 #define MAX_WAIT_MICROS			100000
@@ -131,7 +132,7 @@ static int wait_for_completion(u32 reg, u32 exp_val)
 	struct stopwatch sw;
 
 	stopwatch_init_usecs_expire(&sw, DDR_TIMEOUT_VALUE_US);
-	while (read32(reg) != exp_val) {
+	while (read32_x(reg) != exp_val) {
 		if (stopwatch_expired(&sw))
 			return DDR_TIMEOUT;
 	}

@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright 2015 Google Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -18,6 +16,7 @@
 #include <commonlib/endian.h>
 #include <commonlib/helpers.h>
 #include <string.h>
+#include <vb2_sha.h>
 
 #if !defined(ERROR)
 #define ERROR(x...) printk(BIOS_ERR, "CBFS: " x)
@@ -25,9 +24,9 @@
 #if !defined(LOG)
 #define LOG(x...) printk(BIOS_INFO, "CBFS: " x)
 #endif
-#if defined(IS_ENABLED)
+#if defined(CONFIG)
 
-#if IS_ENABLED(CONFIG_DEBUG_CBFS)
+#if CONFIG(DEBUG_CBFS)
 #define DEBUG(x...) printk(BIOS_SPEW, "CBFS: " x)
 #else
 #define DEBUG(x...)

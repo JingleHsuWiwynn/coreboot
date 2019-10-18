@@ -1,12 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2005 Li-Ta Lo <ollie@lanl.gov>
- * Copyright (C) 2005 Tyan
- * (Written by Yinghai Lu <yhlu@tyan.com> for Tyan)
- * Copyright (C) 2005 Ronald G. Minnich <rminnich@gmail.com>
- * Copyright (C) 2005-2007 Stefan Reinauer <stepan@openbios.org>
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -55,17 +49,17 @@ struct rom_header *pci_rom_probe(struct device *dev)
 	if (rom_header) {
 		printk(BIOS_DEBUG, "In CBFS, ROM address for %s = %p\n",
 		       dev_path(dev), rom_header);
-	} else if (!IS_ENABLED(CONFIG_ON_DEVICE_ROM_LOAD)) {
-			printk(BIOS_DEBUG, "PCI Option ROM loading disabled "
-				"for %s\n", dev_path(dev));
-			return NULL;
+	} else if (!CONFIG(ON_DEVICE_ROM_LOAD)) {
+		printk(BIOS_DEBUG, "PCI Option ROM loading disabled for %s\n",
+		       dev_path(dev));
+		return NULL;
 	} else {
 		uintptr_t rom_address;
 
 		rom_address = pci_read_config32(dev, PCI_ROM_ADDRESS);
 
 		if (rom_address == 0x00000000 || rom_address == 0xffffffff) {
-#if IS_ENABLED(CONFIG_BOARD_EMULATION_QEMU_X86)
+#if CONFIG(BOARD_EMULATION_QEMU_X86)
 			if ((dev->class >> 8) == PCI_CLASS_DISPLAY_VGA)
 				rom_address = 0xc0000;
 			else
@@ -76,6 +70,8 @@ struct rom_header *pci_rom_probe(struct device *dev)
 			pci_write_config32(dev, PCI_ROM_ADDRESS,
 					   rom_address|PCI_ROM_ADDRESS_ENABLE);
 		}
+
+		rom_address &= PCI_ROM_ADDRESS_MASK;
 
 		printk(BIOS_DEBUG, "Option ROM address for %s = %lx\n",
 		       dev_path(dev), (unsigned long)rom_address);
@@ -151,7 +147,7 @@ struct rom_header *pci_rom_load(struct device *dev,
 	 * devices have a mismatch between the hardware and the ROM.
 	 */
 	if ((dev->class >> 8) == PCI_CLASS_DISPLAY_VGA) {
-#if !IS_ENABLED(CONFIG_MULTIPLE_VGA_ADAPTERS)
+#if !CONFIG(MULTIPLE_VGA_ADAPTERS)
 		extern struct device *vga_pri; /* Primary VGA device (device.c). */
 		if (dev != vga_pri) return NULL; /* Only one VGA supported. */
 #endif
@@ -174,7 +170,7 @@ struct rom_header *pci_rom_load(struct device *dev,
 }
 
 /* ACPI */
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 
 /* VBIOS may be modified after oprom init so use the copy if present. */
 static struct rom_header *check_initialized(struct device *dev)
@@ -182,7 +178,7 @@ static struct rom_header *check_initialized(struct device *dev)
 	struct rom_header *run_rom;
 	struct pci_data *rom_data;
 
-	if (!IS_ENABLED(CONFIG_VGA_ROM_RUN))
+	if (!CONFIG(VGA_ROM_RUN))
 		return NULL;
 
 	run_rom = (struct rom_header *)(uintptr_t)PCI_VGA_RAM_IMAGE_START;
@@ -190,7 +186,7 @@ static struct rom_header *check_initialized(struct device *dev)
 		return NULL;
 
 	rom_data = (struct pci_data *)((u8 *)run_rom
-			+ read_le32(&run_rom->data));
+			+ read_le16(&run_rom->data));
 
 	if (read_le32(&rom_data->signature) == PCI_DATA_HDR
 			&& read_le16(&rom_data->device) == dev->device
@@ -206,8 +202,6 @@ pci_rom_acpi_fill_vfct(struct device *device, struct acpi_vfct *vfct_struct,
 {
 	struct acpi_vfct_image_hdr *header = &vfct_struct->image_hdr;
 	struct rom_header *rom;
-
-	vfct_struct->VBIOSImageOffset = (size_t)header - (size_t)vfct_struct;
 
 	rom = check_initialized(device);
 	if (!rom)
@@ -231,6 +225,8 @@ pci_rom_acpi_fill_vfct(struct device *device, struct acpi_vfct *vfct_struct,
 	header->ImageLength = rom->size * 512;
 	memcpy((void *)&header->VbiosContent, rom, header->ImageLength);
 
+	vfct_struct->VBIOSImageOffset = (size_t)header - (size_t)vfct_struct;
+
 	current += header->ImageLength;
 	return current;
 }
@@ -239,9 +235,6 @@ unsigned long
 pci_rom_write_acpi_tables(struct device *device, unsigned long current,
 			  struct acpi_rsdp *rsdp)
 {
-	struct acpi_vfct *vfct;
-	struct rom_header *rom;
-
 	/* Only handle VGA devices */
 	if ((device->class >> 8) != PCI_CLASS_DISPLAY_VGA)
 		return current;
@@ -250,19 +243,18 @@ pci_rom_write_acpi_tables(struct device *device, unsigned long current,
 	if (!device->enabled)
 		return current;
 
-	/* Probe for option rom */
-	rom = pci_rom_probe(device);
-	if (!rom)
-		return current;
-
 	/* AMD/ATI uses VFCT */
 	if (device->vendor == PCI_VENDOR_ID_ATI) {
-		current = ALIGN(current, 8);
-		printk(BIOS_DEBUG, "ACPI:    * VFCT at %lx\n", current);
+		struct acpi_vfct *vfct;
+
+		current = ALIGN_UP(current, 8);
 		vfct = (struct acpi_vfct *)current;
 		acpi_create_vfct(device, vfct, pci_rom_acpi_fill_vfct);
-		current += vfct->header.length;
-		acpi_add_table(rsdp, vfct);
+		if (vfct->header.length) {
+			printk(BIOS_DEBUG, "ACPI:    * VFCT at %lx\n", current);
+			current += vfct->header.length;
+			acpi_add_table(rsdp, vfct);
+		}
 	}
 
 	return current;

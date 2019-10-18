@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2007-2008 coresystems GmbH
  * Copyright (C) 2014 Google Inc.
- * Copyright (C) 2017-2018 Intel Corporation.
+ * Copyright (C) 2017-2019 Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,9 +18,11 @@
 #ifndef _SOC_CHIP_H_
 #define _SOC_CHIP_H_
 
-#include <intelblocks/chip.h>
+#include <intelblocks/cfg.h>
 #include <drivers/i2c/designware/dw_i2c.h>
+#include <intelblocks/gpio.h>
 #include <intelblocks/gspi.h>
+#include <smbios.h>
 #include <stdint.h>
 #include <soc/gpio.h>
 #include <soc/pch.h>
@@ -30,11 +32,13 @@
 #include <soc/serialio.h>
 #include <soc/usb.h>
 #include <soc/vr_config.h>
-#if IS_ENABLED(CONFIG_SOC_INTEL_CANNONLAKE_PCH_H)
+#if CONFIG(SOC_INTEL_CANNONLAKE_PCH_H)
 #include <soc/gpio_defs_cnp_h.h>
 #else
 #include <soc/gpio_defs.h>
 #endif
+
+#define SOC_INTEL_CML_UART_DEV_MAX 3
 
 struct soc_intel_cannonlake_config {
 
@@ -101,13 +105,13 @@ struct soc_intel_cannonlake_config {
 	 * For CNL, options are as following
 	 * When enabled, memory will be training at three different frequencies.
 	 * 0:Disabled, 1:FixedLow, 2:FixedMid, 3:FixedHigh, 4:Enabled
-	 * For WHL/CFL options are as following
+	 * For WHL/CFL/CML options are as following
 	 * When enabled, memory will be training at two different frequencies.
 	 * 0:Disabled, 1:FixedLow, 2:FixedHigh, 3:Enabled*/
 	enum {
 		SaGv_Disabled,
 		SaGv_FixedLow,
-#if !IS_ENABLED(CONFIG_SOC_INTEL_COMMON_CANNONLAKE_BASE)
+#if !CONFIG(SOC_INTEL_CANNONLAKE_ALTERNATE_HEADERS)
 		SaGv_FixedMid,
 #endif
 		SaGv_FixedHigh,
@@ -132,15 +136,35 @@ struct soc_intel_cannonlake_config {
 		Sata_AHCI,
 		Sata_RAID,
 	} SataMode;
+
+	/* SATA devslp pad reset configuration */
+	enum {
+		SataDevSlpResumeReset = 1,
+		SataDevSlpHostDeepReset = 3,
+		SataDevSlpPlatformReset = 5,
+		SataDevSlpDswReset = 7
+	} SataDevSlpRstConfig;
+
 	uint8_t SataSalpSupport;
 	uint8_t SataPortsEnable[8];
 	uint8_t SataPortsDevSlp[8];
+	uint8_t SataPortsDevSlpResetConfig[8];
+
+	/* Enable/Disable SLP_S0 with GBE Support. 0: disable, 1: enable */
+	uint8_t SlpS0WithGbeSupport;
+	/* SLP_S0 Voltage Margining Policy. 0: disable, 1: enable */
+	uint8_t PchPmSlpS0VmRuntimeControl;
+	/* SLP_S0 Voltage Margining  0.70V Policy. 0: disable, 1: enable */
+	uint8_t PchPmSlpS0Vm070VSupport;
+	/* SLP_S0 Voltage Margining  0.75V Policy. 0: disable, 1: enable */
+	uint8_t PchPmSlpS0Vm075VSupport;
 
 	/* Audio related */
 	uint8_t PchHdaDspEnable;
 
 	/* Enable/Disable HD Audio Link. Muxed with SSP0/SSP1/SNDW1 */
 	uint8_t PchHdaAudioLinkHda;
+	uint8_t PchHdaIDispCodecDisconnect;
 	uint8_t PchHdaAudioLinkDmic0;
 	uint8_t PchHdaAudioLinkDmic1;
 	uint8_t PchHdaAudioLinkSsp0;
@@ -156,12 +180,14 @@ struct soc_intel_cannonlake_config {
 	/* PCIe output clocks type to Pcie devices.
 	 * 0-23: PCH rootport, 0x70: LAN, 0x80: unspecified but in use,
 	 * 0xFF: not used */
-	uint8_t PcieClkSrcUsage[CONFIG_MAX_ROOT_PORTS];
+	uint8_t PcieClkSrcUsage[CONFIG_MAX_PCIE_CLOCKS];
 	/* PCIe ClkReq-to-ClkSrc mapping, number of clkreq signal assigned to
 	 * clksrc. */
-	uint8_t PcieClkSrcClkReq[CONFIG_MAX_ROOT_PORTS];
+	uint8_t PcieClkSrcClkReq[CONFIG_MAX_PCIE_CLOCKS];
 	/* PCIe LTR(Latency Tolerance Reporting) mechanism */
 	uint8_t PcieRpLtrEnable[CONFIG_MAX_ROOT_PORTS];
+	/* Enable/Disable HotPlug support for Root Port */
+	uint8_t PcieRpHotPlug[CONFIG_MAX_ROOT_PORTS];
 
 	/* eMMC and SD */
 	uint8_t ScsEmmcHs400Enabled;
@@ -171,6 +197,8 @@ struct soc_intel_cannonlake_config {
 	uint8_t EmmcHs400RxStrobeDll1;
 	/* 0-78: number of active delay for TX data, unit is 125 psec */
 	uint8_t EmmcHs400TxDataDll;
+	/* Enable/disable SD card write protect pin configuration on CML */
+	uint8_t ScsSdCardWpPinEnabled;
 
 	/* Integrated Sensor */
 	uint8_t PchIshEnable;
@@ -216,6 +244,8 @@ struct soc_intel_cannonlake_config {
 	uint32_t tdp_psyspl3_dutycycle;
 	/* PL4 Value in Watts */
 	uint32_t tdp_pl4;
+	/* Estimated maximum platform power in Watts */
+	uint16_t psys_pmax;
 
 	/* Intel Speed Shift Technology */
 	uint8_t speed_shift_enable;
@@ -229,8 +259,6 @@ struct soc_intel_cannonlake_config {
 	/* Enable/Disable EIST. 1b:Enabled, 0b:Disabled */
 	uint8_t eist_enable;
 
-	/* Statically clock gate 8254 PIT. */
-	uint8_t clock_gate_8254;
 	/* Enable C6 DRAM */
 	uint8_t enable_c6dram;
 	/*
@@ -277,15 +305,6 @@ struct soc_intel_cannonlake_config {
 	 */
 	uint8_t PchPmSlpAMinAssert;
 
-	/* Desired platform debug type. */
-	enum {
-		DebugConsent_Disabled,
-		DebugConsent_DCI_DBC,
-		DebugConsent_DCI,
-		DebugConsent_USB3_DBC,
-		DebugConsent_XDP, /* XDP/Mipi60 */
-		DebugConsent_USB2_DBC,
-	} DebugConsent;
 	/*
 	 * SerialIO device mode selection:
 	 *
@@ -304,10 +323,30 @@ struct soc_intel_cannonlake_config {
 	 * PchSerialIoIndexUART2
 	 *
 	 * Mode select:
+	 * For Cannonlake PCH following values are supported:
+	 * PchSerialIoNotInitialized
 	 * PchSerialIoDisabled
 	 * PchSerialIoPci
 	 * PchSerialIoAcpi
 	 * PchSerialIoHidden
+	 * PchSerialIoMax
+	 *
+	 * For Cometlake following values are supported:
+	 * PchSerialIoNotInitialized
+	 * PchSerialIoDisabled,
+	 * PchSerialIoPci,
+	 * PchSerialIoHidden,
+	 * PchSerialIoLegacyUart,
+	 * PchSerialIoSkipInit,
+	 * PchSerialIoMax
+	 *
+	 * NOTE:
+	 * PchSerialIoNotInitialized is not an option provided by FSP, this
+	 * option is default selected in case devicetree doesn't fill this param
+	 * In case PchSerialIoNotInitialized is selected or an invalid value is
+	 * provided from devicetree, coreboot will configure device into PCI
+	 * mode by default.
+	 *
 	 */
 	uint8_t SerialIoDevMode[PchSerialIoIndexMAX];
 
@@ -316,10 +355,6 @@ struct soc_intel_cannonlake_config {
 
 	/* Enable Pch iSCLK */
 	uint8_t pch_isclk;
-
-	/* Intel VT configuration */
-	uint8_t VtdDisable;
-	uint8_t VmxEnable;
 
 	/*
 	 * Acoustic Noise Mitigation
@@ -352,11 +387,48 @@ struct soc_intel_cannonlake_config {
 	uint8_t SlowSlewRateForSa;
 	uint8_t SlowSlewRateForFivr;
 
-	/* DMI Power Optimizer */
-	uint8_t dmipwroptimize;
-
 	/* SATA Power Optimizer */
 	uint8_t satapwroptimize;
+
+	/* Enable or disable eDP device */
+	uint8_t DdiPortEdp;
+
+	/* Enable or disable HPD of DDI port B/C/D/F */
+	uint8_t DdiPortBHpd;
+	uint8_t DdiPortCHpd;
+	uint8_t DdiPortDHpd;
+	uint8_t DdiPortFHpd;
+
+	/* Enable or disable DDC of DDI port B/C/D/F  */
+	uint8_t DdiPortBDdc;
+	uint8_t DdiPortCDdc;
+	uint8_t DdiPortDDdc;
+	uint8_t DdiPortFDdc;
+
+	/* Unlock all GPIO Pads */
+	uint8_t PchUnlockGpioPads;
+
+	/* Enable GBE wakeup */
+	uint8_t LanWakeFromDeepSx;
+	uint8_t WolEnableOverride;
+
+	/*
+	 * Override GPIO PM configuration:
+	 * 0: Use FSP default GPIO PM program,
+	 * 1: coreboot to override GPIO PM program
+	 */
+	uint8_t gpio_override_pm;
+	/*
+	 * GPIO PM configuration: 0 to disable, 1 to enable power gating
+	 * Bit 6-7: Reserved
+	 * Bit 5: MISCCFG_GPSIDEDPCGEN
+	 * Bit 4: MISCCFG_GPRCOMPCDLCGEN
+	 * Bit 3: MISCCFG_GPRTCDLCGEN
+	 * Bit 2: MISCCFG_GSXLCGEN
+	 * Bit 1: MISCCFG_GPDPCGEN
+	 * Bit 0: MISCCFG_GPDLCGEN
+	 */
+	uint8_t gpio_pm[TOTAL_GPIO_COMM];
 };
 
 typedef struct soc_intel_cannonlake_config config_t;

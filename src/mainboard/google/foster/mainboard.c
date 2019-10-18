@@ -14,10 +14,8 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <arch/mmu.h>
 #include <boot/coreboot_tables.h>
-#include <delay.h>
 #include <device/device.h>
 #include <memrange.h>
 #include <soc/addressmap.h>

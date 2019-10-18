@@ -15,8 +15,7 @@
  * GNU General Public License for more details.
  */
 
-#include <inttypes.h>
-#include <arch/io.h>
+#include <stdint.h>
 #include <arch/acpi.h>
 #include <arch/cpu.h>
 #include <device/pci.h>
@@ -30,11 +29,19 @@
 
 /* Global allocation of sysinfo_car */
 #include <arch/early_variables.h>
-struct sys_info sysinfo_car CAR_GLOBAL;
+static struct sys_info sysinfo_car CAR_GLOBAL;
+
+struct sys_info *get_sysinfo(void)
+{
+	return car_get_var_ptr(&sysinfo_car);
+}
 
 struct mem_controller;
-extern void activate_spd_rom(const struct mem_controller *ctrl);
 extern int spd_read_byte(unsigned int device, unsigned int address);
+
+void __weak activate_spd_rom(const struct mem_controller *ctrl)
+{
+}
 
 void fam15h_switch_dct(uint32_t dev, uint8_t dct)
 {
@@ -151,8 +158,8 @@ uint16_t mct_MaxLoadFreq(uint8_t count, uint8_t highest_rank_count, uint8_t regi
 	uint8_t MaxDimmsInstallable = 2;
 
 	/* Return limited maximum RAM frequency */
-	if (IS_ENABLED(CONFIG_DIMM_DDR2)) {
-		if (IS_ENABLED(CONFIG_DIMM_REGISTERED) && registered) {
+	if (CONFIG(DIMM_DDR2)) {
+		if (CONFIG(DIMM_REGISTERED) && registered) {
 			/* K10 BKDG Rev. 3.62 Table 53 */
 			if (count > 2) {
 				/* Limit to DDR2-533 */
@@ -171,7 +178,7 @@ uint16_t mct_MaxLoadFreq(uint8_t count, uint8_t highest_rank_count, uint8_t regi
 				}
 			}
 		}
-	} else if (IS_ENABLED(CONFIG_DIMM_DDR3)) {
+	} else if (CONFIG(DIMM_DDR3)) {
 		if (voltage == 0) {
 			printk(BIOS_DEBUG, "%s: WARNING: Mainboard DDR3 voltage unknown, assuming 1.5V!\n", __func__);
 			voltage = 0x1;
@@ -180,7 +187,7 @@ uint16_t mct_MaxLoadFreq(uint8_t count, uint8_t highest_rank_count, uint8_t regi
 		if (is_fam15h()) {
 			if (CONFIG_CPU_SOCKET_TYPE == 0x15) {
 				/* Socket G34 */
-				if (IS_ENABLED(CONFIG_DIMM_REGISTERED) && registered) {
+				if (CONFIG(DIMM_REGISTERED) && registered) {
 					/* Fam15h BKDG Rev. 3.14 Table 27 */
 					if (voltage & 0x4) {
 						/* 1.25V */
@@ -318,7 +325,7 @@ uint16_t mct_MaxLoadFreq(uint8_t count, uint8_t highest_rank_count, uint8_t regi
 				}
 			} else if (CONFIG_CPU_SOCKET_TYPE == 0x14) {
 				/* Socket C32 */
-				if (IS_ENABLED(CONFIG_DIMM_REGISTERED) && registered) {
+				if (CONFIG(DIMM_REGISTERED) && registered) {
 					/* Fam15h BKDG Rev. 3.14 Table 30 */
 					if (voltage & 0x4) {
 						/* 1.25V */
@@ -487,7 +494,7 @@ uint16_t mct_MaxLoadFreq(uint8_t count, uint8_t highest_rank_count, uint8_t regi
 				 */
 			}
 		} else {
-			if (IS_ENABLED(CONFIG_DIMM_REGISTERED) && registered) {
+			if (CONFIG(DIMM_REGISTERED) && registered) {
 				/* K10 BKDG Rev. 3.62 Table 34 */
 				if (count > 2) {
 					/* Limit to DDR3-800 */
@@ -549,7 +556,7 @@ void mctGet_DIMMAddr(struct DCTStatStruc *pDCTstat, u32 node)
 
 }
 
-#if IS_ENABLED(CONFIG_SET_FIDVID)
+#if CONFIG(SET_FIDVID)
 u8 mctGetProcessorPackageType(void) {
 	/* FIXME: I guess this belongs wherever mctGetLogicalCPUID ends up ? */
 	u32 BrandId = cpuid_ebx(0x80000001);
@@ -602,7 +609,7 @@ void amdmct_cbmem_store_info(struct sys_info *sysinfo)
 		mem_info->ecc_scrub_rate = mctGet_NVbits(NV_DramBKScrub);
 
 		/* Zero out invalid/unused pointers */
-#if IS_ENABLED(CONFIG_DIMM_DDR3)
+#if CONFIG(DIMM_DDR3)
 		for (i = 0; i < MAX_NODES_SUPPORTED; i++) {
 			mem_info->dct_stat[i].C_MCTPtr = NULL;
 			mem_info->dct_stat[i].C_DCTPtr[0] = NULL;

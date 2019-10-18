@@ -13,8 +13,10 @@
  * GNU General Public License for more details.
  */
 
+#include <console/console.h>
 #include <cpu/x86/cr.h>
 #include <cpu/amd/msr.h>
+
 #include "mct_d.h"
 
 /*
@@ -120,7 +122,7 @@ static void maxRdLatencyTrain_D(struct MCTStatStruc *pMCTstat,
 	u32 PatternBuffer[60];	// FIXME: why not 48 + 4
 	u32 Margin;
 	u32 addr;
-	u32 cr4;
+	CRx_TYPE cr4;
 	u32 lo, hi;
 
 	u8 valid;

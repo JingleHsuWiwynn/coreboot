@@ -13,7 +13,6 @@
  * GNU General Public License for more details.
  */
 
-#include <chip.h>
 #include <bootstate.h>
 #include <console/console.h>
 #include <cpu/amd/mtrr.h>
@@ -29,6 +28,8 @@
 #include <amdblocks/psp.h>
 #include <amdblocks/agesawrapper.h>
 #include <amdblocks/agesawrapper_call.h>
+
+#include "chip.h"
 
 /* Supplied by i2c.c */
 extern struct device_operations stoneyridge_i2c_mmio_ops;
@@ -159,16 +160,15 @@ static void earliest_ramstage(void *unused)
 			romstage_handoff_is_resume();
 	if (!s3_resume) {
 		post_code(0x46);
-		if (IS_ENABLED(CONFIG_SOC_AMD_PSP_SELECTABLE_SMU_FW))
+		if (CONFIG(SOC_AMD_PSP_SELECTABLE_SMU_FW))
 			psp_load_named_blob(MBOX_BIOS_CMD_SMU_FW2, "smu_fw2");
 
 		post_code(0x47);
-		do_agesawrapper(agesawrapper_amdinitenv, "amdinitenv");
+		do_agesawrapper(AMD_INIT_ENV, "amdinitenv");
 	} else {
 		/* Complete the initial system restoration */
 		post_code(0x46);
-		do_agesawrapper(agesawrapper_amds3laterestore,
-						"amds3laterestore");
+		do_agesawrapper(AMD_S3LATE_RESTORE, "amds3laterestore");
 	}
 }
 

@@ -25,6 +25,7 @@
 #include <device/pci_ops.h>
 #include <pc80/mc146818rtc.h>
 #include <cpu/amd/model_10xxx_rev.h>
+#include <types.h>
 
 #include "amdfam10.h"
 
@@ -74,7 +75,7 @@ static void nb_control_init(struct device *dev)
 
 		enable_c_states = 0;
 		enable_cc6 = 0;
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 		uint8_t nvram;
 
 		if (get_option(&nvram, "cpu_c_states") == CB_SUCCESS)

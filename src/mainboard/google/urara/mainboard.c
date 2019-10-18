@@ -13,7 +13,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include <arch/io.h>
 #include <symbols.h>
 #include <console/console.h>
 #include <device/device.h>
@@ -23,7 +22,7 @@
 
 static void mainboard_init(struct device *dev)
 {
-#if IS_ENABLED(CONFIG_CHROMEOS)
+#if CONFIG(CHROMEOS)
 	/* Copy WIFI calibration data into CBMEM. */
 	cbmem_add_vpd_calibration_data();
 #endif
@@ -44,12 +43,12 @@ void lb_board(struct lb_header *header)
 	struct lb_range *dma;
 
 	dma = (struct lb_range *)lb_new_record(header);
-	dma->tag = LB_TAB_DMA;
+	dma->tag = LB_TAG_DMA;
 	dma->size = sizeof(*dma);
 	dma->range_start = (uintptr_t)_dma_coherent;
-	dma->range_size = _dma_coherent_size;
+	dma->range_size = REGION_SIZE(dma_coherent);
 
-#if IS_ENABLED(CONFIG_CHROMEOS)
+#if CONFIG(CHROMEOS)
 	/* Retrieve the switch interface MAC addresses. */
 	lb_table_add_macs_from_vpd(header);
 #endif

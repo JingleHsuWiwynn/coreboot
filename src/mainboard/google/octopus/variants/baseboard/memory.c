@@ -178,16 +178,11 @@ static const struct lpddr4_sku cbi_skus[] = {
 		.ch0_rank_density = LP4_8Gb_DENSITY,
 		.ch0_dual_rank = 1,
 	},
-	/* Single Channel Configs 4GiB System Capacity Ch1 populated. */
-	[5] = {
+	/* Dual Channel Config 6GiB System Capacity */
+	[7] = {
 		.speed = LP4_SPEED_2400,
-		.ch1_rank_density = LP4_16Gb_DENSITY,
-	},
-	/* Single Channel Configs 4GiB System Capacity Ch1 populated. */
-	[6] = {
-		.speed = LP4_SPEED_2400,
-		.ch1_rank_density = LP4_8Gb_DENSITY,
-		.ch1_dual_rank = 1,
+		.ch0_rank_density = LP4_12Gb_DENSITY,
+		.ch1_rank_density = LP4_12Gb_DENSITY,
 	},
 };
 
@@ -199,12 +194,9 @@ static const struct lpddr4_cfg cbi_lp4cfg = {
 
 const struct lpddr4_cfg *__weak variant_lpddr4_config(void)
 {
-	if (!IS_ENABLED(CONFIG_DRAM_PART_NUM_IN_CBI))
-		return &non_cbi_lp4cfg;
-
-	if (!IS_ENABLED(CONFIG_DRAM_PART_NUM_ALWAYS_IN_CBI)) {
+	if (CONFIG(DRAM_PART_NUM_NOT_ALWAYS_IN_CBI)) {
 		/* Fall back non cbi memory config. */
-		if (board_id() < CONFIG_DRAM_PART_IN_CBI_BOARD_ID_MIN)
+		if ((int)board_id() < CONFIG_DRAM_PART_IN_CBI_BOARD_ID_MIN)
 			return &non_cbi_lp4cfg;
 	}
 

@@ -3,15 +3,13 @@
 
 #include <stdint.h>
 
-#if IS_ENABLED(CONFIG_TSC_SYNC_MFENCE)
+#if CONFIG(TSC_SYNC_MFENCE)
 #define TSC_SYNC "mfence\n"
-#elif IS_ENABLED(CONFIG_TSC_SYNC_LFENCE)
+#elif CONFIG(TSC_SYNC_LFENCE)
 #define TSC_SYNC "lfence\n"
 #else
 #define TSC_SYNC
 #endif
-
-#define MSR_PLATFORM_INFO 0xce
 
 struct tsc_struct {
 	unsigned int lo;

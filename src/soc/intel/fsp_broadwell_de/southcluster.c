@@ -18,6 +18,7 @@
 
 #include <stdint.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
@@ -26,13 +27,14 @@
 #include <pc80/i8254.h>
 #include <pc80/i8259.h>
 #include <pc80/isa-dma.h>
-#include <romstage_handoff.h>
 #include <soc/iomap.h>
 #include <soc/irq.h>
 #include <soc/lpc.h>
 #include <soc/pci_devs.h>
 #include <soc/ramstage.h>
-#include <chip.h>
+#include <soc/acpi.h>
+#include <soc/ubox.h>
+#include "chip.h"
 
 typedef struct soc_intel_fsp_broadwell_de_config config_t;
 
@@ -227,7 +229,7 @@ static void sc_init(struct device *dev)
 
 	/* Program Serial IRQ register. */
 	pci_write_config8(dev, SIRQ_CNTL, SIRQ_EN | SIRQ_MODE_CONT);
-	if (!IS_ENABLED(CONFIG_SERIRQ_CONTINUOUS_MODE)) {
+	if (!CONFIG(SERIRQ_CONTINUOUS_MODE)) {
 		/* If SERIRQ have to operate in quiet mode, it should have been
 		   run in continuous mode for at least one frame first. Use I/O
 		   access to achieve the delay of at least one LPC cycle. */
@@ -249,23 +251,23 @@ void southcluster_enable_dev(struct device *dev)
 {
 	uint32_t reg32;
 
-	if (!dev->enabled) {
-		int slot = PCI_SLOT(dev->path.pci.devfn);
-		int func = PCI_FUNC(dev->path.pci.devfn);
-		printk(BIOS_DEBUG, "%s: Disabling device: %02x.%01x\n",
-		       dev_path(dev), slot, func);
+	if (dev->enabled)
+		return;
 
-		/* Ensure memory, io, and bus master are all disabled */
-		reg32 = pci_read_config32(dev, PCI_COMMAND);
-		reg32 &= ~(PCI_COMMAND_MASTER | PCI_COMMAND_MEMORY | PCI_COMMAND_IO);
-		pci_write_config32(dev, PCI_COMMAND, reg32);
-	}
+	const int slot = PCI_SLOT(dev->path.pci.devfn);
+	const int func = PCI_FUNC(dev->path.pci.devfn);
+
+	printk(BIOS_DEBUG, "%s: Disabling device: %02x.%01x\n", dev_path(dev), slot, func);
+	/* Ensure memory, io, and bus master are all disabled */
+	reg32 = pci_read_config32(dev, PCI_COMMAND);
+	reg32 &= ~(PCI_COMMAND_MASTER | PCI_COMMAND_MEMORY | PCI_COMMAND_IO);
+	pci_write_config32(dev, PCI_COMMAND, reg32);
 }
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 static const char *lpc_acpi_name(const struct device *dev)
 {
-	if (dev->path.pci.devfn == LPC_DEV_FUNC)
+	if (dev->path.pci.devfn == PCH_DEVFN_LPC)
 		return "LPC0";
 	else
 		return NULL;
@@ -276,11 +278,12 @@ static struct device_operations device_ops = {
 	.read_resources   = sc_read_resources,
 	.set_resources    = pci_dev_set_resources,
 	.enable_resources = NULL,
+	.write_acpi_tables = southcluster_write_acpi_tables,
 	.init             = sc_init,
 	.enable           = southcluster_enable_dev,
-	.scan_bus         = scan_lpc_bus,
+	.scan_bus         = scan_static_bus,
 	.ops_pci          = &soc_pci_ops,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_name        = lpc_acpi_name,
 #endif
 };

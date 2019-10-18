@@ -22,7 +22,13 @@ ramstage-y += bootmode.c
 verstage-y += bootmode.c
 postcar-y += bootmode.c
 
-verstage-generic-ccopts += -D__PRE_RAM__ -D__VERSTAGE__
+# When VBOOT_STARTS_IN_ROMSTAGE is selected, DRAM is already up by
+# the time verstage runs.
+ifneq ($(CONFIG_VBOOT_STARTS_IN_ROMSTAGE),y)
+verstage-generic-ccopts += -D__PRE_RAM__
+endif
+
+verstage-generic-ccopts += -D__VERSTAGE__
 
 ramstage-y += gbb.c
 
@@ -63,6 +69,14 @@ romstage-y += vboot_common.c
 ramstage-y += vboot_common.c
 postcar-y += vboot_common.c
 
+ifeq ($(CONFIG_VBOOT_MEASURED_BOOT),y)
+bootblock-y += vboot_crtm.c
+verstage-y += vboot_crtm.c
+romstage-y += vboot_crtm.c
+ramstage-y += vboot_crtm.c
+postcar-y += vboot_crtm.c
+endif
+
 bootblock-y += common.c
 verstage-y += vboot_logic.c
 verstage-y += common.c
@@ -74,7 +88,13 @@ else
 verstage-y += secdata_tpm.c
 romstage-$(CONFIG_VBOOT_SEPARATE_VERSTAGE) += secdata_tpm.c
 endif
-romstage-y += vboot_handoff.c common.c
+
+ifneq ($(CONFIG_TPM1)$(CONFIG_TPM2),)
+verstage-y += tpm_common.c
+endif
+
+romstage-y += vboot_logic.c
+romstage-y += common.c
 
 ramstage-y += common.c
 postcar-y += common.c
@@ -135,6 +155,7 @@ $(CONFIG_CBFS_PREFIX)/verstage-options += --xip
 endif
 
 endif
+$(CONFIG_CBFS_PREFIX)/verstage-options += $(TXTIBB)
 
 else # CONFIG_VBOOT_SEPARATE_VERSTAGE
 ifeq ($(CONFIG_VBOOT_STARTS_IN_BOOTBLOCK),y)
@@ -200,7 +221,6 @@ GBB_FLAGS := $(call int-add, \
 	$(call bool-to-mask,$(CONFIG_GBB_FLAG_DEFAULT_DEV_BOOT_LEGACY),0x400) \
 	$(call bool-to-mask,$(CONFIG_GBB_FLAG_DISABLE_PD_SOFTWARE_SYNC),0x800) \
 	$(call bool-to-mask,$(CONFIG_GBB_FLAG_DISABLE_LID_SHUTDOWN),0x1000) \
-	$(call bool-to-mask,$(CONFIG_GBB_FLAG_FORCE_DEV_BOOT_FASTBOOT_FULL_CAP),0x2000) \
 	$(call bool-to-mask,$(CONFIG_GBB_FLAG_FORCE_MANUAL_RECOVERY),0x4000) \
 	$(call bool-to-mask,$(CONFIG_GBB_FLAG_DISABLE_FWMP),0x8000) \
 	)
@@ -218,6 +238,11 @@ $(obj)/gbb.stub: $(obj)/coreboot.rom $(FUTILITY)
 	@printf "    CREATE GBB (without BMPFV)\n"
 	$(FUTILITY) gbb_utility -c 0x100,0x1000,0,0x1000 $@.tmp
 	mv $@.tmp $@
+endif
+
+# Generate a test-only HWID
+ifeq ($(CONFIG_GBB_HWID),)
+CONFIG_GBB_HWID := $$($(top)/util/chromeos/gen_test_hwid.sh "$(CONFIG_MAINBOARD_PART_NUMBER)")
 endif
 
 $(obj)/gbb.region: $(obj)/gbb.stub

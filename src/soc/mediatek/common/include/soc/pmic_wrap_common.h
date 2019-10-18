@@ -16,9 +16,7 @@
 #ifndef SOC_MEDIATEK_PMIC_WRAP_COMMON_H
 #define SOC_MEDIATEK_PMIC_WRAP_COMMON_H
 
-#include <arch/io.h>
 #include <console/console.h>
-#include <timer.h>
 
 #define PWRAPTAG                "[PWRAP] "
 #define pwrap_err(fmt, arg ...) printk(BIOS_ERR, PWRAPTAG "ERROR,line=%d" fmt, \

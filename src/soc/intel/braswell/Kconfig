@@ -14,12 +14,10 @@ config CPU_SPECIFIC_OPTIONS
 	select ARCH_VERSTAGE_X86_32
 	select BOOT_DEVICE_SUPPORTS_WRITES
 	select CACHE_MRC_SETTINGS
-	select CACHE_RELOCATED_RAMSTAGE_OUTSIDE_CBMEM
 	select COLLECT_TIMESTAMPS
 	select SUPPORT_CPU_UCODE_IN_CBFS
 	select MICROCODE_BLOB_NOT_IN_BLOB_REPO
 	select CPU_INTEL_TURBO_NOT_PACKAGE_SCOPED
-	select HAVE_MONOTONIC_TIMER
 	select HAVE_SMI_HANDLER
 	select NO_FIXED_XIP_ROM_SIZE
 	select PARALLEL_MP
@@ -31,8 +29,9 @@ config CPU_SPECIFIC_OPTIONS
 	select RTC
 	select SOC_INTEL_COMMON
 	select SOC_INTEL_COMMON_ACPI_WAKE_SOURCE
+	select SOC_INTEL_COMMON_BLOCK
+	select SOC_INTEL_COMMON_BLOCK_HDA
 	select SOC_INTEL_COMMON_RESET
-	select SMM_TSEG
 	select SMP
 	select SPI_FLASH
 	select SSE2
@@ -48,13 +47,23 @@ config CPU_SPECIFIC_OPTIONS
 	select INTEL_GMA_ACPI
 	select INTEL_GMA_SWSMISCI
 	select CPU_INTEL_COMMON
+	select SOUTHBRIDGE_INTEL_COMMON_SMBUS
+	select C_ENVIRONMENT_BOOTBLOCK
+
+config DCACHE_BSP_STACK_SIZE
+	hex
+	default 0x2000
+	help
+	  The amount of anticipated stack usage in CAR by bootblock and
+	  other stages.
+
+config C_ENV_BOOTBLOCK_SIZE
+	hex
+	default 0x8000
 
 config VBOOT
+	select VBOOT_MUST_REQUEST_DISPLAY
 	select VBOOT_STARTS_IN_ROMSTAGE
-
-config BOOTBLOCK_CPU_INIT
-	string
-	default "soc/intel/braswell/bootblock/bootblock.c"
 
 config MMCONF_BASE_ADDRESS
 	hex
@@ -63,10 +72,6 @@ config MMCONF_BASE_ADDRESS
 config MAX_CPUS
 	int
 	default 4
-
-config CPU_ADDR_BITS
-	int
-	default 36
 
 config SMM_TSEG_SIZE
 	hex
@@ -120,15 +125,25 @@ config ENABLE_BUILTIN_COM1
 	  configure the pads and enable it. This serial port can be used for
 	  the debug console.
 
-config IED_REGION_SIZE
-	hex
-	default 0x400000
-
 config DISABLE_HPET
 	bool "Disable the HPET device"
 	default n
 	help
 	 Enable this to disable the HPET support
 	 Solves the Linux MP-BIOS bug timer not connected.
+
+config USE_GOOGLE_FSP
+	bool
+	help
+	 Select this to use Google's custom Braswell FSP header/binary
+	 instead of the public release on Github. Only google/cyan
+	 variants require this; all other boards should use the public release.
+
+config FSP_HEADER_PATH
+	string
+	default "$(src)/vendorcode/intel/fsp/fsp1_1/braswell" if USE_GOOGLE_FSP
+	default "3rdparty/fsp/BraswellFspBinPkg/Include/"
+	help
+	 Location of FSP header file FspUpdVpd.h
 
 endif

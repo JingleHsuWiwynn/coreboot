@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2013 Google Inc.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2 of
@@ -16,6 +14,7 @@
 
 #include <console/console.h>
 #include <stdint.h>
+#include <string.h>
 #include <rmodule.h>
 #include <arch/cpu.h>
 #include <commonlib/helpers.h>
@@ -35,6 +34,7 @@
 #include <smp/atomic.h>
 #include <smp/spinlock.h>
 #include <symbols.h>
+#include <timer.h>
 #include <thread.h>
 
 #define MAX_APIC_IDS 256
@@ -133,20 +133,8 @@ struct mp_flight_plan {
 static int global_num_aps;
 static struct mp_flight_plan mp_info;
 
-struct cpu_map {
-	struct device *dev;
-	/* Keep track of default apic ids for SMM. */
-	int default_apic_id;
-};
-
-/* Keep track of APIC and device structure for each CPU. */
-static struct cpu_map cpus[CONFIG_MAX_CPUS];
-
-static inline void add_cpu_map_entry(const struct cpu_info *info)
-{
-	cpus[info->index].dev = info->cpu;
-	cpus[info->index].default_apic_id = cpuid_ebx(1) >> 24;
-}
+/* Keep track of device structure for each CPU. */
+static struct device *cpus_dev[CONFIG_MAX_CPUS];
 
 static inline void barrier_wait(atomic_t *b)
 {
@@ -210,9 +198,9 @@ static void asmlinkage ap_init(unsigned int cpu)
 
 	info = cpu_info();
 	info->index = cpu;
-	info->cpu = cpus[cpu].dev;
+	info->cpu = cpus_dev[cpu];
 
-	add_cpu_map_entry(info);
+	cpu_add_map_entry(info->index);
 	thread_init_cpu_info_non_bsp(info);
 
 	/* Fix up APIC id with reality. */
@@ -331,7 +319,7 @@ static atomic_t *load_sipi_vector(struct mp_params *mp_params)
 	module_size = rmodule_memory_size(&sipi_mod);
 
 	/* Align to 4 bytes. */
-	module_size = ALIGN(module_size, 4);
+	module_size = ALIGN_UP(module_size, 4);
 
 	if (module_size > loc_size) {
 		printk(BIOS_CRIT, "SIPI module size (%d) > region size (%d).\n",
@@ -409,7 +397,7 @@ static int allocate_cpu_devices(struct bus *cpu_bus, struct mp_params *p)
 			continue;
 		}
 		new->name = processor_name;
-		cpus[i].dev = new;
+		cpus_dev[i] = new;
 	}
 
 	return max_cpus;
@@ -491,6 +479,9 @@ static int start_aps(struct bus *cpu_bus, int ap_count, atomic_t *num_aps)
 
 	/* Wait for CPUs to check in up to 200 us. */
 	wait_for_aps(num_aps, ap_count, 200 /* us */, 15 /* us */);
+
+	if (CONFIG(X86_AMD_INIT_SIPI))
+		return 0;
 
 	/* Send 2nd SIPI */
 	if ((lapic_read(LAPIC_ICR) & LAPIC_ICR_BUSY)) {
@@ -587,7 +578,7 @@ static void init_bsp(struct bus *cpu_bus)
 		printk(BIOS_CRIT, "BSP index(%d) != 0!\n", info->index);
 
 	/* Track BSP in cpu_map structures. */
-	add_cpu_map_entry(info);
+	cpu_add_map_entry(info->index);
 }
 
 /*
@@ -665,15 +656,6 @@ static void mp_initialize_cpu(void)
 	cpu_initialize(info->index);
 }
 
-/* Returns APIC id for coreboot CPU number or < 0 on failure. */
-int mp_get_apic_id(int logical_cpu)
-{
-	if (logical_cpu >= CONFIG_MAX_CPUS || logical_cpu < 0)
-		return -1;
-
-	return cpus[logical_cpu].default_apic_id;
-}
-
 void smm_initiate_relocation_parallel(void)
 {
 	if ((lapic_read(LAPIC_ICR) & LAPIC_ICR_BUSY)) {
@@ -714,7 +696,7 @@ struct mp_state {
 
 static int is_smm_enabled(void)
 {
-	return IS_ENABLED(CONFIG_HAVE_SMI_HANDLER) && mp_state.do_smm;
+	return CONFIG(HAVE_SMI_HANDLER) && mp_state.do_smm;
 }
 
 static void smm_disable(void)
@@ -724,7 +706,7 @@ static void smm_disable(void)
 
 static void smm_enable(void)
 {
-	if (IS_ENABLED(CONFIG_HAVE_SMI_HANDLER))
+	if (CONFIG(HAVE_SMI_HANDLER))
 		mp_state.do_smm = 1;
 }
 
@@ -767,7 +749,7 @@ static void adjust_smm_apic_id_map(struct smm_loader_params *smm_params)
 	struct smm_runtime *runtime = smm_params->runtime;
 
 	for (i = 0; i < CONFIG_MAX_CPUS; i++)
-		runtime->apic_id_to_cpu[i] = mp_get_apic_id(i);
+		runtime->apic_id_to_cpu[i] = cpu_get_apic_id(i);
 }
 
 static int install_relocation_handler(int num_cpus, size_t save_state_size)
@@ -889,10 +871,17 @@ static int run_ap_work(struct mp_callback *val, long expire_us)
 	int i;
 	int cpus_accepted;
 	struct stopwatch sw;
-	int cur_cpu = cpu_index();
+	int cur_cpu;
 
-	if (!IS_ENABLED(CONFIG_PARALLEL_MP_AP_WORK)) {
+	if (!CONFIG(PARALLEL_MP_AP_WORK)) {
 		printk(BIOS_ERR, "APs already parked. PARALLEL_MP_AP_WORK not selected.\n");
+		return -1;
+	}
+
+	cur_cpu = cpu_index();
+
+	if (cur_cpu < 0) {
+		printk(BIOS_ERR, "Invalid CPU index.\n");
 		return -1;
 	}
 
@@ -922,7 +911,7 @@ static int run_ap_work(struct mp_callback *val, long expire_us)
 			return 0;
 	} while (expire_us <= 0 || !stopwatch_expired(&sw));
 
-	printk(BIOS_ERR, "AP call expired. %d/%d CPUs accepted.\n",
+	printk(BIOS_CRIT, "CIRTICAL ERROR: AP call expired. %d/%d CPUs accepted.\n",
 		cpus_accepted, global_num_aps);
 	return -1;
 }
@@ -933,10 +922,16 @@ static void ap_wait_for_instruction(void)
 	struct mp_callback **per_cpu_slot;
 	int cur_cpu;
 
-	if (!IS_ENABLED(CONFIG_PARALLEL_MP_AP_WORK))
+	if (!CONFIG(PARALLEL_MP_AP_WORK))
 		return;
 
 	cur_cpu = cpu_index();
+
+	if (cur_cpu < 0) {
+		printk(BIOS_ERR, "Invalid CPU index.\n");
+		return;
+	}
+
 	per_cpu_slot = &ap_callbacks[cur_cpu];
 
 	while (1) {
@@ -967,12 +962,13 @@ int mp_run_on_aps(void (*func)(void *), void *arg, int logical_cpu_num,
 	return run_ap_work(&lcb, expire_us);
 }
 
-int mp_run_on_all_cpus(void (*func)(void *), void *arg, long expire_us)
+int mp_run_on_all_cpus(void (*func)(void *), void *arg)
 {
 	/* Run on BSP first. */
 	func(arg);
 
-	return mp_run_on_aps(func, arg, MP_RUN_ON_ALL_CPUS, expire_us);
+	/* For up to 1 second for AP to finish previous work. */
+	return mp_run_on_aps(func, arg, MP_RUN_ON_ALL_CPUS, 1000 * USECS_PER_MSEC);
 }
 
 int mp_park_aps(void)
@@ -984,7 +980,7 @@ int mp_park_aps(void)
 	stopwatch_init(&sw);
 
 	ret = mp_run_on_aps(park_this_cpu, NULL, MP_RUN_ON_ALL_CPUS,
-				250 * USECS_PER_MSEC);
+				1000 * USECS_PER_MSEC);
 
 	duration_msecs = stopwatch_duration_msecs(&sw);
 
@@ -1028,7 +1024,7 @@ static void fill_mp_state(struct mp_state *state, const struct mp_ops *ops)
 	 * Default to smm_initiate_relocation() if trigger callback isn't
 	 * provided.
 	 */
-	if (IS_ENABLED(CONFIG_HAVE_SMI_HANDLER) &&
+	if (CONFIG(HAVE_SMI_HANDLER) &&
 		ops->per_cpu_smm_trigger == NULL)
 		mp_state.ops.per_cpu_smm_trigger = smm_initiate_relocation;
 }

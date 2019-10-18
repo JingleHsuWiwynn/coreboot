@@ -14,8 +14,8 @@
  */
 
 #include <stdint.h>
-#include <string.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/device.h>
 #include <device/pci.h>
 
@@ -24,7 +24,7 @@
 
 static u16 get_gpio_base(void)
 {
-#if defined(__PRE_RAM__) || defined(__SMM__)
+#ifdef __SIMPLE_DEVICE__
 	return pci_read_config16(PCH_LPC_DEV, GPIO_BASE) & 0xfffc;
 #else
 	return pci_read_config16(pcidev_on_root(0x1f, 0),

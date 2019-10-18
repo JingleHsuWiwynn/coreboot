@@ -15,29 +15,29 @@
 
 #include <arch/acpi.h>
 #include <baseboard/variants.h>
+#include <boot/coreboot_tables.h>
 #include <gpio.h>
 #include <soc/gpio.h>
 #include <vendorcode/google/chromeos/chromeos.h>
 
 #include <variant/gpio.h>
 
-#if ENV_RAMSTAGE
-#include <boot/coreboot_tables.h>
 
 void fill_lb_gpios(struct lb_gpios *gpios)
 {
 	struct lb_gpio chromeos_gpios[] = {
 		{-1, ACTIVE_HIGH, get_write_protect_state(), "write protect"},
-		{-1, ACTIVE_HIGH, get_recovery_mode_switch(), "recovery"},
 		{-1, ACTIVE_HIGH, get_lid_switch(), "lid"},
 		{-1, ACTIVE_HIGH, 0, "power"},
 		{-1, ACTIVE_HIGH, gfx_get_init_done(), "oprom"},
 		{GPIO_EC_IN_RW, ACTIVE_HIGH, gpio_get(GPIO_EC_IN_RW),
 		 "EC in RW"},
+#ifdef EC_SYNC_GPIO
+		{EC_SYNC_GPIO, ACTIVE_LOW, gpio_get(EC_SYNC_GPIO), "EC sync gpio"},
+#endif
 	};
 	lb_add_gpios(gpios, chromeos_gpios, ARRAY_SIZE(chromeos_gpios));
 }
-#endif /* ENV_RAMSTAGE */
 
 int get_write_protect_state(void)
 {

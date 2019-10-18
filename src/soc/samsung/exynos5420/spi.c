@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <assert.h>
 #include <console/console.h>
 #include <soc/cpu.h>
@@ -206,7 +206,7 @@ static void spi_ctrlr_release_bus(const struct spi_slave *slave)
 
 static int spi_ctrlr_setup(const struct spi_slave *slave)
 {
-	ASSERT(slave->bus >= 0 && slave->bus < 3);
+	ASSERT(slave->bus < 3);
 	struct exynos_spi_slave *eslave;
 
 	eslave = to_exynos_spi(slave);
@@ -287,7 +287,7 @@ void exynos_init_spi_boot_device(void)
 {
 	boot_slave = &exynos_spi_slaves[1];
 
-	mmap_helper_device_init(&mdev, _cbfs_cache, _cbfs_cache_size);
+	mmap_helper_device_init(&mdev, _cbfs_cache, REGION_SIZE(cbfs_cache));
 }
 
 const struct region_device *exynos_spi_boot_device(void)

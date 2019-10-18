@@ -55,14 +55,12 @@ static const struct spi_flash_ops spi_flash_ops_write_ai = {
 	.write = sst_write_ai,
 	.erase = spi_flash_cmd_erase,
 	.status = spi_flash_cmd_status,
-	.read = spi_flash_cmd_read_fast,
 };
 
 static const struct spi_flash_ops spi_flash_ops_write_256 = {
 	.write = sst_write_256,
 	.erase = spi_flash_cmd_erase,
 	.status = spi_flash_cmd_status,
-	.read = spi_flash_cmd_read_fast,
 };
 
 #define SST_SECTOR_SIZE (4 * 1024)
@@ -168,7 +166,7 @@ sst_byte_write(const struct spi_flash *flash, u32 offset, const void *buf)
 		offset,
 	};
 
-#if IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)
+#if CONFIG(DEBUG_SPI_FLASH)
 	printk(BIOS_SPEW, "BP[%02x]: 0x%p => cmd = { 0x%02x 0x%06x }\n",
 		spi_w8r8(&flash->spi, CMD_SST_RDSR), buf, cmd[0], offset);
 #endif
@@ -181,13 +179,13 @@ sst_byte_write(const struct spi_flash *flash, u32 offset, const void *buf)
 	if (ret)
 		return ret;
 
-	return spi_flash_cmd_wait_ready(flash, SPI_FLASH_PROG_TIMEOUT);
+	return spi_flash_cmd_wait_ready(flash, SPI_FLASH_PROG_TIMEOUT_MS);
 }
 
 static int sst_write_256(const struct spi_flash *flash, u32 offset, size_t len,
 			const void *buf)
 {
-	size_t actual, chunk_len, cmd_len;
+	size_t actual, chunk_len;
 	unsigned long byte_addr;
 	unsigned long page_size;
 	int ret = 0;
@@ -208,7 +206,6 @@ static int sst_write_256(const struct spi_flash *flash, u32 offset, size_t len,
 	if (ret)
 		goto done;
 
-	cmd_len = 4;
 	cmd[0] = CMD_SST_AAI_WP;
 	cmd[1] = offset >> 16;
 	cmd[2] = offset >> 8;
@@ -223,7 +220,7 @@ static int sst_write_256(const struct spi_flash *flash, u32 offset, size_t len,
 		cmd[1] = (offset >> 16) & 0xff;
 		cmd[2] = (offset >> 8) & 0xff;
 		cmd[3] = offset & 0xff;
-#if IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)
+#if CONFIG(DEBUG_SPI_FLASH)
 		printk(BIOS_SPEW, "PP: 0x%p => cmd = { 0x%02x 0x%02x%02x%02x }"
 		     " chunk_len = %zu\n",
 		     buf + actual, cmd[0], cmd[1], cmd[2], cmd[3], chunk_len);
@@ -242,7 +239,8 @@ static int sst_write_256(const struct spi_flash *flash, u32 offset, size_t len,
 			break;
 		}
 
-		ret = spi_flash_cmd_wait_ready(flash, SPI_FLASH_PROG_TIMEOUT);
+		ret = spi_flash_cmd_wait_ready(flash,
+				SPI_FLASH_PROG_TIMEOUT_MS);
 		if (ret)
 			break;
 
@@ -250,7 +248,7 @@ static int sst_write_256(const struct spi_flash *flash, u32 offset, size_t len,
 	}
 
 done:
-#if IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)
+#if CONFIG(DEBUG_SPI_FLASH)
 	printk(BIOS_SPEW, "SF: SST: program %s %zu bytes @ 0x%lx\n",
 	      ret ? "failure" : "success", len, (unsigned long)offset - actual);
 #endif
@@ -284,7 +282,7 @@ static int sst_write_ai(const struct spi_flash *flash, u32 offset, size_t len,
 	cmd[3] = offset;
 
 	for (; actual < len - 1; actual += 2) {
-#if IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)
+#if CONFIG(DEBUG_SPI_FLASH)
 		printk(BIOS_SPEW, "WP[%02x]: 0x%p => cmd = { 0x%02x 0x%06x }\n",
 		     spi_w8r8(&flash->spi, CMD_SST_RDSR), buf + actual, cmd[0],
 		     offset);
@@ -297,7 +295,8 @@ static int sst_write_ai(const struct spi_flash *flash, u32 offset, size_t len,
 			break;
 		}
 
-		ret = spi_flash_cmd_wait_ready(flash, SPI_FLASH_PROG_TIMEOUT);
+		ret = spi_flash_cmd_wait_ready(flash,
+				SPI_FLASH_PROG_TIMEOUT_MS);
 		if (ret)
 			break;
 
@@ -313,7 +312,7 @@ static int sst_write_ai(const struct spi_flash *flash, u32 offset, size_t len,
 		ret = sst_byte_write(flash, offset, buf + actual);
 
 done:
-#if IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)
+#if CONFIG(DEBUG_SPI_FLASH)
 	printk(BIOS_SPEW, "SF: SST: program %s %zu bytes @ 0x%lx\n",
 	      ret ? "failure" : "success", len, (unsigned long)offset - actual);
 #endif

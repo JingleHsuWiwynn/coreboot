@@ -44,7 +44,7 @@ chip soc/intel/apollolake
 	register "emmc_rx_cmd_data_cntl2" = "0x10008"
 
 	# 0:HS400(Default), 1:HS200, 2:DDR50
-	register "emmc_host_max_speed" = "2"
+	register "emmc_host_max_speed" = "1"
 
 	# Intel Common SoC Config
 	#+-------------------+---------------------------+
@@ -68,7 +68,7 @@ chip soc/intel/apollolake
 		device pci 0d.1 off end	# - PMC
 		device pci 0d.2 on  end	# - SPI
 		device pci 0d.3 off end	# - Shared SRAM
-		device pci 0e.0 off end	# - Audio
+		device pci 0e.0 on  end	# - Audio
 		device pci 11.0 on  end	# - ISH
 		device pci 12.0 on  end	# - SATA
 		device pci 13.0 on  end	# - RP 2 - PCIe A 0 - MACPHY

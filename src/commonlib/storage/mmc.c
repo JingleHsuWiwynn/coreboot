@@ -1,12 +1,5 @@
 /*
- * Copyright 2008, Freescale Semiconductor, Inc
- * Andy Fleming
- *
- * Copyright 2013 Google Inc.  All rights reserved.
- * Copyright 2017 Intel Corporation
- *
- * MultiMediaCard (MMC) and eMMC specific support code
- * This code is controller independent
+ * This file is part of the coreboot project.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -17,6 +10,9 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
+ * MultiMediaCard (MMC) and eMMC specific support code
+ * This code is controller independent
  */
 
 #include <commonlib/storage.h>
@@ -127,7 +123,7 @@ int mmc_send_ext_csd(struct sd_mmc_ctrlr *ctrlr, unsigned char *ext_csd)
 
 	rv = ctrlr->send_cmd(ctrlr, &cmd, &data);
 
-	if (!rv && IS_ENABLED(CONFIG_SD_MMC_TRACE)) {
+	if (!rv && CONFIG(SD_MMC_TRACE)) {
 		int i, size;
 
 		size = data.blocks * data.blocksize;

@@ -21,6 +21,9 @@
 #include <cpu/x86/mp.h>
 #include <cpu/x86/msr.h>
 #include <cpu/x86/mtrr.h>
+#include <cpu/x86/smm.h>
+#include <cpu/intel/smm_reloc.h>
+#include <cpu/intel/em64t100_save_state.h>
 #include <cpu/intel/turbo.h>
 #include <device/device.h>
 #include <device/pci.h>
@@ -38,7 +41,6 @@ static struct smm_relocation_attrs relo_attrs;
 static void dnv_configure_mca(void)
 {
 	msr_t msr;
-	int num_banks;
 	struct cpuid_result cpuid_regs;
 
 	/* Check feature flag in CPUID.(EAX=1):EDX[7]==1  MCE
@@ -48,7 +50,6 @@ static void dnv_configure_mca(void)
 		return;
 
 	msr = rdmsr(IA32_MCG_CAP);
-	num_banks = msr.lo & IA32_MCG_CAP_COUNT_MASK;
 	if (msr.lo & IA32_MCG_CAP_CTL_P_MASK) {
 		/* Enable all error logging */
 		msr.lo = msr.hi = 0xffffffff;
@@ -58,7 +59,7 @@ static void dnv_configure_mca(void)
 	/* TODO(adurbin): This should only be done on a cold boot. Also, some
 	   of these banks are core vs package scope. For now every CPU clears
 	   every bank. */
-	mca_configure(NULL);
+	mca_configure();
 }
 
 static void denverton_core_init(struct device *cpu)
@@ -127,9 +128,9 @@ static void relocation_handler(int cpu, uintptr_t curr_smbase,
 static void get_smm_info(uintptr_t *perm_smbase, size_t *perm_smsize,
 			 size_t *smm_save_state_size)
 {
-	void *smm_base;
+	uintptr_t smm_base;
 	size_t smm_size;
-	void *handler_base;
+	uintptr_t handler_base;
 	size_t handler_size;
 
 	/* All range registers are aligned to 4KiB */
@@ -139,12 +140,12 @@ static void get_smm_info(uintptr_t *perm_smbase, size_t *perm_smsize,
 	smm_region(&smm_base, &smm_size);
 	smm_subregion(SMM_SUBREGION_HANDLER, &handler_base, &handler_size);
 
-	relo_attrs.smbase = (uint32_t)smm_base;
+	relo_attrs.smbase = smm_base;
 	relo_attrs.smrr_base = relo_attrs.smbase | MTRR_TYPE_WRBACK;
 	relo_attrs.smrr_mask = ~(smm_size - 1) & rmask;
 	relo_attrs.smrr_mask |= MTRR_PHYS_MASK_VALID;
 
-	*perm_smbase = (uintptr_t)handler_base;
+	*perm_smbase = handler_base;
 	*perm_smsize = handler_size;
 	*smm_save_state_size = sizeof(em64t100_smm_state_save_area_t);
 }
@@ -254,7 +255,7 @@ static void post_mp_init(void)
 	 * Now that all APs have been relocated as well as the BSP let SMIs
 	 * start flowing.
 	 */
-	southcluster_smm_enable_smi();
+	smm_southbridge_enable_smi();
 }
 
 /*
@@ -268,7 +269,7 @@ static const struct mp_ops mp_ops = {
 	.pre_mp_init = pre_mp_init,
 	.get_cpu_count = get_cpu_count,
 	.get_smm_info = get_smm_info,
-	.pre_mp_smm_init = southcluster_smm_clear_state,
+	.pre_mp_smm_init = smm_southbridge_clear_state,
 	.relocation_handler = relocation_handler,
 	.post_mp_init = post_mp_init,
 };

@@ -14,17 +14,11 @@
  * GNU General Public License for more details.
  */
 
-// __PRE_RAM__ means: use "unsigned" for device, not a struct.
-
-#include <arch/io.h>
 #include <console/console.h>
-#include <southbridge/intel/i82801ix/i82801ix.h>
 #include <southbridge/intel/common/gpio.h>
 #include <northbridge/intel/gm45/gm45.h>
 #include <drivers/lenovo/hybrid_graphics/hybrid_graphics.h>
 #include "dock.h"
-
-#define LPC_DEV PCI_DEV(0, 0x1f, 0)
 
 static void hybrid_graphics_init(sysinfo_t *sysinfo)
 {
@@ -37,20 +31,6 @@ static void hybrid_graphics_init(sysinfo_t *sysinfo)
 }
 
 static int dock_err;
-
-void mb_setup_lpc(void)
-{
-	/* Set up SuperIO LPC forwards */
-
-	/* Configure serial IRQs.*/
-	pci_write_config8(LPC_DEV, D31F0_SERIRQ_CNTL, 0xd0);
-	/* Map COMa on 0x3f8, COMb on 0x2f8. */
-	pci_write_config16(LPC_DEV, D31F0_LPC_IODEC, 0x0010);
-	pci_write_config16(LPC_DEV, D31F0_LPC_EN, 0x3f0f);
-	pci_write_config32(LPC_DEV, D31F0_GEN1_DEC, 0x7c1601);
-	pci_write_config32(LPC_DEV, D31F0_GEN2_DEC, 0xc15e1);
-	pci_write_config32(LPC_DEV, D31F0_GEN3_DEC, 0x1c1681);
-}
 
 void mb_setup_superio(void)
 {
@@ -75,7 +55,21 @@ void mb_pre_raminit_setup(sysinfo_t *sysinfo)
 	else
 		dock_info();
 
-	hybrid_graphics_init(sysinfo);
+	if (CONFIG(BOARD_LENOVO_R500)) {
+		int use_integrated = get_gpio(21);
+		printk(BIOS_DEBUG, "R500 variant found with an %s GPU\n",
+		       use_integrated ? "integrated" : "discrete");
+		if (use_integrated) {
+			sysinfo->enable_igd = 1;
+			sysinfo->enable_peg = 0;
+		} else {
+			sysinfo->enable_igd = 0;
+			sysinfo->enable_peg = 1;
+		}
+	} else {
+		hybrid_graphics_init(sysinfo);
+	}
+
 }
 
 void mb_post_raminit_setup(void)

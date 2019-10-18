@@ -72,7 +72,7 @@
 #define SMBUS_IO_BASE		0x0400
 #define SMBUS_SLAVE_ADDR	0x24
 
-#if IS_ENABLED(CONFIG_INTEL_LYNXPOINT_LP)
+#if CONFIG(INTEL_LYNXPOINT_LP)
 #define DEFAULT_PMBASE		0x1000
 #define DEFAULT_GPIOBASE	0x1400
 #define DEFAULT_GPIOSIZE	0x400
@@ -88,13 +88,10 @@
 
 #ifndef __ACPI__
 
-#if defined(__SMM__) && !defined(__ASSEMBLER__)
 void usb_ehci_sleep_prepare(pci_devfn_t dev, u8 slp_typ);
 void usb_ehci_disable(pci_devfn_t dev);
 void usb_xhci_sleep_prepare(pci_devfn_t dev, u8 slp_typ);
 void usb_xhci_route_all(void);
-#endif
-
 
 /* State Machine configuration. */
 #define RCBA_REG_SIZE_MASK 0x8000
@@ -135,7 +132,6 @@ struct rcba_config_instruction
 	u32 or_value;
 };
 
-#if !defined(__ASSEMBLER__)
 void pch_config_rcba(const struct rcba_config_instruction *rcba_config);
 int pch_silicon_revision(void);
 int pch_silicon_id(void);
@@ -169,39 +165,26 @@ void disable_all_gpe(void);
 void enable_gpe(u32 mask);
 void disable_gpe(u32 mask);
 
-#if !defined(__PRE_RAM__) && !defined(__SMM__)
-#include <device/device.h>
-#include "chip.h"
 void pch_enable(struct device *dev);
 void pch_disable_devfn(struct device *dev);
 u32 pch_iobp_read(u32 address);
 void pch_iobp_write(u32 address, u32 data);
 void pch_iobp_update(u32 address, u32 andvalue, u32 orvalue);
-#if IS_ENABLED(CONFIG_ELOG)
 void pch_log_state(void);
-#endif
 void acpi_create_intel_hpet(acpi_hpet_t * hpet);
 void acpi_create_serialio_ssdt(acpi_header_t *ssdt);
 
-/* These helpers are for performing SMM relocation. */
-void southbridge_trigger_smi(void);
-void southbridge_clear_smi_status(void);
-/* The initialization of the southbridge is split into 2 compoments. One is
- * for clearing the state in the SMM registers. The other is for enabling
- * SMIs. They are split so that other work between the 2 actions. */
-void southbridge_smm_clear_state(void);
-void southbridge_smm_enable_smi(void);
-#else
 void enable_smbus(void);
-void enable_usb_bar(void);
+
+#if ENV_ROMSTAGE
 int smbus_read_byte(unsigned device, unsigned address);
-int early_spi_read(u32 offset, u32 size, u8 *buffer);
+#endif
+
+void enable_usb_bar(void);
 int early_pch_init(const void *gpio_map,
                    const struct rcba_config_instruction *rcba_config);
 void pch_enable_lpc(void);
 void mainboard_config_superio(void);
-#endif /* !__PRE_RAM__ && !__SMM__ */
-#endif /* __ASSEMBLER__ */
 
 #define MAINBOARD_POWER_OFF	0
 #define MAINBOARD_POWER_ON	1
@@ -212,10 +195,6 @@ void mainboard_config_superio(void);
 #define SMLT	0x1b
 #define SECSTS	0x1e
 #define INTR	0x3c
-#define BCTRL	0x3e
-#define   SBR	(1 << 6)
-#define   SEE	(1 << 1)
-#define   PERE	(1 << 0)
 
 /* Power Management Control and Status */
 #define PCH_PCS			0x84
@@ -746,42 +725,6 @@ void mainboard_config_superio(void);
 #define SSFC 0x91
 #define FDOC 0xb0
 #define FDOD 0xb4
-
-#define SPI_OPMENU_0 0x01 /* WRSR: Write Status Register */
-#define SPI_OPTYPE_0 0x01 /* Write, no address */
-
-#define SPI_OPMENU_1 0x02 /* BYPR: Byte Program */
-#define SPI_OPTYPE_1 0x03 /* Write, address required */
-
-#define SPI_OPMENU_2 0x03 /* READ: Read Data */
-#define SPI_OPTYPE_2 0x02 /* Read, address required */
-
-#define SPI_OPMENU_3 0x05 /* RDSR: Read Status Register */
-#define SPI_OPTYPE_3 0x00 /* Read, no address */
-
-#define SPI_OPMENU_4 0x20 /* SE20: Sector Erase 0x20 */
-#define SPI_OPTYPE_4 0x03 /* Write, address required */
-
-#define SPI_OPMENU_5 0x9f /* RDID: Read ID */
-#define SPI_OPTYPE_5 0x00 /* Read, no address */
-
-#define SPI_OPMENU_6 0xd8 /* BED8: Block Erase 0xd8 */
-#define SPI_OPTYPE_6 0x03 /* Write, address required */
-
-#define SPI_OPMENU_7 0x0b /* FAST: Fast Read */
-#define SPI_OPTYPE_7 0x02 /* Read, address required */
-
-#define SPI_OPMENU_UPPER ((SPI_OPMENU_7 << 24) | (SPI_OPMENU_6 << 16) | \
-			  (SPI_OPMENU_5 << 8) | SPI_OPMENU_4)
-#define SPI_OPMENU_LOWER ((SPI_OPMENU_3 << 24) | (SPI_OPMENU_2 << 16) | \
-			  (SPI_OPMENU_1 << 8) | SPI_OPMENU_0)
-
-#define SPI_OPTYPE ((SPI_OPTYPE_7 << 14) | (SPI_OPTYPE_6 << 12) | \
-		    (SPI_OPTYPE_5 << 10) | (SPI_OPTYPE_4 << 8) |  \
-		    (SPI_OPTYPE_3 << 6) | (SPI_OPTYPE_2 << 4) |	  \
-		    (SPI_OPTYPE_1 << 2) | (SPI_OPTYPE_0))
-
-#define SPI_OPPREFIX ((0x50 << 8) | 0x06) /* EWSR and WREN */
 
 #define SPIBAR_HSFS                 0x3804   /* SPI hardware sequence status */
 #define  SPIBAR_HSFS_SCIP           (1 << 5) /* SPI Cycle In Progress */

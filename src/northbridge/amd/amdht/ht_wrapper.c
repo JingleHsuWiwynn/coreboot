@@ -17,6 +17,7 @@
 #include <arch/cpu.h>
 #include <cpu/x86/msr.h>
 #include <console/console.h>
+#include <device/pci_ops.h>
 #include "ht_wrapper.h"
 
 /*----------------------------------------------------------------------------
@@ -35,7 +36,6 @@
 #endif
 
 /* Debugging Options */
-#define AMD_DEBUG 1
 //#define AMD_DEBUG_ERROR_STOP 1
 
 /*----------------------------------------------------------------------------
@@ -44,8 +44,6 @@
  *----------------------------------------------------------------------------
  */
 
-#undef FILECODE
-#define FILECODE 0xFF01
 #include "comlib.h"
 #include "h3gtopo.h"
 #include "h3finit.h"
@@ -271,7 +269,7 @@ void amd_ht_init(struct sys_info *sysinfo)
  */
 void amd_ht_fixup(struct sys_info *sysinfo) {
 	printk(BIOS_DEBUG, "%s\n", __func__);
-	if (IS_ENABLED(CONFIG_CPU_AMD_MODEL_10XXX)) {
+	if (CONFIG(CPU_AMD_MODEL_10XXX)) {
 		uint8_t rev_gte_d = 0;
 		uint8_t fam15h = 0;
 		uint8_t dual_node = 0;

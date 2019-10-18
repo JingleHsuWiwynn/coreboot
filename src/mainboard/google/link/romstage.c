@@ -16,8 +16,7 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <timestamp.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/pci.h>
 #include <device/pci_def.h>
 #include <cpu/x86/lapic.h>
@@ -26,37 +25,18 @@
 #include <northbridge/intel/sandybridge/sandybridge.h>
 #include <northbridge/intel/sandybridge/raminit.h>
 #include <northbridge/intel/sandybridge/raminit_native.h>
+#include <southbridge/intel/bd82x6x/pch.h>
 #include <southbridge/intel/common/gpio.h>
 #include "ec/google/chromeec/ec.h"
-#include <halt.h>
 #include <cbfs.h>
 
 #include <southbridge/intel/bd82x6x/chip.h>
 
 void pch_enable_lpc(void)
 {
-	const struct device *lpc;
-	const struct southbridge_intel_bd82x6x_config *config = NULL;
-
-	lpc = pcidev_on_root(0x1f, 0);
-	if (!lpc)
-		return;
-	if (lpc->chip_info)
-		config = lpc->chip_info;
-	if (!config)
-		return;
-
-	/* Set COM1/COM2 decode range */
-	pci_write_config16(PCH_LPC_DEV, LPC_IO_DEC, 0x0010);
-
 	/* Enable PS/2 Keyboard/Mouse, EC areas and COM1 */
 	pci_write_config16(PCH_LPC_DEV, LPC_EN, KBC_LPC_EN | MC_LPC_EN | \
 			   GAMEL_LPC_EN | COMA_LPC_EN);
-
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN1_DEC, config->gen1_dec);
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN2_DEC, config->gen2_dec);
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN3_DEC, config->gen3_dec);
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN4_DEC, config->gen4_dec);
 }
 
 void mainboard_rcba_config(void)
@@ -173,7 +153,11 @@ void mainboard_fill_pei_data(struct pei_data *pei_data)
 		},
 	};
 	*pei_data = pei_data_template;
+	/* LINK has 2 channels of memory down, so spd_data[0] and [2]
+	   both need to be populated */
 	memcpy(pei_data->spd_data[0], locate_spd(),
+	       sizeof(pei_data->spd_data[0]));
+	memcpy(pei_data->spd_data[2], pei_data->spd_data[0],
 	       sizeof(pei_data->spd_data[0]));
 }
 
@@ -197,7 +181,10 @@ const struct southbridge_usb_port mainboard_usb_ports[] = {
 
 void mainboard_get_spd(spd_raw_data *spd, bool id_only)
 {
+	/* LINK has 2 channels of memory down, so spd_data[0] and [2]
+	   both need to be populated */
 	memcpy(&spd[0], locate_spd(), 128);
+	memcpy(&spd[2], &spd[0], 128);
 }
 
 void mainboard_early_init(int s3resume)

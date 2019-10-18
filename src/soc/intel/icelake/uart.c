@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#include <assert.h>
+#include <console/console.h>
 #include <device/pci_def.h>
 #include <intelblocks/gpio.h>
 #include <intelblocks/lpss.h>
@@ -23,11 +23,6 @@
 #include <soc/pch.h>
 #include <soc/pci_devs.h>
 #include <soc/pcr_ids.h>
-#include <string.h>
-
-/* Serial IO UART controller legacy mode */
-#define PCR_SERIAL_IO_GPPRVRW7		0x618
-#define PCR_SIO_PCH_LEGACY_UART(idx)	(1 << (idx))
 
 const struct uart_gpio_pad_config uart_gpio_pads[] = {
 	{
@@ -55,18 +50,7 @@ const struct uart_gpio_pad_config uart_gpio_pads[] = {
 
 const int uart_max_index = ARRAY_SIZE(uart_gpio_pads);
 
-void soc_uart_set_legacy_mode(void)
-{
-	pcr_write32(PID_SERIALIO, PCR_SERIAL_IO_GPPRVRW7,
-		PCR_SIO_PCH_LEGACY_UART(CONFIG_UART_FOR_CONSOLE));
-	/*
-	 * Dummy read after setting any of GPPRVRW7.
-	 * Required for UART 16550 8-bit Legacy mode to become active
-	 */
-	lpss_clk_read(UART_BASE(CONFIG_UART_FOR_CONSOLE));
-}
-
-struct device *soc_uart_console_to_device(int uart_console)
+DEVTREE_CONST struct device *soc_uart_console_to_device(int uart_console)
 {
 	/*
 	 * if index is valid, this function will return corresponding structure
@@ -74,11 +58,11 @@ struct device *soc_uart_console_to_device(int uart_console)
 	 */
 	switch (uart_console) {
 	case 0:
-		return (struct device *)PCH_DEV_UART0;
+		return pcidev_path_on_root(PCH_DEVFN_UART0);
 	case 1:
-		return (struct device *)PCH_DEV_UART1;
+		return pcidev_path_on_root(PCH_DEVFN_UART1);
 	case 2:
-		return (struct device *)PCH_DEV_UART2;
+		return pcidev_path_on_root(PCH_DEVFN_UART2);
 	default:
 		printk(BIOS_ERR, "Invalid UART console index\n");
 		return NULL;

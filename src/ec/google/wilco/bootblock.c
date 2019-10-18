@@ -14,8 +14,9 @@
  */
 
 #include <arch/io.h>
+#include <endian.h>
+#include <device/pnp_ops.h>
 #include <device/pnp_def.h>
-#include <swab.h>
 
 #include "bootblock.h"
 
@@ -47,6 +48,6 @@ static void wilco_ec_serial_init(void)
 
 void wilco_ec_early_init(void)
 {
-	if (IS_ENABLED(CONFIG_DRIVERS_UART_8250IO))
+	if (CONFIG(DRIVERS_UART_8250IO))
 		wilco_ec_serial_init();
 }

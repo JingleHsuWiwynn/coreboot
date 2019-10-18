@@ -15,8 +15,10 @@
 
 #include <baseboard/variants.h>
 #include <chip.h>
+#include <arch/io.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <smbios.h>
 #include <string.h>
 #include <variant/sku.h>
@@ -26,7 +28,7 @@
 #define B_PCH_OC_WDT_CTL_EN		BIT14
 #define B_PCH_OC_WDT_CTL_UNXP_RESET_STS	BIT22
 
-const char *smbios_mainboard_sku(void)
+const char *smbios_system_sku(void)
 {
 	static char sku_str[5]; /* sku{0-1} */
 
@@ -39,10 +41,10 @@ const char *smbios_mainboard_sku(void)
 void variant_devtree_update(void)
 {
 	uint32_t sku_id = variant_board_sku();
-	struct device *root = SA_DEV_ROOT;
-	config_t *cfg = root->chip_info;
 	uint16_t abase;
 	uint32_t val32;
+
+	config_t *cfg = config_of_soc();
 
 	switch (sku_id) {
 	case SKU_0_NAUTILUS:

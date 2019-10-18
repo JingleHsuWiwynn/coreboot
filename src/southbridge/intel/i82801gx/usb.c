@@ -17,6 +17,7 @@
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <device/pci_ids.h>
 #include "i82801gx.h"
 
@@ -42,20 +43,8 @@ static void usb_init(struct device *dev)
 	printk(BIOS_DEBUG, "done.\n");
 }
 
-static void usb_set_subsystem(struct device *dev, unsigned int vendor,
-			      unsigned int device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
-}
-
 static struct pci_operations usb_pci_ops = {
-	.set_subsystem    = usb_set_subsystem,
+	.set_subsystem    = pci_dev_set_subsystem,
 };
 
 static struct device_operations usb_ops = {

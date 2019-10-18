@@ -14,12 +14,9 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __PRE_RAM__
-
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pnp.h>
-#include <stdlib.h>
 #include <arch/io.h>
 #include <delay.h>
 #include <pc80/keyboard.h>
@@ -126,7 +123,6 @@ static u8 ec_io_read(u16 addr)
 }
 */
 
-#ifndef __SMM__
 static void ene932_init(struct device *dev)
 {
 	if (!dev->enabled)
@@ -156,5 +152,3 @@ struct chip_operations ec_compal_ene932_ops = {
 	CHIP_NAME("COMPAL ENE932 EC")
 	.enable_dev = enable_dev
 };
-#endif /* ! __SMM__ */
-#endif /* ! __PRE_RAM__ */

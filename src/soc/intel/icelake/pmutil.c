@@ -20,7 +20,7 @@
 
 #define __SIMPLE_DEVICE__
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <cbmem.h>
 #include <device/device.h>
 #include <device/pci.h>
@@ -29,18 +29,16 @@
 #include <intelblocks/pmclib.h>
 #include <intelblocks/rtc.h>
 #include <intelblocks/tco.h>
-#include <halt.h>
 #include <stdlib.h>
+#include <soc/espi.h>
 #include <soc/gpe.h>
 #include <soc/gpio.h>
 #include <soc/iomap.h>
-#include <soc/lpc.h>
 #include <soc/pci_devs.h>
 #include <soc/pm.h>
 #include <soc/smbus.h>
-#include <timer.h>
+#include <soc/soc_chip.h>
 #include <security/vboot/vbnv.h>
-#include "chip.h"
 
 /*
  * SMI
@@ -142,6 +140,20 @@ void pmc_set_disb(void)
 	write8(addr, disb_val);
 }
 
+void pmc_clear_pmcon_sts(void)
+{
+	uint32_t reg_val;
+	uint8_t *addr;
+	addr = pmc_mmio_regs();
+
+	reg_val = read32(addr + GEN_PMCON_A);
+	/* Clear SUS_PWR_FLR, GBL_RST_STS, HOST_RST_STS, PWR_FLR bits
+	 * while retaining MS4V write-1-to-clear bit */
+	reg_val &= ~(MS4V);
+
+	write32((addr + GEN_PMCON_A), reg_val);
+}
+
 /*
  * PMC controller gets hidden from PCI bus
  * during FSP-Silicon init call. Hence PWRMBASE
@@ -162,13 +174,7 @@ void soc_get_gpi_gpe_configs(uint8_t *dw0, uint8_t *dw1, uint8_t *dw2)
 {
 	DEVTREE_CONST struct soc_intel_icelake_config *config;
 
-	/* Look up the device in devicetree */
-	DEVTREE_CONST struct device *dev = dev_find_slot(0, PCH_DEVFN_PMC);
-	if (!dev || !dev->chip_info) {
-		printk(BIOS_ERR, "BUG! Could not find SOC devicetree config\n");
-		return;
-	}
-	config = dev->chip_info;
+	config = config_of_soc();
 
 	/* Assign to out variable */
 	*dw0 = config->gpe0_dw0;
@@ -196,4 +202,68 @@ int soc_get_rtc_failed(void)
 int vbnv_cmos_failed(void)
 {
 	return rtc_failed(read32(pmc_mmio_regs() + GEN_PMCON_B));
+}
+
+static inline int deep_s3_enabled(void)
+{
+	uint32_t deep_s3_pol;
+
+	deep_s3_pol = read32(pmc_mmio_regs() + S3_PWRGATE_POL);
+	return !!(deep_s3_pol & (S3DC_GATE_SUS | S3AC_GATE_SUS));
+}
+
+/* Return 0, 3, or 5 to indicate the previous sleep state. */
+int soc_prev_sleep_state(const struct chipset_power_state *ps,
+	int prev_sleep_state)
+{
+
+	/*
+	 * Check for any power failure to determine if this a wake from
+	* S5 because the PCH does not set the WAK_STS bit when waking
+	* from a true G3 state.
+	*/
+	if (ps->gen_pmcon_a & (PWR_FLR | SUS_PWR_FLR))
+		prev_sleep_state = ACPI_S5;
+
+	/*
+	 * If waking from S3 determine if deep S3 is enabled. If not,
+	 * need to check both deep sleep well and normal suspend well.
+	 * Otherwise just check deep sleep well.
+	 */
+	if (prev_sleep_state == ACPI_S3) {
+		/* PWR_FLR represents deep sleep power well loss. */
+		uint32_t mask = PWR_FLR;
+
+		/* If deep s3 isn't enabled check the suspend well too. */
+		if (!deep_s3_enabled())
+			mask |= SUS_PWR_FLR;
+
+		if (ps->gen_pmcon_a & mask)
+			prev_sleep_state = ACPI_S5;
+	}
+
+	return prev_sleep_state;
+}
+
+void soc_fill_power_state(struct chipset_power_state *ps)
+{
+	uint8_t *pmc;
+
+	ps->tco1_sts = tco_read_reg(TCO1_STS);
+	ps->tco2_sts = tco_read_reg(TCO2_STS);
+
+	printk(BIOS_DEBUG, "TCO_STS:   %04x %04x\n",
+	ps->tco1_sts, ps->tco2_sts);
+
+	pmc = pmc_mmio_regs();
+	ps->gen_pmcon_a = read32(pmc + GEN_PMCON_A);
+	ps->gen_pmcon_b = read32(pmc + GEN_PMCON_B);
+	ps->gblrst_cause[0] = read32(pmc + GBLRST_CAUSE0);
+	ps->gblrst_cause[1] = read32(pmc + GBLRST_CAUSE1);
+
+	printk(BIOS_DEBUG, "GEN_PMCON: %08x %08x\n",
+		ps->gen_pmcon_a, ps->gen_pmcon_b);
+
+	printk(BIOS_DEBUG, "GBLRST_CAUSE: %08x %08x\n",
+		ps->gblrst_cause[0], ps->gblrst_cause[1]);
 }

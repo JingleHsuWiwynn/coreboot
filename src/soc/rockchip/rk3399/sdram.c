@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <console/console.h>
 #include <delay.h>
 #include <reset.h>
@@ -22,7 +22,6 @@
 #include <soc/sdram.h>
 #include <soc/grf.h>
 #include <soc/soc.h>
-#include <string.h>
 #include <timer.h>
 #include <types.h>
 

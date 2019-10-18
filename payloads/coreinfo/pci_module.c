@@ -18,7 +18,7 @@
 #include <libpayload.h>
 #include "coreinfo.h"
 
-#if IS_ENABLED(CONFIG_MODULE_PCI)
+#if CONFIG(MODULE_PCI)
 
 struct pci_devices {
 	pcidev_t device;
@@ -51,7 +51,7 @@ static void swap(struct pci_devices *a, struct pci_devices *b)
 
 static int partition(struct pci_devices *list, int len)
 {
-	int val = list[len / 2].device;
+	pcidev_t val = list[len / 2].device;
 	int index = 0;
 	int i;
 
@@ -103,14 +103,9 @@ static void show_config_space(WINDOW *win, int row, int col, int index)
 static int pci_module_redraw(WINDOW *win)
 {
 	unsigned int bus, slot, func;
-	int i, last;
+	int i;
 
 	print_module_title(win, "PCI Device List");
-
-	last = menu_first + MENU_VISIBLE;
-
-	if (last > devices_index)
-		last = devices_index;
 
 	for (i = 0; i < MENU_VISIBLE; i++) {
 		int item = menu_first + i;

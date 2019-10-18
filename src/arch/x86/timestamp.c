@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright 2013 Google Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -24,7 +22,7 @@ uint64_t timestamp_get(void)
 int timestamp_tick_freq_mhz(void)
 {
 	/* Chipsets that have a constant TSC provide this value correctly. */
-	if (IS_ENABLED(CONFIG_TSC_CONSTANT_RATE))
+	if (CONFIG(TSC_CONSTANT_RATE))
 		return tsc_freq_mhz();
 
 	/* Filling tick_freq_mhz = 0 in timestamps-table will trigger

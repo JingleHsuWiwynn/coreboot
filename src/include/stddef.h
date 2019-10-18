@@ -23,7 +23,7 @@ typedef unsigned int wint_t;
 
 /* The devicetree data structures are only mutable in ramstage. All other
    stages have a constant devicetree. */
-#if !ENV_RAMSTAGE
+#if !ENV_PAYLOAD_LOADER
 #define DEVTREE_EARLY 1
 #else
 #define DEVTREE_EARLY 0
@@ -35,11 +35,16 @@ typedef unsigned int wint_t;
 #define DEVTREE_CONST
 #endif
 
-/* Work around non-writable data segment in execute-in-place romstage on x86. */
-#if defined(__PRE_RAM__) && IS_ENABLED(CONFIG_ARCH_X86)
-#define MAYBE_STATIC
+#if ENV_STAGE_HAS_DATA_SECTION
+#define MAYBE_STATIC_NONZERO static
 #else
-#define MAYBE_STATIC static
+#define MAYBE_STATIC_NONZERO
+#endif
+
+#if ENV_STAGE_HAS_BSS_SECTION
+#define MAYBE_STATIC_BSS static
+#else
+#define MAYBE_STATIC_BSS
 #endif
 
 #ifndef __ROMCC__

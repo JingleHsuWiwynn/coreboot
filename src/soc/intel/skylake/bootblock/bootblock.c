@@ -22,7 +22,7 @@
 asmlinkage void bootblock_c_entry(uint64_t base_timestamp)
 {
 	/* Call lib/bootblock.c main */
-	bootblock_main_with_timestamp(base_timestamp, NULL, 0);
+	bootblock_main_with_basetime(base_timestamp);
 }
 
 void bootblock_soc_early_init(void)
@@ -32,14 +32,14 @@ void bootblock_soc_early_init(void)
 	bootblock_cpu_init();
 	pch_early_iorange_init();
 
-	if (IS_ENABLED(CONFIG_INTEL_LPSS_UART_FOR_CONSOLE))
+	if (CONFIG(INTEL_LPSS_UART_FOR_CONSOLE))
 		uart_bootblock_init();
 }
 
 void bootblock_soc_init(void)
 {
 	/* FSP 2.0 does not provide FSP-T/TempRamInit init support yet */
-	if (IS_ENABLED(CONFIG_PLATFORM_USES_FSP1_1))
+	if (CONFIG(PLATFORM_USES_FSP1_1))
 		bootblock_fsp_temp_ram_init();
 
 	/*

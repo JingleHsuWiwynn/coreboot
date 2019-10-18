@@ -14,7 +14,8 @@
  */
 
 #include <arch/acpi.h>
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <bootmode.h>
 #include <console/console.h>
 #include <delay.h>
@@ -26,6 +27,7 @@
 #include <reg_script.h>
 #include <cbmem.h>
 #include <drivers/intel/gma/i915_reg.h>
+#include <drivers/intel/gma/libgfxinit.h>
 #include <drivers/intel/gma/opregion.h>
 #include <soc/cpu.h>
 #include <soc/nvs.h>
@@ -35,6 +37,7 @@
 #include <soc/intel/broadwell/chip.h>
 #include <security/vboot/vbnv.h>
 #include <soc/igd.h>
+#include <types.h>
 
 #define GT_RETRY		1000
 enum {
@@ -296,7 +299,7 @@ static int gtt_poll(u32 reg, u32 mask, u32 value)
 
 static void igd_setup_panel(struct device *dev)
 {
-	config_t *conf = dev->chip_info;
+	config_t *conf = config_of(dev);
 	u32 reg32;
 
 	/* Setup Digital Port Hotplug */
@@ -333,21 +336,41 @@ static void igd_setup_panel(struct device *dev)
 		gtt_write(PCH_PP_DIVISOR, reg32);
 	}
 
-	/* Enable Backlight if needed */
-	if (conf->gpu_cpu_backlight) {
-		gtt_write(BLC_PWM_CPU_CTL2, BLC_PWM2_ENABLE);
-		gtt_write(BLC_PWM_CPU_CTL, conf->gpu_cpu_backlight);
-	}
-	if (conf->gpu_pch_backlight) {
-		gtt_write(BLC_PWM_PCH_CTL1, BLM_PCH_PWM_ENABLE);
-		gtt_write(BLC_PWM_PCH_CTL2, conf->gpu_pch_backlight);
+	/* So far all devices seem to use the PCH PWM function.
+	   The CPU PWM registers are all zero after reset.      */
+	if (conf->gpu_pch_backlight_pwm_hz) {
+		/* For Lynx Point-LP:
+		   Reference clock is 24MHz. We can choose either a 16
+		   or a 128 step increment. Use 16 if we would have less
+		   than 100 steps otherwise. */
+		const unsigned int hz_limit = 24 * 1000 * 1000 / 128 / 100;
+		unsigned int pwm_increment, pwm_period;
+		u32 south_chicken2;
+
+		south_chicken2 = gtt_read(SOUTH_CHICKEN2);
+		if (conf->gpu_pch_backlight_pwm_hz > hz_limit) {
+			pwm_increment = 16;
+			south_chicken2 &= ~(1 << 5);
+		} else {
+			pwm_increment = 128;
+			south_chicken2 |= 1 << 5;
+		}
+		gtt_write(SOUTH_CHICKEN2, south_chicken2);
+
+		pwm_period = 24 * 1000 * 1000 / pwm_increment / conf->gpu_pch_backlight_pwm_hz;
+		/* Start with a 50% duty cycle. */
+		gtt_write(BLC_PWM_PCH_CTL2, pwm_period << 16 | pwm_period / 2);
+
+		gtt_write(BLC_PWM_PCH_CTL1,
+			(conf->gpu_pch_backlight_polarity == GPU_BACKLIGHT_POLARITY_LOW) << 29 |
+			BLM_PCH_OVERRIDE_ENABLE | BLM_PCH_PWM_ENABLE);
 	}
 }
 
 static int igd_get_cdclk_haswell(u32 *const cdsel, int *const inform_pc,
 				 struct device *const dev)
 {
-	const config_t *const conf = dev->chip_info;
+	const config_t *const conf = config_of(dev);
 	int cdclk = conf->cdclk;
 
 	/* Check for ULX GT1 or GT2 */
@@ -381,7 +404,7 @@ static int igd_get_cdclk_broadwell(u32 *const cdsel, int *const inform_pc,
 				   struct device *const dev)
 {
 	static const u32 cdsel_by_cdclk[] = { 0, 2, 0, 1, 3 };
-	const config_t *const conf = dev->chip_info;
+	const config_t *const conf = config_of(dev);
 	int cdclk = conf->cdclk;
 
 	/* Check for ULX */
@@ -511,8 +534,8 @@ static void igd_init(struct device *dev)
 
 	/* Wait for any configured pre-graphics delay */
 	if (!acpi_is_wakeup_s3()) {
-#if IS_ENABLED(CONFIG_CHROMEOS)
-		if (display_init_required() || vboot_wants_oprom())
+#if CONFIG(CHROMEOS)
+		if (display_init_required())
 			mdelay(CONFIG_PRE_GRAPHICS_DELAY);
 #else
 		mdelay(CONFIG_PRE_GRAPHICS_DELAY);
@@ -570,6 +593,12 @@ static void igd_init(struct device *dev)
 		 */
 		gtt_write(DDI_BUF_CTL_A, DDI_BUF_IS_IDLE | DDI_A_4_LANES |
 			  DDI_INIT_DISPLAY_DETECTED);
+	}
+
+	if (CONFIG(MAINBOARD_USE_LIBGFXINIT)) {
+		int lightup_ok;
+		gma_gfxinit(&lightup_ok);
+		gfx_set_init_done(lightup_ok);
 	}
 
 	intel_gma_restore_opregion();

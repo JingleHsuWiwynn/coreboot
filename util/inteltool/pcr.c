@@ -71,15 +71,21 @@ void pcr_init(struct pci_dev *const sb)
 	bool error_exit = false;
 	bool p2sb_revealed = false;
 	struct pci_dev *p2sb;
+	bool use_p2sb = true;
+	pciaddr_t sbbar_phys;
 
 	if (sbbar)
 		return;
 
 	switch (sb->device_id) {
 	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_PRE:
-	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_U_BASE:
-	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_U_PREM:
-	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_Y_PREM:
+	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_PRE:
+	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_U_BASE_SKL:
+	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_Y_PREM_SKL:
+	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_U_PREM_SKL:
+	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_U_BASE_KBL:
+	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_U_PREM_KBL:
+	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_Y_PREM_KBL:
 	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_U_IHDCP_BASE:
 	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_U_IHDCP_PREM:
 	case PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_Y_IHDCP_PREM:
@@ -97,44 +103,73 @@ void pcr_init(struct pci_dev *const sb)
 	case PCI_DEVICE_ID_INTEL_HM175:
 	case PCI_DEVICE_ID_INTEL_QM175:
 	case PCI_DEVICE_ID_INTEL_CM238:
+	case PCI_DEVICE_ID_INTEL_C621:
+	case PCI_DEVICE_ID_INTEL_C622:
+	case PCI_DEVICE_ID_INTEL_C624:
+	case PCI_DEVICE_ID_INTEL_C625:
+	case PCI_DEVICE_ID_INTEL_C626:
+	case PCI_DEVICE_ID_INTEL_C627:
+	case PCI_DEVICE_ID_INTEL_C628:
+	case PCI_DEVICE_ID_INTEL_C629:
+	case PCI_DEVICE_ID_INTEL_C624_SUPER:
+	case PCI_DEVICE_ID_INTEL_C627_SUPER_1:
+	case PCI_DEVICE_ID_INTEL_C621_SUPER:
+	case PCI_DEVICE_ID_INTEL_C627_SUPER_2:
+	case PCI_DEVICE_ID_INTEL_C628_SUPER:
 	case PCI_DEVICE_ID_INTEL_DNV_LPC:
 		p2sb = pci_get_dev(sb->access, 0, 0, 0x1f, 1);
 		break;
 	case PCI_DEVICE_ID_INTEL_APL_LPC:
 		p2sb = pci_get_dev(sb->access, 0, 0, 0x0d, 0);
 		break;
+	case PCI_DEVICE_ID_INTEL_H310:
+	case PCI_DEVICE_ID_INTEL_H370:
+	case PCI_DEVICE_ID_INTEL_Z390:
+	case PCI_DEVICE_ID_INTEL_Q370:
+	case PCI_DEVICE_ID_INTEL_B360:
+	case PCI_DEVICE_ID_INTEL_C246:
+	case PCI_DEVICE_ID_INTEL_C242:
+	case PCI_DEVICE_ID_INTEL_QM370:
+	case PCI_DEVICE_ID_INTEL_HM370:
+	case PCI_DEVICE_ID_INTEL_CM246:
+		sbbar_phys = 0xfd000000;
+		use_p2sb = false;
+		break;
 	default:
 		perror("Unknown LPC device.");
 		exit(1);
 	}
 
-	if (!p2sb) {
-		perror("Can't allocate device node for P2SB.");
-		exit(1);
-	}
-
-	/* do not fill bases here, libpci refuses to refill later */
-	pci_fill_info(p2sb, PCI_FILL_IDENT);
-	if (p2sb->vendor_id == 0xffff && p2sb->device_id == 0xffff) {
-		printf("Trying to reveal Primary to Sideband Bridge "
-		       "(P2SB),\nlet's hope the OS doesn't mind... ");
-		/* Do not use pci_write_long(). Bytes
-		   surrounding 0xe0 must be maintained. */
-		pci_write_byte(p2sb, 0xe0 + 1, 0);
-
-		pci_fill_info(p2sb, PCI_FILL_IDENT | PCI_FILL_RESCAN);
-		if (p2sb->vendor_id != 0xffff ||
-		    p2sb->device_id != 0xffff) {
-			printf("done.\n");
-			p2sb_revealed = true;
-		} else {
-			printf("failed.\n");
+	if (use_p2sb) {
+		if (!p2sb) {
+			perror("Can't allocate device node for P2SB.");
 			exit(1);
 		}
-	}
-	pci_fill_info(p2sb, PCI_FILL_BASES | PCI_FILL_CLASS);
 
-	const pciaddr_t sbbar_phys = p2sb->base_addr[0] & ~0xfULL;
+		/* do not fill bases here, libpci refuses to refill later */
+		pci_fill_info(p2sb, PCI_FILL_IDENT);
+		if (p2sb->vendor_id == 0xffff && p2sb->device_id == 0xffff) {
+			printf("Trying to reveal Primary to Sideband Bridge "
+			       "(P2SB),\nlet's hope the OS doesn't mind... ");
+			/* Do not use pci_write_long(). Bytes
+			   surrounding 0xe0 must be maintained. */
+			pci_write_byte(p2sb, 0xe0 + 1, 0);
+
+			pci_fill_info(p2sb, PCI_FILL_IDENT | PCI_FILL_RESCAN);
+			if (p2sb->vendor_id != 0xffff ||
+			    p2sb->device_id != 0xffff) {
+				printf("done.\n");
+				p2sb_revealed = true;
+			} else {
+				printf("failed.\n");
+				exit(1);
+			}
+		}
+		pci_fill_info(p2sb, PCI_FILL_BASES | PCI_FILL_CLASS);
+
+		sbbar_phys = p2sb->base_addr[0] & ~0xfULL;
+	}
+
 	printf("SBREG_BAR = 0x%08"PRIx64" (MEM)\n\n", (uint64_t)sbbar_phys);
 	sbbar = map_physical(sbbar_phys, SBBAR_SIZE);
 	if (sbbar == NULL) {
@@ -142,11 +177,13 @@ void pcr_init(struct pci_dev *const sb)
 		error_exit = true;
 	}
 
-	if (p2sb_revealed) {
-		printf("Hiding Primary to Sideband Bridge (P2SB).\n");
-		pci_write_byte(p2sb, 0xe0 + 1, 1);
+	if (use_p2sb) {
+		if (p2sb_revealed) {
+			printf("Hiding Primary to Sideband Bridge (P2SB).\n");
+			pci_write_byte(p2sb, 0xe0 + 1, 1);
+		}
+		pci_free_dev(p2sb);
 	}
-	pci_free_dev(p2sb);
 
 	if (error_exit)
 		exit(1);

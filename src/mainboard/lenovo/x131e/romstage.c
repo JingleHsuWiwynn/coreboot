@@ -15,22 +15,13 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <northbridge/intel/sandybridge/raminit_native.h>
 #include <southbridge/intel/bd82x6x/pch.h>
 
 void pch_enable_lpc(void)
 {
-	/* EC Decode Range Port60/64, Port62/66 */
-	/* Enable TPM, EC, PS/2 Keyboard/Mouse */
-	pci_write_config16(PCH_LPC_DEV, LPC_EN,
-			   CNF2_LPC_EN | CNF1_LPC_EN | MC_LPC_EN | KBC_LPC_EN);
-
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN1_DEC, 0x007c1611);
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN2_DEC, 0x00040069);
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN3_DEC, 0x000c0701);
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN4_DEC, 0x000c06a1);
 }
 
 void mainboard_rcba_config(void)
@@ -38,20 +29,20 @@ void mainboard_rcba_config(void)
 }
 
 const struct southbridge_usb_port mainboard_usb_ports[] = {
-	{1, 1, 0},
-	{1, 1, 0},
-	{0, 1, 1},
-	{1, 1, 1},
-	{1, 0, 2},
-	{1, 0, 2},
-	{0, 0, 3},
-	{0, 0, 3},
-	{0, 1, 4},
-	{1, 1, 4},
-	{0, 0, 5},
-	{0, 0, 5},
-	{0, 0, 6},
-	{1, 0, 6},
+	{1, 1, 0},	/* P0: USB 3.0 1 (OC0) */
+	{1, 1, 0},	/* P1: USB 3.0 2 (OC0) */
+	{0, 0, 0},
+	{1, 1, -1},	/* P3: Camera (no OC) */
+	{1, 0, -1},	/* P4: WLAN (no OC) */
+	{1, 0, -1},	/* P5: WWAN (no OC) */
+	{0, 0, 0},
+	{0, 0, 0},
+	{0, 0, 0},
+	{1, 1, 4},	/* P9: USB 2.0 (AUO4) (OC4) */
+	{0, 0, 0},
+	{0, 0, 0},
+	{0, 0, 0},
+	{1, 0, -1},	/* P13: Bluetooth (no OC) */
 };
 
 void mainboard_get_spd(spd_raw_data *spd, bool id_only)

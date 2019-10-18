@@ -1,9 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2007 Advanced Micro Devices, Inc.
- * Copyright (C) 2009-2010 coresystems GmbH
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -33,11 +30,11 @@ extern unsigned int __idt_handler_size;
 extern unsigned char __realmode_code;
 extern unsigned int __realmode_code_size;
 
-extern void (*realmode_call)(u32 addr, u32 eax, u32 ebx, u32 ecx, u32 edx,
-		u32 esi, u32 edi) asmlinkage;
+extern unsigned int (*realmode_call)(u32 addr, u32 eax, u32 ebx, u32 ecx,
+		u32 edx, u32 esi, u32 edi) asmlinkage;
 
-extern void (*realmode_interrupt)(u32 intno, u32 eax, u32 ebx, u32 ecx, u32 edx,
-		u32 esi, u32 edi) asmlinkage;
+extern unsigned int (*realmode_interrupt)(u32 intno, u32 eax, u32 ebx, u32 ecx,
+		u32 edx, u32 esi, u32 edi) asmlinkage;
 
 #define FAKE_MEMORY_SIZE (1024*1024) // only 1MB
 #define INITIAL_EBDA_SEGMENT 0xF600

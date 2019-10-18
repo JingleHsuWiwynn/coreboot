@@ -18,6 +18,7 @@
  */
 
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <stdint.h>
 #include <device/device.h>
@@ -25,6 +26,7 @@
 #include <device/pci_ids.h>
 #include <device/smbus.h>
 #include <southbridge/intel/common/smbus.h>
+#include "chip.h"
 #include "i82371eb.h"
 
 static void pwrmgt_enable(struct device *dev)

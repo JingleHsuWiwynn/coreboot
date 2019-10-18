@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 Google Inc.
+ * This file is part of the coreboot project.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -62,9 +62,9 @@ static struct am335x_gpio_regs * const am335x_gpio_banks[] = {
 
 void am335x_disable_gpio_irqs(void);
 
-int gpio_direction_input(unsigned gpio);
-int gpio_direction_output(unsigned gpio, int value);
-int gpio_get_value(unsigned gpio);
-int gpio_set_value(unsigned gpio, int value);
+int gpio_direction_input(unsigned int gpio);
+int gpio_direction_output(unsigned int gpio, int value);
+int gpio_get_value(unsigned int gpio);
+int gpio_set_value(unsigned int gpio, int value);
 
 #endif	/* __CPU_TI_AM335X_CLOCK_H__ */

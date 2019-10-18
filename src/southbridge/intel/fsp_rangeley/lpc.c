@@ -23,21 +23,21 @@
 #include <pc80/isa-dma.h>
 #include <pc80/i8259.h>
 #include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <arch/ioapic.h>
 #include <arch/acpi.h>
 #include <arch/cpu.h>
-#include <elog.h>
+#include <cpu/x86/smm.h>
 #include <string.h>
 #include <cbmem.h>
 #include <arch/acpigen.h>
+#include "chip.h"
 #include "soc.h"
 #include "irq.h"
 #include "nvs.h"
 
 #define NMI_OFF	0
-
-#define ENABLE_ACPI_MODE_IN_COREBOOT	0
-#define TEST_SMM_FLASH_LOCKDOWN		0
 
 typedef struct southbridge_intel_fsp_rangeley_config config_t;
 
@@ -93,7 +93,7 @@ static void soc_enable_serial_irqs(struct device *dev)
 	/* Set packet length and toggle silent mode bit for one frame. */
 	write8(ibase + ILB_SERIRQ_CNTL, (1 << 7));
 
-#if !IS_ENABLED(CONFIG_SERIRQ_CONTINUOUS_MODE)
+#if !CONFIG(SERIRQ_CONTINUOUS_MODE)
 	write8(ibase + ILB_SERIRQ_CNTL, 0);
 #endif
 }
@@ -415,17 +415,6 @@ static void soc_lpc_enable(struct device *dev)
 	soc_enable(dev);
 }
 
-static void set_subsystem(struct device *dev, unsigned vendor, unsigned device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
-}
-
 static void southbridge_inject_dsdt(struct device *dev)
 {
 	global_nvs_t *gnvs = cbmem_add (CBMEM_ID_ACPI_GNVS, sizeof(*gnvs));
@@ -433,10 +422,10 @@ static void southbridge_inject_dsdt(struct device *dev)
 	if (gnvs) {
 		memset(gnvs, 0, sizeof(*gnvs));
 		acpi_create_gnvs(gnvs);
-#if IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)
+
 		/* And tell SMI about it */
-		smm_setup_structures(gnvs, NULL, NULL);
-#endif
+		if (CONFIG(HAVE_SMI_HANDLER))
+			smm_setup_structures(gnvs, NULL, NULL);
 
 		/* Add it to DSDT.  */
 		acpigen_write_scope("\\");
@@ -446,7 +435,7 @@ static void southbridge_inject_dsdt(struct device *dev)
 }
 
 static struct pci_operations pci_ops = {
-	.set_subsystem = set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 };
 
 static struct device_operations device_ops = {
@@ -457,7 +446,7 @@ static struct device_operations device_ops = {
 	.write_acpi_tables      = acpi_write_hpet,
 	.acpi_inject_dsdt_generator = southbridge_inject_dsdt,
 	.enable			= soc_lpc_enable,
-	.scan_bus		= scan_lpc_bus,
+	.scan_bus		= scan_static_bus,
 	.ops_pci		= &pci_ops,
 };
 

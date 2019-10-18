@@ -39,7 +39,6 @@ chip northbridge/intel/sandybridge
 			register "gen3_dec" = "0x000c06a1"
 			register "gpi13_routing" = "2"
 			register "gpi1_routing" = "2"
-			register "p_cnt_throttling_supported" = "1"
 			register "pcie_hotplug_map" = "{ 0, 0, 1, 0, 0, 0, 0, 0 }"
 			register "pcie_port_coalesce" = "1"
 			register "sata_interface_speed_support" = "0x3"
@@ -88,6 +87,7 @@ chip northbridge/intel/sandybridge
 			end
 			device pci 1c.2 on # PCIe Port #3
 				subsystemid 0x17aa 0x21f3
+				smbios_slot_desc "7" "3" "ExpressCard Slot" "8"
 			end
 			device pci 1c.3 off # PCIe Port #4
 			end

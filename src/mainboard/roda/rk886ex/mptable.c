@@ -16,10 +16,8 @@
 
 #include <device/device.h>
 #include <device/pci.h>
-#include <console/console.h>
 #include <arch/smp/mpspec.h>
 #include <arch/ioapic.h>
-#include <string.h>
 #include <stdint.h>
 
 static void *smp_write_config_table(void *v)

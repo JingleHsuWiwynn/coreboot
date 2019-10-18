@@ -16,13 +16,11 @@
 #include <console/console.h>
 #include <device/pci.h>
 #include <arch/io.h>
-#include <string.h>
+#include <device/pci_ops.h>
 #include "amd_pci_util.h"
 #include <pc80/i8259.h>
 #include "amd_pci_int_defs.h"
 #include "amd_pci_int_types.h"
-
-#ifndef __PRE_RAM__
 
 const struct pirq_struct * pirq_data_ptr = NULL;
 u32 pirq_data_size = 0;
@@ -100,7 +98,6 @@ void write_pci_cfg_irqs(void)
 	u16 target_pin = 0;	/* Pin we will search our tables for */
 	u16 int_line = 0;	/* IRQ number read from PCI_INTR table and programmed to INT_LINE reg 0x3C */
 	u16 pci_intr_idx = 0;	/* Index into PCI_INTR table, 0xC00/0xC01 */
-	u8  bus = 0;		/* A PCI Device Bus number */
 	u16 devfn = 0;		/* A PCI Device and Function number */
 	u8  bridged_device = 0;	/* This device is on a PCI bridge */
 	u32 i = 0;
@@ -132,7 +129,6 @@ void write_pci_cfg_irqs(void)
 		if (int_pin < 1 || int_pin > 4)
 			continue;	/* Device has invalid INT_PIN so skip it */
 
-		bus   = target_dev->bus->secondary;
 		devfn = target_dev->path.pci.devfn;
 
 		/*
@@ -197,4 +193,3 @@ void write_pci_cfg_irqs(void)
 	}	/* for (dev = all_devices) */
 	printk(BIOS_DEBUG, "PCI_CFG IRQ: Finished writing PCI config space IRQ assignments\n");
 }
-#endif /* __PRE_RAM__ */

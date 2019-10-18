@@ -14,17 +14,18 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <arch/cpu.h>
+#include <arch/romstage.h>
 #include <arch/acpi.h>
 #include <cpu/x86/msr.h>
 #include <cpu/x86/mtrr.h>
+#include <cpu/x86/smm.h>
 #include <cpu/amd/mtrr.h>
 #include <cbmem.h>
 #include <commonlib/helpers.h>
 #include <console/console.h>
 #include <device/device.h>
-#include <chip.h>
 #include <program_loading.h>
 #include <romstage_handoff.h>
 #include <elog.h>
@@ -35,7 +36,9 @@
 #include <soc/southbridge.h>
 #include <amdblocks/psp.h>
 
-void __weak mainboard_romstage_entry(int s3_resume)
+#include "chip.h"
+
+void __weak mainboard_romstage_entry_s3(int s3_resume)
 {
 	/* By default, don't do anything */
 }
@@ -65,11 +68,11 @@ static void load_smu_fw1(void)
 static void agesa_call(void)
 {
 	post_code(0x37);
-	do_agesawrapper(agesawrapper_amdinitreset, "amdinitreset");
+	do_agesawrapper(AMD_INIT_RESET, "amdinitreset");
 
 	post_code(0x38);
 	/* APs will not exit amdinitearly */
-	do_agesawrapper(agesawrapper_amdinitearly, "amdinitearly");
+	do_agesawrapper(AMD_INIT_EARLY, "amdinitearly");
 }
 
 static void bsp_agesa_call(void)
@@ -82,9 +85,6 @@ asmlinkage void car_stage_entry(void)
 {
 	struct postcar_frame pcf;
 	uintptr_t top_of_ram;
-	void *smm_base;
-	size_t smm_size;
-	uintptr_t tseg_base;
 	msr_t base, mask;
 	msr_t mtrr_cap = rdmsr(MTRR_CAP_MSR);
 	int vmtrrs = mtrr_cap.lo & MTRR_CAP_VCNT;
@@ -93,16 +93,17 @@ asmlinkage void car_stage_entry(void)
 
 	console_init();
 
-	if (IS_ENABLED(CONFIG_SOC_AMD_PSP_SELECTABLE_SMU_FW))
+	if (CONFIG(SOC_AMD_PSP_SELECTABLE_SMU_FW))
 		load_smu_fw1();
 
-	mainboard_romstage_entry(s3_resume);
+	mainboard_romstage_entry_s3(s3_resume);
+	elog_boot_notify(s3_resume);
 
 	bsp_agesa_call();
 
 	if (!s3_resume) {
 		post_code(0x40);
-		do_agesawrapper(agesawrapper_amdinitpost, "amdinitpost");
+		do_agesawrapper(AMD_INIT_POST, "amdinitpost");
 
 		post_code(0x41);
 		/*
@@ -132,12 +133,10 @@ asmlinkage void car_stage_entry(void)
 		msr_t sys_cfg = rdmsr(SYSCFG_MSR);
 		sys_cfg.lo &= ~SYSCFG_MSR_TOM2WB;
 		wrmsr(SYSCFG_MSR, sys_cfg);
-		if (IS_ENABLED(CONFIG_ELOG_BOOT_COUNT))
-			boot_count_increment();
 	} else {
 		printk(BIOS_INFO, "S3 detected\n");
 		post_code(0x60);
-		do_agesawrapper(agesawrapper_amdinitresume, "amdinitresume");
+		do_agesawrapper(AMD_INIT_RESUME, "amdinitresume");
 
 		post_code(0x61);
 	}
@@ -151,8 +150,11 @@ asmlinkage void car_stage_entry(void)
 	if (romstage_handoff_init(s3_resume))
 		printk(BIOS_ERR, "Failed to set romstage handoff data\n");
 
+	if (CONFIG(SMM_TSEG))
+		smm_list_regions();
+
 	post_code(0x44);
-	if (postcar_frame_init(&pcf, 1 * KiB))
+	if (postcar_frame_init(&pcf, 0))
 		die("Unable to initialize postcar frame.\n");
 
 	/*
@@ -167,16 +169,8 @@ asmlinkage void car_stage_entry(void)
 	/* Cache the memory-mapped boot media. */
 	postcar_frame_add_romcache(&pcf, MTRR_TYPE_WRPROT);
 
-	/*
-	 * Cache the TSEG region at the top of ram. This region is
-	 * not restricted to SMM mode until SMM has been relocated.
-	 * By setting the region to cacheable it provides faster access
-	 * when relocating the SMM handler as well as using the TSEG
-	 * region for other purposes.
-	 */
-	smm_region_info(&smm_base, &smm_size);
-	tseg_base = (uintptr_t)smm_base;
-	postcar_frame_add_mtrr(&pcf, tseg_base, smm_size, MTRR_TYPE_WRBACK);
+	/* Cache the TSEG region */
+	postcar_enable_tseg_cache(&pcf);
 
 	post_code(0x45);
 	run_postcar_phase(&pcf);
@@ -192,7 +186,7 @@ void SetMemParams(AMD_POST_PARAMS *PostParams)
 	if (!dev || !dev->chip_info) {
 		printk(BIOS_ERR, "ERROR: Cannot find SoC devicetree config\n");
 		/* In case of a BIOS error, only attempt to set UMA. */
-		PostParams->MemConfig.UmaMode = IS_ENABLED(CONFIG_GFXUMA) ?
+		PostParams->MemConfig.UmaMode = CONFIG(GFXUMA) ?
 					UMA_AUTO : UMA_NONE;
 		return;
 	}

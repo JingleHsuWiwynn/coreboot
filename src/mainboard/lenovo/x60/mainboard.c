@@ -22,6 +22,7 @@
 #include <arch/io.h>
 #include <ec/acpi/ec.h>
 #include <northbridge/intel/i945/i945.h>
+#include <southbridge/intel/i82801gx/chip.h>
 #include "dock.h"
 #include <drivers/intel/gma/int15.h>
 #include <drivers/lenovo/lenovo.h>
@@ -34,9 +35,7 @@
 		.space_id = ACPI_ADDRESS_SPACE_FIXED,	    \
 		.bit_width = ACPI_FFIXEDHW_VENDOR_INTEL,    \
 		.bit_offset = ACPI_FFIXEDHW_CLASS_MWAIT,    \
-		{					    \
-			.resv = 0,			    \
-		},					    \
+		.access_size = 0,			    \
 		.addrl = (((state) << 4) | (sub_state)),    \
 		.addrh = 0,				    \
 			 }

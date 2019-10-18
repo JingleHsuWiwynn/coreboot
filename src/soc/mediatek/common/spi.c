@@ -13,13 +13,16 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <assert.h>
+#include <console/console.h>
 #include <endian.h>
+#include <gpio.h>
 #include <stdlib.h>
 #include <soc/pll.h>
 #include <soc/spi.h>
 #include <timer.h>
+#include <types.h>
 
 #define MTK_SPI_DEBUG 0
 
@@ -52,7 +55,7 @@ static void spi_sw_reset(struct mtk_spi_regs *regs)
 }
 
 void mtk_spi_init(unsigned int bus, enum spi_pad_mask pad_select,
-		  unsigned int speed_hz)
+		  unsigned int speed_hz, unsigned int tick_dly)
 {
 	u32 div, sck_ticks, cs_ticks;
 
@@ -72,7 +75,7 @@ void mtk_spi_init(unsigned int bus, enum spi_pad_mask pad_select,
 	printk(BIOS_DEBUG, "SPI%u(PAD%u) initialized at %u Hz\n",
 	       bus, pad_select, SPI_HZ / (sck_ticks * 2));
 
-	mtk_spi_set_timing(regs, sck_ticks, cs_ticks);
+	mtk_spi_set_timing(regs, sck_ticks, cs_ticks, tick_dly);
 
 	clrsetbits_le32(&regs->spi_cmd_reg,
 			(SPI_CMD_CPHA_EN | SPI_CMD_CPOL_EN |
@@ -86,6 +89,8 @@ void mtk_spi_init(unsigned int bus, enum spi_pad_mask pad_select,
 
 	clrsetbits_le32(&regs->spi_pad_macro_sel_reg, SPI_PAD_SEL_MASK,
 			pad_select);
+
+	gpio_output(slave->cs_gpio, 1);
 }
 
 static void mtk_spi_dump_data(const char *name, const uint8_t *data, int size)
@@ -107,6 +112,8 @@ static int spi_ctrlr_claim_bus(const struct spi_slave *slave)
 
 	setbits_le32(&regs->spi_cmd_reg, 1 << SPI_CMD_PAUSE_EN_SHIFT);
 	mtk_slave->state = MTK_SPI_IDLE;
+
+	gpio_output(mtk_slave->cs_gpio, 0);
 
 	return 0;
 }
@@ -242,6 +249,8 @@ static void spi_ctrlr_release_bus(const struct spi_slave *slave)
 	clrbits_le32(&regs->spi_cmd_reg, SPI_CMD_PAUSE_EN);
 	spi_sw_reset(regs);
 	mtk_slave->state = MTK_SPI_IDLE;
+
+	gpio_output(mtk_slave->cs_gpio, 1);
 }
 
 static int spi_ctrlr_setup(const struct spi_slave *slave)

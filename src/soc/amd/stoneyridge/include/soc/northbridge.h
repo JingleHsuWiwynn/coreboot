@@ -17,8 +17,8 @@
 #ifndef __PI_STONEYRIDGE_NORTHBRIDGE_H__
 #define __PI_STONEYRIDGE_NORTHBRIDGE_H__
 
-#include <arch/io.h>
 #include <device/device.h>
+#include <types.h>
 
 /* D0F0 - Root Complex */
 
@@ -99,32 +99,9 @@
 #define NB_CAPABILITIES2	0x84
 #define   CMP_CAP_MASK		0xff
 
-enum {
-	/* SMM handler area. */
-	SMM_SUBREGION_HANDLER,
-	/* SMM cache region. */
-	SMM_SUBREGION_CACHE,
-	/* Chipset specific area. */
-	SMM_SUBREGION_CHIPSET,
-	/* Total sub regions supported. */
-	SMM_SUBREGION_NUM,
-};
-
-/*
- * Fills in the arguments for the entire SMM region covered by chipset
- * protections. e.g. TSEG.
- */
-void smm_region_info(void **start, size_t *size);
-/*
- * Fills in the start and size for the requested SMM subregion. Returns
- * 0 on success, < 0 on failure.
- */
-int smm_subregion(int sub, void **start, size_t *size);
 void domain_enable_resources(struct device *dev);
-void domain_read_resources(struct device *dev);
 void domain_set_resources(struct device *dev);
 void fam15_finalize(void *chip_info);
-void setup_uma_memory(void);
 uint32_t nb_ioapic_read(unsigned int index);
 void nb_ioapic_write(unsigned int index, uint32_t value);
 void *get_ap_entry_ptr(void);

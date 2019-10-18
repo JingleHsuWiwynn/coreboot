@@ -1,10 +1,5 @@
 /*
- * Copyright 2011, Marvell Semiconductor Inc.
- * Lei Wen <leiwen@marvell.com>
- *
- * Copyright 2017 Intel Corporation
- *
- * Secure Digital (SD) Host Controller interface DMA support code
+ * This file is part of the coreboot project.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -15,18 +10,20 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
+ * Secure Digital (SD) Host Controller interface DMA support code
  */
 
-#include <assert.h>
 #include <commonlib/sdhci.h>
 #include <commonlib/storage.h>
+#include <console/console.h>
 #include <delay.h>
 #include <endian.h>
+#include <string.h>
+
 #include "sdhci.h"
 #include "sd_mmc.h"
 #include "storage.h"
-#include <string.h>
-#include <timer.h>
 
 static void sdhci_alloc_adma_descs(struct sdhci_ctrlr *sdhci_ctrlr,
 	u32 need_descriptors)

@@ -13,6 +13,14 @@
 ## GNU General Public License for more details.
 ##
 
+config PLATFORM_USES_FSP1_0
+	bool
+	default n
+	select CAR_GLOBAL_MIGRATION
+	help
+	  Selected for Intel processors/platform combinations that use the
+	  Intel Firmware Support Package (FSP) 1.0 for initialization.
+
 if PLATFORM_USES_FSP1_0
 
 comment "Intel FSP"
@@ -81,10 +89,11 @@ config ENABLE_MRC_CACHE
 config MRC_CACHE_FMAP
 	bool "Use MRC Cache in FMAP"
 	depends on ENABLE_MRC_CACHE
+	select CACHE_MRC_SETTINGS
 	default n
 	help
 	  Use the region "RW_MRC_CACHE" in FMAP instead of "mrc.cache" in CBFS.
-	  You must define a region in your FMAP named "RW_MRC_CACHE".
+	  Your FMAP must contain a region named "RW_MRC_CACHE".
 
 config MRC_CACHE_SIZE
 	hex "Fast Boot Data Cache Size"

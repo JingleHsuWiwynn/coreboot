@@ -23,11 +23,12 @@
 #include <device/pci_def.h>
 #include <pc80/mc146818rtc.h>
 #include <pc80/isa-dma.h>
-#include <arch/io.h>
 #include <arch/ioapic.h>
 #include <arch/acpi.h>
 #include <pc80/i8254.h>
 #include <pc80/i8259.h>
+#include <types.h>
+
 #include "hudson.h"
 #include "pci_devs.h"
 
@@ -87,7 +88,7 @@ static void lpc_init(struct device *dev)
 
 	/* Set up SERIRQ, enable continuous mode */
 	byte = (BIT(4) | BIT(7));
-	if (!IS_ENABLED(CONFIG_SERIRQ_CONTINUOUS_MODE))
+	if (!CONFIG(SERIRQ_CONTINUOUS_MODE))
 		byte |= BIT(6);
 
 	pm_write8(PM_SERIRQ_CONF, byte);
@@ -331,7 +332,11 @@ static void hudson_lpc_enable_resources(struct device *dev)
 
 unsigned long acpi_fill_mcfg(unsigned long current)
 {
-	/* Just a dummy */
+	current += acpi_create_mcfg_mmconfig((acpi_mcfg_mmconfig_t *)current,
+					     CONFIG_MMCONF_BASE_ADDRESS,
+					     0,
+					     0,
+					     CONFIG_MMCONF_BUS_NUMBER);
 	return current;
 }
 
@@ -354,11 +359,11 @@ static struct device_operations lpc_ops = {
 	.read_resources = hudson_lpc_read_resources,
 	.set_resources = hudson_lpc_set_resources,
 	.enable_resources = hudson_lpc_enable_resources,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.write_acpi_tables = acpi_write_hpet,
 #endif
 	.init = lpc_init,
-	.scan_bus = scan_lpc_bus,
+	.scan_bus = scan_static_bus,
 	.ops_pci = &lops_pci,
 	.acpi_name = lpc_acpi_name,
 };

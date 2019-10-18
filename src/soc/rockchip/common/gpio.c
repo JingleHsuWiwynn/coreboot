@@ -13,13 +13,14 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <assert.h>
 #include <gpio.h>
 #include <soc/gpio.h>
 #include <soc/grf.h>
 #include <soc/soc.h>
 #include <stdlib.h>
+#include <types.h>
 
 static void gpio_set_dir(gpio_t gpio, enum gpio_dir dir)
 {
@@ -30,7 +31,7 @@ static void gpio_set_dir(gpio_t gpio, enum gpio_dir dir)
 static void gpio_set_pull(gpio_t gpio, enum gpio_pull pull)
 {
 	u32 pull_val = gpio_get_pull_val(gpio, pull);
-	if (is_pmu_gpio(gpio) && IS_ENABLED(CONFIG_SOC_ROCKCHIP_RK3288))
+	if (is_pmu_gpio(gpio) && CONFIG(SOC_ROCKCHIP_RK3288))
 		clrsetbits_le32(gpio_grf_reg(gpio), 3 << (gpio.idx * 2),
 				pull_val << (gpio.idx * 2));
 	else

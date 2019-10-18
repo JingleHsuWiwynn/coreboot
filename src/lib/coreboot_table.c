@@ -31,13 +31,15 @@
 #include <cbfs.h>
 #include <cbmem.h>
 #include <bootmem.h>
+#include <bootsplash.h>
 #include <spi_flash.h>
+#include <security/vboot/misc.h>
 #include <security/vboot/vbnv_layout.h>
-#if IS_ENABLED(CONFIG_USE_OPTION_TABLE)
+#if CONFIG(USE_OPTION_TABLE)
 #include <option_table.h>
 #endif
-#if IS_ENABLED(CONFIG_CHROMEOS)
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(CHROMEOS)
+#if CONFIG(HAVE_ACPI_TABLES)
 #include <arch/acpi.h>
 #endif
 #include <vendorcode/google/chromeos/chromeos.h>
@@ -136,13 +138,21 @@ static void lb_framebuffer(struct lb_header *header)
 	struct lb_framebuffer *framebuffer;
 	struct lb_framebuffer fb = {0};
 
-	if (!IS_ENABLED(CONFIG_LINEAR_FRAMEBUFFER) || fill_lb_framebuffer(&fb))
+	if (!CONFIG(LINEAR_FRAMEBUFFER) || fill_lb_framebuffer(&fb))
 		return;
 
 	framebuffer = (struct lb_framebuffer *)lb_new_record(header);
 	memcpy(framebuffer, &fb, sizeof(*framebuffer));
 	framebuffer->tag = LB_TAG_FRAMEBUFFER;
 	framebuffer->size = sizeof(*framebuffer);
+
+	if (CONFIG(BOOTSPLASH)) {
+		uint8_t *fb_ptr = (uint8_t *)(uintptr_t)framebuffer->physical_address;
+		unsigned int width = framebuffer->x_resolution;
+		unsigned int height = framebuffer->y_resolution;
+		unsigned int depth = framebuffer->bits_per_pixel;
+		set_bootsplash(fb_ptr, width, height, depth);
+	}
 }
 
 void lb_add_gpios(struct lb_gpios *gpios, const struct lb_gpio *gpio_table,
@@ -155,7 +165,7 @@ void lb_add_gpios(struct lb_gpios *gpios, const struct lb_gpio *gpio_table,
 	gpios->size += table_size;
 }
 
-#if IS_ENABLED(CONFIG_CHROMEOS)
+#if CONFIG(CHROMEOS)
 static void lb_gpios(struct lb_header *header)
 {
 	struct lb_gpios *gpios;
@@ -196,7 +206,7 @@ static void lb_gpios(struct lb_header *header)
 
 static void lb_vbnv(struct lb_header *header)
 {
-#if IS_ENABLED(CONFIG_PC80_SYSTEM)
+#if CONFIG(PC80_SYSTEM)
 	struct lb_range *vbnv;
 
 	vbnv = (struct lb_range *)lb_new_record(header);
@@ -206,27 +216,19 @@ static void lb_vbnv(struct lb_header *header)
 	vbnv->range_size = VBOOT_VBNV_BLOCK_SIZE;
 #endif
 }
-
-#if IS_ENABLED(CONFIG_VBOOT)
-static void lb_vboot_handoff(struct lb_header *header)
-{
-	void *addr;
-	uint32_t size;
-	struct lb_range *vbho;
-
-	if (vboot_get_handoff_info(&addr, &size))
-		return;
-
-	vbho = (struct lb_range *)lb_new_record(header);
-	vbho->tag = LB_TAB_VBOOT_HANDOFF;
-	vbho->size = sizeof(*vbho);
-	vbho->range_start = (intptr_t)addr;
-	vbho->range_size = size;
-}
-#else
-static inline void lb_vboot_handoff(struct lb_header *header) {}
-#endif /* CONFIG_VBOOT */
 #endif /* CONFIG_CHROMEOS */
+
+static void lb_vboot_workbuf(struct lb_header *header)
+{
+	struct lb_range *vbwb;
+	struct vboot_working_data *wd = vboot_get_working_data();
+
+	vbwb = (struct lb_range *)lb_new_record(header);
+	vbwb->tag = LB_TAG_VBOOT_WORKBUF;
+	vbwb->size = sizeof(*vbwb);
+	vbwb->range_start = (uintptr_t)wd + wd->buffer_offset;
+	vbwb->range_size = wd->buffer_size;
+}
 
 __weak uint32_t board_id(void) { return UNDEFINED_STRAPPING_ID; }
 __weak uint32_t ram_code(void) { return UNDEFINED_STRAPPING_ID; }
@@ -254,7 +256,6 @@ static void lb_boot_media_params(struct lb_header *header)
 	struct lb_boot_media_params *bmp;
 	struct cbfs_props props;
 	const struct region_device *boot_dev;
-	struct region_device fmrd;
 
 	boot_device_init();
 
@@ -273,9 +274,7 @@ static void lb_boot_media_params(struct lb_header *header)
 	bmp->cbfs_size = props.size;
 	bmp->boot_media_size = region_device_sz(boot_dev);
 
-	bmp->fmap_offset = ~(uint64_t)0;
-	if (find_fmap_directory(&fmrd) == 0)
-		bmp->fmap_offset = region_device_offset(&fmrd);
+	bmp->fmap_offset = get_fmap_flash_offset();
 }
 
 static void lb_ram_code(struct lb_header *header)
@@ -312,6 +311,22 @@ static void lb_sku_id(struct lb_header *header)
 	printk(BIOS_INFO, "SKU ID: %d\n", sid);
 }
 
+static void lb_mmc_info(struct lb_header *header)
+{
+	struct lb_mmc_info *rec;
+	int32_t *ms_cbmem;
+
+	ms_cbmem = cbmem_find(CBMEM_ID_MMC_STATUS);
+	if (!ms_cbmem)
+		return;
+
+	rec = (struct lb_mmc_info *)lb_new_record(header);
+
+	rec->tag = LB_TAG_MMC_INFO;
+	rec->size = sizeof(*rec);
+	rec->early_cmd1_status = *ms_cbmem;
+}
+
 static void add_cbmem_pointers(struct lb_header *header)
 {
 	/*
@@ -327,7 +342,8 @@ static void add_cbmem_pointers(struct lb_header *header)
 		{CBMEM_ID_ACPI_GNVS, LB_TAG_ACPI_GNVS},
 		{CBMEM_ID_VPD, LB_TAG_VPD},
 		{CBMEM_ID_WIFI_CALIBRATION, LB_TAG_WIFI_CALIBRATION},
-		{CBMEM_ID_TCPA_LOG, LB_TAG_TCPA_LOG}
+		{CBMEM_ID_TCPA_LOG, LB_TAG_TCPA_LOG},
+		{CBMEM_ID_FMAP, LB_TAG_FMAP},
 	};
 	int i;
 
@@ -373,7 +389,7 @@ static struct lb_mainboard *lb_mainboard(struct lb_header *header)
 	return mainboard;
 }
 
-#if IS_ENABLED(CONFIG_USE_OPTION_TABLE)
+#if CONFIG(USE_OPTION_TABLE)
 static struct cmos_checksum *lb_cmos_checksum(struct lb_header *header)
 {
 	struct lb_record *rec;
@@ -489,7 +505,7 @@ static uintptr_t write_coreboot_table(uintptr_t rom_table_end)
 
 	head = lb_table_init(rom_table_end);
 
-#if IS_ENABLED(CONFIG_USE_OPTION_TABLE)
+#if CONFIG(USE_OPTION_TABLE)
 	{
 		struct cmos_option_table *option_table =
 			cbfs_boot_map_with_leak("cmos_layout.bin",
@@ -516,10 +532,10 @@ static uintptr_t write_coreboot_table(uintptr_t rom_table_end)
 	lb_mainboard(head);
 
 	/* Record the serial ports and consoles */
-#if IS_ENABLED(CONFIG_CONSOLE_SERIAL)
+#if CONFIG(CONSOLE_SERIAL)
 	uart_fill_lb(head);
 #endif
-#if IS_ENABLED(CONFIG_CONSOLE_USB)
+#if CONFIG(CONSOLE_USB)
 	lb_add_console(LB_TAG_CONSOLE_EHCI, head);
 #endif
 
@@ -529,24 +545,29 @@ static uintptr_t write_coreboot_table(uintptr_t rom_table_end)
 	/* Record our framebuffer */
 	lb_framebuffer(head);
 
-#if IS_ENABLED(CONFIG_CHROMEOS)
+#if CONFIG(CHROMEOS)
 	/* Record our GPIO settings (ChromeOS specific) */
 	lb_gpios(head);
 
 	/* pass along VBNV offsets in CMOS */
 	lb_vbnv(head);
-
-	/* pass along the vboot_handoff address. */
-	lb_vboot_handoff(head);
 #endif
+
+	if (CONFIG(VBOOT)) {
+		/* pass along the vboot workbuf address. */
+		lb_vboot_workbuf(head);
+	}
 
 	/* Add strapping IDs if available */
 	lb_board_id(head);
 	lb_ram_code(head);
 	lb_sku_id(head);
 
+	/* Pass mmc early init status */
+	lb_mmc_info(head);
+
 	/* Add SPI flash description if available */
-	if (IS_ENABLED(CONFIG_BOOT_DEVICE_SPI_FLASH))
+	if (CONFIG(BOOT_DEVICE_SPI_FLASH))
 		lb_spi_flash(head);
 
 	add_cbmem_pointers(head);
@@ -554,7 +575,7 @@ static uintptr_t write_coreboot_table(uintptr_t rom_table_end)
 	/* Add board-specific table entries, if any. */
 	lb_board(head);
 
-#if IS_ENABLED(CONFIG_CHROMEOS_RAMOOPS)
+#if CONFIG(CHROMEOS_RAMOOPS)
 	lb_ramoops(head);
 #endif
 

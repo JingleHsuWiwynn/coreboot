@@ -24,8 +24,9 @@
 #include <cpu/x86/smm.h>
 #include <string.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <cbmem.h>
-
+#include <console/console.h>
 #include <intelblocks/acpi.h>
 #include <soc/acpi.h>
 #include <soc/cpu.h>
@@ -82,7 +83,7 @@ void acpi_init_gnvs(global_nvs_t *gnvs)
 	/* Top of Low Memory (start of resource allocation) */
 	gnvs->tolm = top_of_32bit_ram();
 
-#if IS_ENABLED(CONFIG_CONSOLE_CBMEM)
+#if CONFIG(CONSOLE_CBMEM)
 	/* Update the mem console pointer. */
 	gnvs->cbmc = (u32)cbmem_find(CBMEM_ID_CONSOLE);
 #endif
@@ -139,7 +140,7 @@ void soc_fill_fadt(acpi_fadt_t *fadt)
 	u16 pmbase = get_pmbase();
 
 	/* System Management */
-	if (!IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)) {
+	if (!CONFIG(HAVE_SMI_HANDLER)) {
 		fadt->smi_cmd = 0x00;
 		fadt->acpi_enable = 0x00;
 		fadt->acpi_disable = 0x00;

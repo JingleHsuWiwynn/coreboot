@@ -14,13 +14,12 @@
  */
 
 #include <arch/cache.h>
-#include <arm_tf.h>
 #include <assert.h>
+#include <bl31.h>
 #include <soc/addressmap.h>
 #include <soc/console_uart.h>
-#include <stdlib.h>
-#include <string.h>
 #include <symbols.h>
+#include <types.h>
 
 typedef struct bl31_plat_params {
 	/* TZ memory size */
@@ -33,7 +32,7 @@ typedef struct bl31_plat_params {
 
 static bl31_plat_params_t t210_plat_params;
 
-void *soc_get_bl31_plat_params(bl31_params_t *params)
+void *soc_get_bl31_plat_params(void)
 {
 	uintptr_t tz_base_mib;
 	size_t tz_size_mib;

@@ -22,23 +22,18 @@
 #include <security/tpm/tss.h>
 #include <device/device.h>
 #include <intelblocks/pmclib.h>
-#include <soc/pmc.h>
-#include <soc/pci_devs.h>
 
 enum rec_mode_state {
 	REC_MODE_UNINITIALIZED,
 	REC_MODE_NOT_REQUESTED,
 	REC_MODE_REQUESTED,
 };
-static enum rec_mode_state saved_rec_mode;
 
 void fill_lb_gpios(struct lb_gpios *gpios)
 {
 	struct lb_gpio chromeos_gpios[] = {
 		{GPIO_PCH_WP, ACTIVE_HIGH, get_write_protect_state(),
 		 "write protect"},
-		{GPIO_REC_MODE, ACTIVE_LOW, get_recovery_mode_switch(),
-		 "recovery"},
 		{-1, ACTIVE_HIGH, get_lid_switch(), "lid"},
 		{-1, ACTIVE_HIGH, 0, "power"},
 		{-1, ACTIVE_HIGH, gfx_get_init_done(), "oprom"},
@@ -84,25 +79,31 @@ int get_write_protect_state(void)
 
 int get_recovery_mode_switch(void)
 {
-	enum rec_mode_state state = saved_rec_mode;
-	uint8_t recovery_button_state = 0;
+	static enum rec_mode_state saved_rec_mode = REC_MODE_UNINITIALIZED;
+	enum rec_mode_state state = REC_MODE_NOT_REQUESTED;
+	uint8_t cr50_state = 0;
 
-	/* Check the global variable first. */
-	if (state == REC_MODE_NOT_REQUESTED)
-		return 0;
-	else if (state == REC_MODE_REQUESTED)
-		return 1;
+	/* Check cached state, since TPM will only tell us the first time */
+	if (saved_rec_mode != REC_MODE_UNINITIALIZED)
+		return saved_rec_mode == REC_MODE_REQUESTED;
 
-	state = REC_MODE_NOT_REQUESTED;
+	/*
+	 * Read one-time recovery request from cr50 in verstage only since
+	 * the TPM driver won't be set up in time for other stages like romstage
+	 * and the value from the TPM would be wrong anyway since the verstage
+	 * read would have cleared the value on the TPM.
+	 *
+	 * The TPM recovery request is passed between stages through the
+	 * vboot_get_shared_data or cbmem depending on stage.
+	 */
+	if (ENV_VERSTAGE &&
+	    tlcl_cr50_get_recovery_button(&cr50_state) == TPM_SUCCESS &&
+	    cr50_state)
+		state = REC_MODE_REQUESTED;
 
 	/* Read state from the GPIO controlled by servo. */
 	if (cros_get_gpio_value(CROS_GPIO_REC))
 		state = REC_MODE_REQUESTED;
-	/* Read one-time recovery request from cr50. */
-	else if (tlcl_cr50_get_recovery_button(&recovery_button_state)
-		 == TPM_SUCCESS)
-		state = recovery_button_state ?
-			REC_MODE_REQUESTED : REC_MODE_NOT_REQUESTED;
 
 	/* Store the state in case this is called again in verstage. */
 	saved_rec_mode = state;
@@ -117,8 +118,7 @@ int get_lid_switch(void)
 
 void mainboard_prepare_cr50_reset(void)
 {
-#if ENV_RAMSTAGE
 	/* Ensure system powers up after CR50 reset */
-	pmc_set_afterg3(PCH_DEV_PMC, MAINBOARD_POWER_STATE_ON);
-#endif
+	if (ENV_RAMSTAGE)
+		pmc_soc_set_afterg3_en(true);
 }

@@ -15,8 +15,9 @@
 
 #include <cpu/x86/smm.h>
 #include <ec/google/chromeec/smm.h>
-#include <soc/smm.h>
+#include <intelblocks/smihandler.h>
 
+#include <baseboard/variants.h>
 #include <variant/ec.h>
 
 void mainboard_smi_espi_handler(void)
@@ -24,8 +25,11 @@ void mainboard_smi_espi_handler(void)
 	chromeec_smi_process_events();
 }
 
+void __weak variant_smi_sleep(u8 slp_typ) {}
+
 void mainboard_smi_sleep(u8 slp_typ)
 {
+	variant_smi_sleep(slp_typ);
 	chromeec_smi_sleep(slp_typ, MAINBOARD_EC_S3_WAKE_EVENTS,
 			MAINBOARD_EC_S5_WAKE_EVENTS);
 }

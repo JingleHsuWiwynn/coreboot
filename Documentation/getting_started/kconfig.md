@@ -73,9 +73,6 @@ These variables are typically set in the makefiles or on the make command line.
 These variables were added to Kconfig specifically for coreboot and are not
 included in the Linux version.
 
-- COREBOOT_BUILD_DIR=path for temporary files.   This is used by coreboot’s
-  abuild tool.
-
 - KCONFIG_STRICT=value. Define to enable warnings as errors.   This is enabled
   in coreboot, and should not be changed.
 
@@ -1132,7 +1129,7 @@ the symbol is only inside of an if/endif block where the if expression evaluates
 as false, the symbol STILL gets defined in the config.h file (though not in the
 .config file).
 
-Use \#if IS_ENABLED(CONFIG_*) to be sure (it returns false for undefined symbols
+Use \#if CONFIG(SYMBOL) to be sure (it returns false for undefined symbols
 and defined-to-0 symbols alike).
 
 
@@ -1165,8 +1162,6 @@ saved .config file. As always, a 'select' statement overrides any specified
 - coreboot has added the glob operator '*' for the 'source' keyword.
 - coreboot’s Kconfig always defines variables except for strings. In other
   Kconfig implementations, bools set to false/0/no are not defined.
-- IS_ENABLED() is ‘false’ for undefined variables and ‘0’ variables. In Linux
-  (where the macro comes from) it’s ‘true’ as soon as the variable is defined.
 - coreboot’s version of Kconfig adds the KCONFIG_STRICT environment variable to
   error out if there are any issues in the Kconfig files.  In the Linux kernel,
   Kconfig will generate a warning, but will still output an updated .config or

@@ -59,11 +59,11 @@ static void PciePowerOffGppPorts(struct device *nb_dev, struct device *dev, u32 
 {
 	printk(BIOS_DEBUG, "PciePowerOffGppPorts() port %d\n", port);
 	u32 reg;
-	u16 state_save;
+	u32 state_save;
 	uint8_t i;
 	struct southbridge_amd_sr5650_config *cfg =
 		(struct southbridge_amd_sr5650_config *)nb_dev->chip_info;
-	u16 state = cfg->port_enable;
+	u32 state = cfg->port_enable;
 
 	if (!(AtiPcieCfg.Config & PCIE_DISABLE_HIDE_UNUSED_PORTS))
 		state &= AtiPcieCfg.PortDetect;
@@ -360,41 +360,53 @@ const u8 pGpp111111[] = {0x0E, 0x0E, 0x0E, 0x0E, 0, 0x0E, 0x0E};
 static void gpp3a_cpl_buf_alloc(struct device *nb_dev, struct device *dev)
 {
 	u8 dev_index;
-	u8 *slave_cpl;
 	u8 value;
 	struct southbridge_amd_sr5650_config *cfg =
 	    (struct southbridge_amd_sr5650_config *)nb_dev->chip_info;
 
 	dev_index = dev->path.pci.devfn >> 3;
-	if (dev_index < 4 || dev_index > 0xa) {
+
+	if (dev_index < 4)
 		return;
-	}
+
+	dev_index -= 4;
 
 	switch (cfg->gpp3a_configuration) {
 	case 0x1: /* 4:2:0:0:0:0 */
-		slave_cpl = (u8 *)&pGpp420000;
+		if (dev_index >= ARRAY_SIZE(pGpp420000))
+			return;
+		value = pGpp420000[dev_index];
 		break;
 	case 0x2: /* 4:1:1:0:0:0 */
-		slave_cpl = (u8 *)&pGpp411000;
+		if (dev_index >= ARRAY_SIZE(pGpp411000))
+			return;
+		value = pGpp411000[dev_index];
 		break;
 	case 0xC: /* 2:2:2:0:0:0 */
-		slave_cpl = (u8 *)&pGpp222000;
+		if (dev_index >= ARRAY_SIZE(pGpp222000))
+			return;
+		value = pGpp222000[dev_index];
 		break;
 	case 0xA: /* 2:2:1:1:0:0 */
-		slave_cpl = (u8 *)&pGpp221100;
+		if (dev_index >= ARRAY_SIZE(pGpp221100))
+			return;
+		value = pGpp221100[dev_index];
 		break;
 	case 0x4: /* 2:1:1:1:1:0 */
-		slave_cpl = (u8 *)&pGpp211110;
+		if (dev_index >= ARRAY_SIZE(pGpp211110))
+			return;
+		value = pGpp211110[dev_index];
 		break;
 	case 0xB: /* 1:1:1:1:1:1 */
-		slave_cpl = (u8 *)&pGpp111111;
+		if (dev_index >= ARRAY_SIZE(pGpp111111))
+			return;
+		value = pGpp111111[dev_index];
 		break;
 	default:  /* shouldn't be here. */
 		printk(BIOS_WARNING, "buggy gpp3a_configuration\n");
 		return;
 	}
 
-	value = slave_cpl[dev_index - 4];
 	if (value != 0) {
 		set_pcie_enable_bits(dev, 0x10, 0x3f << 8, value << 8);
 		set_pcie_enable_bits(dev, 0x20, 1 << 11, 1 << 11);
@@ -888,13 +900,15 @@ void config_gpp_core(struct device *nb_dev, struct device *sb_dev)
 void pcie_config_misc_clk(struct device *nb_dev)
 {
 	u32 reg;
-	//struct bus pbus; /* fake bus for dev0 fun1 */
 
 	reg = pci_read_config32(nb_dev, 0x4c);
 	reg |= 1 << 0;
 	pci_write_config32(nb_dev, 0x4c, reg);
 
-#if 0				/* TODO: Check the mics clock later. */
+#if 0
+	/* TODO: Check the mics clock later. */
+	pci_devfn_t d0f1 = PCI_DEV(0, 0, 1);
+
 	if (AtiPcieCfg.Config & PCIE_GFX_CLK_GATING) {
 		/* TXCLK Clock Gating */
 		set_nbmisc_enable_bits(nb_dev, 0x07, 3 << 0, 3 << 0);
@@ -902,9 +916,9 @@ void pcie_config_misc_clk(struct device *nb_dev)
 		set_pcie_enable_bits(nb_dev, 0x11 | PCIE_CORE_INDEX_GFX, (3 << 6) | (~0xf), 3 << 6);
 
 		/* LCLK Clock Gating */
-		reg =  pci_cf8_conf1.read32(&pbus, 0, 1, 0x94);
+		reg = pci_io_read_config32(d0f1, 0x94);
 		reg &= ~(1 << 16);
-		pci_cf8_conf1.write32(&pbus, 0, 1, 0x94, reg);
+		pci_io_write_config32(d0f1, 0x94, reg);
 	}
 
 	if (AtiPcieCfg.Config & PCIE_GPP_CLK_GATING) {
@@ -914,9 +928,9 @@ void pcie_config_misc_clk(struct device *nb_dev)
 		set_pcie_enable_bits(nb_dev, 0x11 | PCIE_CORE_INDEX_SB, (3 << 6) | (~0xf), 3 << 6);
 
 		/* LCLK Clock Gating */
-		reg =  pci_cf8_conf1.read32(&pbus, 0, 1, 0x94);
+		reg = pci_io_read_config32(d0f1, 0x94);
 		reg &= ~(1 << 24);
-		pci_cf8_conf1.write32(&pbus, 0, 1, 0x94, reg);
+		pci_io_write_config32(d0f1, 0x94, reg);
 	}
 #endif
 

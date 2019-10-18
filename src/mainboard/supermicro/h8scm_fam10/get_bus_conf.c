@@ -14,7 +14,7 @@
  */
 
 #include <device/pci.h>
-#include <string.h>
+#include <device/pci_ops.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <cpu/amd/multicore.h>

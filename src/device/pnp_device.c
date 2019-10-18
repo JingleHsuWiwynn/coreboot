@@ -1,14 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2004 Linux Networx
- * (Written by Eric Biederman <ebiederman@lnxi.com> for Linux Networx)
- * Copyright (C) 2004 Li-Ta Lo <ollie@lanl.gov>
- * Copyright (C) 2005 Tyan
- * (Written by Yinghai Lu <yhlu@tyan.com> for Tyan)
- * Copyright (C) 2013 Nico Huber <nico.h@gmx.de>
- * Copyright (C) 2018 Felix Held <felix-coreboot@felixheld.de>
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -22,7 +14,6 @@
 #include <console/console.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
 #include <arch/io.h>
 #include <device/device.h>
 #include <device/pnp.h>
@@ -118,7 +109,7 @@ void pnp_read_resources(struct device *dev)
 static void pnp_set_resource(struct device *dev, struct resource *resource)
 {
 	if (!(resource->flags & IORESOURCE_ASSIGNED)) {
-		/* The PNP_MSC super IO registers have the IRQ flag set. If no
+		/* The PNP_MSC Super IO registers have the IRQ flag set. If no
 		   value is assigned in the devicetree, the corresponding
 		   PNP_MSC register doesn't get written, which should be printed
 		   as warning and not as error. */

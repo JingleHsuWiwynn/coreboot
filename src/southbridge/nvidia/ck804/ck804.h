@@ -24,10 +24,8 @@
 #endif
 
 #define CK804B_BUSN 0x80
-#define CK804B_DEVN_BASE (!CONFIG_SB_HT_CHAIN_UNITID_OFFSET_ONLY ? CK804_DEVN_BASE : 1)
+#define CK804B_DEVN_BASE (!CONFIG(SB_HT_CHAIN_UNITID_OFFSET_ONLY) ? CK804_DEVN_BASE : 1)
 
-#ifdef __PRE_RAM__
 void enable_fid_change_on_sb(unsigned sbbusn, unsigned sbdn);
-#endif
 
 #endif

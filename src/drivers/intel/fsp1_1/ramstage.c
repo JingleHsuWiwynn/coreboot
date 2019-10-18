@@ -17,7 +17,7 @@
 #include <bootmode.h>
 #include <arch/acpi.h>
 #include <console/console.h>
-#include <fsp/memmap.h>
+#include <cpu/x86/smm.h>
 #include <fsp/ramstage.h>
 #include <fsp/util.h>
 #include <lib.h>
@@ -30,41 +30,19 @@ __weak void soc_after_silicon_init(void)
 {
 }
 
-/* Display SMM memory map */
-static void smm_memory_map(void)
-{
-	void *base;
-	size_t size;
-	int i;
-
-	printk(BIOS_SPEW, "SMM Memory Map\n");
-
-	smm_region(&base, &size);
-	printk(BIOS_SPEW, "SMRAM       : %p 0x%zx\n", base, size);
-
-	for (i = 0; i < SMM_SUBREGION_NUM; i++) {
-		if (smm_subregion(i, &base, &size))
-			continue;
-		printk(BIOS_SPEW, " Subregion %d: %p 0x%zx\n", i, base, size);
-	}
-}
-
 static void display_hob_info(FSP_INFO_HEADER *fsp_info_header)
 {
 	const EFI_GUID graphics_info_guid = EFI_PEI_GRAPHICS_INFO_HOB_GUID;
-	int missing_hob = 0;
 	void *hob_list_ptr = get_hob_list();
-
-	if (!IS_ENABLED(CONFIG_DISPLAY_HOBS))
-		return;
 
 	/* Verify the HOBs */
 	if (hob_list_ptr == NULL) {
-		printk(BIOS_INFO, "ERROR - HOB pointer is NULL!\n");
+		printk(BIOS_ERR, "ERROR - HOB pointer is NULL!\n");
 		return;
 	}
 
-	print_hob_type_structure(0, hob_list_ptr);
+	if (CONFIG(DISPLAY_HOBS))
+		print_hob_type_structure(0, hob_list_ptr);
 
 	/*
 	 * Verify that FSP is generating the required HOBs:
@@ -77,14 +55,12 @@ static void display_hob_info(FSP_INFO_HEADER *fsp_info_header)
 	 *	FSP_SMBIOS_MEMORY_INFO HOB verified by raminit
 	 */
 	if ((fsp_info_header->ImageAttribute & GRAPHICS_SUPPORT_BIT) &&
-		!get_next_guid_hob(&graphics_info_guid, hob_list_ptr)) {
-		printk(BIOS_INFO, "7.5: EFI_PEI_GRAPHICS_INFO_HOB missing!\n");
-		missing_hob = 1;
-	}
-
-	if (missing_hob)
-		printk(BIOS_INFO,
+		!get_next_guid_hob(&graphics_info_guid, hob_list_ptr) &&
+		CONFIG(DISPLAY_HOBS)) {
+		printk(BIOS_ERR, "7.5: EFI_PEI_GRAPHICS_INFO_HOB missing!\n");
+		printk(BIOS_ERR,
 		       "ERROR - Missing one or more required FSP HOBs!\n");
+	}
 }
 
 void fsp_run_silicon_init(FSP_INFO_HEADER *fsp_info_header, int is_s3_wakeup)
@@ -117,12 +93,12 @@ void fsp_run_silicon_init(FSP_INFO_HEADER *fsp_info_header, int is_s3_wakeup)
 	soc_silicon_init_params(&silicon_init_params);
 
 	/* Locate VBT and pass to FSP GOP */
-	if (IS_ENABLED(CONFIG_RUN_FSP_GOP))
+	if (CONFIG(RUN_FSP_GOP))
 		load_vbt(is_s3_wakeup, &silicon_init_params);
 	mainboard_silicon_init_params(&silicon_init_params);
 
 	/* Display the UPD data */
-	if (IS_ENABLED(CONFIG_DISPLAY_UPD_DATA))
+	if (CONFIG(DISPLAY_UPD_DATA))
 		soc_display_silicon_init_params(original_params,
 			&silicon_init_params);
 
@@ -139,7 +115,7 @@ void fsp_run_silicon_init(FSP_INFO_HEADER *fsp_info_header, int is_s3_wakeup)
 	printk(BIOS_DEBUG, "FspSiliconInit returned 0x%08x\n", status);
 
 	/* Mark graphics init done after SiliconInit if VBT was provided */
-#if IS_ENABLED(CONFIG_RUN_FSP_GOP)
+#if CONFIG(RUN_FSP_GOP)
 	/* GraphicsConfigPtr doesn't exist in Quark X1000's FSP, so this needs
 	 * to be #if'd out instead of using if (). */
 	if (silicon_init_params.GraphicsConfigPtr)
@@ -152,10 +128,7 @@ void fsp_run_silicon_init(FSP_INFO_HEADER *fsp_info_header, int is_s3_wakeup)
 
 static void fsp_cache_save(struct prog *fsp)
 {
-	if (IS_ENABLED(CONFIG_DISPLAY_SMM_MEMORY_MAP))
-		smm_memory_map();
-
-	if (IS_ENABLED(CONFIG_NO_STAGE_CACHE))
+	if (CONFIG(NO_STAGE_CACHE))
 		return;
 
 	printk(BIOS_DEBUG, "FSP: Saving binary in cache\n");
@@ -192,7 +165,7 @@ void fsp_load(void)
 	if (load_done)
 		return;
 
-	if (is_s3_wakeup && !IS_ENABLED(CONFIG_NO_STAGE_CACHE)) {
+	if (is_s3_wakeup && !CONFIG(NO_STAGE_CACHE)) {
 		printk(BIOS_DEBUG, "FSP: Loading binary from cache\n");
 		stage_cache_load_stage(STAGE_REFCODE, &fsp);
 	} else {

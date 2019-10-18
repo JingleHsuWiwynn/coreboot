@@ -22,8 +22,9 @@
 #include <arch/acpi_device.h>
 #include <device/i2c_simple.h>
 #include <drivers/i2c/designware/dw_i2c.h>
-#include <intelblocks/chip.h>
+#include <intelblocks/cfg.h>
 #include <intelblocks/gspi.h>
+#include <intelblocks/lpc_lib.h>
 #include <stdint.h>
 #include <soc/gpe.h>
 #include <soc/gpio.h>
@@ -33,6 +34,9 @@
 #include <soc/serialio.h>
 #include <soc/usb.h>
 #include <soc/vr_config.h>
+#include <smbios.h>
+
+#define MAX_PEG_PORTS	3
 
 enum skylake_i2c_voltage {
 	I2C_VOLTAGE_3V3,
@@ -43,6 +47,18 @@ struct soc_intel_skylake_config {
 
 	/* Common struct containing soc config data required by common code */
 	struct soc_intel_common_config common_soc_config;
+
+	/* IGD panel configuration */
+	unsigned int gpu_pp_up_delay_ms;
+	unsigned int gpu_pp_down_delay_ms;
+	unsigned int gpu_pp_cycle_delay_ms;
+	unsigned int gpu_pp_backlight_on_delay_ms;
+	unsigned int gpu_pp_backlight_off_delay_ms;
+	unsigned int gpu_pch_backlight_pwm_hz;
+	enum {
+		GPU_BACKLIGHT_POLARITY_HIGH = 0,
+		GPU_BACKLIGHT_POLARITY_LOW,
+	} gpu_pch_backlight_polarity;
 
 	/*
 	 * Interrupt Routing configuration
@@ -184,11 +200,19 @@ struct soc_intel_skylake_config {
 	u8 SataSalpSupport;
 	u8 SataPortsEnable[8];
 	u8 SataPortsDevSlp[8];
+	u8 SataPortsSpinUp[8];
+	u8 SataPortsHotPlug[8];
 	u8 SataSpeedLimit;
 
 	/* Audio related */
 	u8 EnableAzalia;
 	u8 DspEnable;
+
+	/* HDA Virtual Channel Type Select */
+	enum {
+		Vc0,
+		Vc1,
+	} PchHdaVcType;
 
 	/*
 	 * I/O Buffer Ownership:
@@ -211,6 +235,28 @@ struct soc_intel_skylake_config {
 	 * each element of array corresponds to
 	 * respective PCIe root port.
 	 */
+
+	/* PEG Max Link Width */
+	enum {
+		Peg0_x16,
+		Peg0_x1,
+		Peg0_x2,
+		Peg0_x4,
+		Peg0_x8,
+	} Peg0MaxLinkWidth;
+
+	enum {
+		Peg1_x8,
+		Peg1_x1,
+		Peg1_x2,
+		Peg1_x4,
+	} Peg1MaxLinkWidth;
+
+	enum {
+		Peg2_x4,
+		Peg2_x1,
+		Peg2_x2,
+	} Peg2MaxLinkWidth;
 
 	/*
 	 * Enable/Disable Root Port
@@ -310,8 +356,13 @@ struct soc_intel_skylake_config {
 
 	/* Gfx related */
 	u8 IgdDvmt50PreAlloc;
-	u8 PrimaryDisplay;
-	u8 InternalGfx;
+	enum {
+		Display_iGFX,
+		Display_PEG,
+		Display_PCH_PCIe,
+		Display_Auto,
+		Display_Switchable,
+	} PrimaryDisplay;
 	u8 ApertureSize;
 	u8 SkipExtGfxScan;
 	u8 ScanExtGfxForLegacyOpRom;
@@ -428,13 +479,7 @@ struct soc_intel_skylake_config {
 		RESET_POWER_CYCLE_4S      = 4,
 	} PmConfigPwrCycDur;
 
-	/* Determines if enable Serial IRQ. Values 0: Disabled, 1: Enabled.*/
-	u8 SerialIrqConfigSirqEnable;
-
-	enum {
-		SERIAL_IRQ_QUIET_MODE      = 0,
-		SERIAL_IRQ_CONTINUOUS_MODE = 1,
-	} SerialIrqConfigSirqMode;
+	enum serirq_mode serirq_mode;
 
 	enum {
 		SERIAL_IRQ_FRAME_PULSE_4CLK = 0,
@@ -475,9 +520,6 @@ struct soc_intel_skylake_config {
 
 	/* Enable/Disable host reads to PMC XRAM registers */
 	u8 PchPmPmcReadDisable;
-
-	/* Statically clock gate 8254 PIT. */
-	u8 clock_gate_8254;
 
 	/*
 	 * Use SD card detect GPIO with default config:
@@ -551,15 +593,13 @@ struct soc_intel_skylake_config {
 	 */
 	u8 IslVrCmd;
 
-	/* PCH Trip Temperature */
-	u8 pch_trip_temp;
-
 	/* Enable/Disable Sata power optimization */
 	u8 SataPwrOptEnable;
+
+	/* Enable/Disable Sata test mode */
+	u8 SataTestMode;
 };
 
 typedef struct soc_intel_skylake_config config_t;
-
-extern struct chip_operations soc_ops;
 
 #endif

@@ -13,6 +13,7 @@
  * GNU General Public License for more details.
  */
 
+#include <arch/io.h>
 #include <bootstate.h>
 #include <cf9_reset.h>
 #include <console/console.h>
@@ -27,6 +28,7 @@
 #include <timer.h>
 #include <timestamp.h>
 #include <baseboard/variants.h>
+#include <types.h>
 
 #define TX_DWORD3	0xa8c
 

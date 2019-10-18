@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2014 Google Inc
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2 of
@@ -25,7 +23,7 @@ void *backup_default_smm_area(void)
 	void *save_area;
 	const void *default_smm = (void *)SMM_DEFAULT_BASE;
 
-	if (!IS_ENABLED(CONFIG_HAVE_ACPI_RESUME))
+	if (!CONFIG(HAVE_ACPI_RESUME))
 		return NULL;
 
 	/*

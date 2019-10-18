@@ -15,7 +15,6 @@
  *
  */
 
-#include <string.h>
 #include <arch/acpi.h>
 
 #include <soc/acpi.h>
@@ -23,6 +22,6 @@
 
 void motherboard_fill_fadt(acpi_fadt_t *fadt)
 {
-	fadt->model = 1;
+	fadt->reserved = 0;
 	fadt->preferred_pm_profile = PM_ENTERPRISE_SERVER;
 }

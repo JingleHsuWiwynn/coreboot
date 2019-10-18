@@ -1,13 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2003-2004 Linux Networx
- * (Written by Eric Biederman <ebiederman@lnxi.com> for Linux Networx)
- * Copyright (C) 2003 Greg Watson <jarrah@users.sourceforge.net>
- * Copyright (C) 2004 Li-Ta Lo <ollie@lanl.gov>
- * Copyright (C) 2005-2006 Tyan
- * (Written by Yinghai Lu <yhlu@tyan.com> for Tyan)
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -30,6 +23,12 @@ DEVTREE_CONST struct device * DEVTREE_CONST all_devices = &dev_root;
 
 /**
  * Given a PCI bus and a devfn number, find the device structure.
+ *
+ * Note that this function can return the incorrect device prior
+ * to PCI enumeration because the secondary field of the bus object
+ * is 0. The failing scenario is determined by the order of the
+ * devices in all_devices singly-linked list as well as the time
+ * when this function is called (secondary reflecting topology).
  *
  * @param bus The bus number.
  * @param devfn A device/function number.
@@ -183,27 +182,77 @@ DEVTREE_CONST struct device *pcidev_path_behind(
 	return find_dev_path(parent, &path);
 }
 
-DEVTREE_CONST struct device *pcidev_path_on_root(pci_devfn_t devfn)
+DEVTREE_CONST struct device *pcidev_path_on_bus(unsigned int bus, pci_devfn_t devfn)
+{
+	DEVTREE_CONST struct bus *parent = pci_root_bus();
+	DEVTREE_CONST struct device *dev = parent->children;
+
+	/* FIXME: Write the loop with topology links. */
+	while (dev) {
+		if (dev->path.type != DEVICE_PATH_PCI) {
+			dev = dev->next;
+			continue;
+		}
+		if (dev->bus->secondary == bus)
+			return pcidev_path_behind(dev->bus, devfn);
+		dev = dev->next;
+	}
+	return NULL;
+}
+
+DEVTREE_CONST struct bus *pci_root_bus(void)
 {
 	DEVTREE_CONST struct device *pci_domain;
+	MAYBE_STATIC_BSS DEVTREE_CONST struct bus *pci_root = NULL;
 
-	/* Work around pcidev_path_behind() below failing
-	 * due tue complicated devicetree with topology
-	 * being manipulated on-the-fly.
-	 */
-	if (IS_ENABLED(CONFIG_NORTHBRIDGE_AMD_AMDFAM10))
-		return dev_find_slot(0, devfn);
+	if (pci_root)
+		return pci_root;
 
 	pci_domain = dev_find_path(NULL, DEVICE_PATH_DOMAIN);
 	if (!pci_domain)
 		return NULL;
 
-	return pcidev_path_behind(pci_domain->link_list, devfn);
+	pci_root = pci_domain->link_list;
+	return pci_root;
+}
+
+DEVTREE_CONST struct device *pcidev_path_on_root(pci_devfn_t devfn)
+{
+	/* Work around pcidev_path_behind() below failing
+	 * due tue complicated devicetree with topology
+	 * being manipulated on-the-fly.
+	 */
+	if (CONFIG(NORTHBRIDGE_AMD_AMDFAM10))
+		return dev_find_slot(0, devfn);
+
+	return pcidev_path_behind(pci_root_bus(), devfn);
 }
 
 DEVTREE_CONST struct device *pcidev_on_root(uint8_t dev, uint8_t fn)
 {
 	return pcidev_path_on_root(PCI_DEVFN(dev, fn));
+}
+
+DEVTREE_CONST struct device *pcidev_path_on_root_debug(pci_devfn_t devfn, const char *func)
+{
+	DEVTREE_CONST struct device *dev = pcidev_path_on_root(devfn);
+	if (dev)
+		return dev;
+
+	devtree_bug(func, devfn);
+
+	/* FIXME: This can return wrong device. */
+	return dev_find_slot(0, devfn);
+}
+
+void devtree_bug(const char *func, pci_devfn_t devfn)
+{
+	printk(BIOS_ERR, "BUG: %s requests hidden 00:%02x.%u\n", func, devfn >> 3, devfn & 7);
+}
+
+void __noreturn devtree_die(void)
+{
+	die("DEVTREE: dev or chip_info is NULL\n");
 }
 
 /**

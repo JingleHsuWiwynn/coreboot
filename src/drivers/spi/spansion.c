@@ -245,7 +245,7 @@ static int spansion_write(const struct spi_flash *flash, u32 offset, size_t len,
 		cmd[2] = (offset >> 8) & 0xff;
 		cmd[3] = offset & 0xff;
 
-#if IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)
+#if CONFIG(DEBUG_SPI_FLASH)
 		printk(BIOS_SPEW, "PP: 0x%p => cmd = { 0x%02x 0x%02x%02x%02x }"
 		     " chunk_len = %zu\n",
 		     buf + actual, cmd[0], cmd[1], cmd[2], cmd[3], chunk_len);
@@ -264,14 +264,15 @@ static int spansion_write(const struct spi_flash *flash, u32 offset, size_t len,
 			break;
 		}
 
-		ret = spi_flash_cmd_wait_ready(flash, SPI_FLASH_PROG_TIMEOUT);
+		ret = spi_flash_cmd_wait_ready(flash,
+				SPI_FLASH_PROG_TIMEOUT_MS);
 		if (ret)
 			break;
 
 		offset += chunk_len;
 	}
 
-#if IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)
+#if CONFIG(DEBUG_SPI_FLASH)
 	printk(BIOS_SPEW, "SF: SPANSION: Successfully programmed %zu bytes @ 0x%x\n",
 	      len, offset);
 #endif
@@ -282,7 +283,6 @@ static int spansion_write(const struct spi_flash *flash, u32 offset, size_t len,
 static const struct spi_flash_ops spi_flash_ops = {
 	.write = spansion_write,
 	.erase = spi_flash_cmd_erase,
-	.read = spi_flash_cmd_read_slow,
 	.status = spi_flash_cmd_status,
 };
 

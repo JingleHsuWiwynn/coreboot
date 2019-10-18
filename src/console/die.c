@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2003 Eric Biederman
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2 of
@@ -14,7 +12,6 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <console/console.h>
 #include <halt.h>
 
@@ -31,9 +28,14 @@ __weak void die_notify(void)
 }
 
 /* Report a fatal error */
-void __noreturn die(const char *msg)
+void __noreturn die(const char *fmt, ...)
 {
-	printk(BIOS_EMERG, "%s", msg);
+	va_list args;
+
+	va_start(args, fmt);
+	vprintk(BIOS_EMERG, fmt, args);
+	va_end(args);
+
 	die_notify();
 	halt();
 }

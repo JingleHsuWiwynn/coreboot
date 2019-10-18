@@ -13,12 +13,11 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <gpio.h>
 #include <soc/addressmap.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <delay.h>
 
 #include "pinmux.h"
 

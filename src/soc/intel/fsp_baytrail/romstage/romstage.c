@@ -15,14 +15,16 @@
  */
 
 #include <stddef.h>
-#include <lib.h>
 #include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <arch/cbfs.h>
 #include <arch/early_variables.h>
 #include <console/console.h>
 #include <console/usb.h>
 #include <cbmem.h>
 #include <cpu/x86/mtrr.h>
+#include <cpu/x86/smm.h>
 #include <program_loading.h>
 #include <romstage_handoff.h>
 #include <timestamp.h>
@@ -61,7 +63,7 @@ uint32_t chipset_prev_sleep_state(uint32_t clear)
 	if (pm1_sts & WAK_STS) {
 		switch (acpi_sleep_from_pm1(pm1_cnt)) {
 		case ACPI_S3:
-			if (IS_ENABLED(CONFIG_HAVE_ACPI_RESUME))
+			if (CONFIG(HAVE_ACPI_RESUME))
 				prev_sleep_state = ACPI_S3;
 			break;
 		case ACPI_S4:
@@ -165,7 +167,8 @@ void main(FSP_INFO_HEADER *fsp_info_header)
 	tco_disable();
 
 	post_code(0x42);
-	byt_config_com1_and_enable();
+	if (CONFIG(ENABLE_BUILTIN_COM1))
+		byt_config_com1_and_enable();
 
 	post_code(0x43);
 	console_init();
@@ -207,7 +210,8 @@ void main(FSP_INFO_HEADER *fsp_info_header)
 	post_code(0x48);
 	printk(BIOS_DEBUG, "Starting the Intel FSP (early_init)\n");
 	fsp_early_init(fsp_info_header);
-	die("Uh Oh! fsp_early_init should not return here.\n");
+	die_with_post_code(POST_INVALID_VENDOR_BINARY,
+		"Uh Oh! fsp_early_init should not return here.\n");
 }
 
 /*******************************************************************************
@@ -216,7 +220,6 @@ void main(FSP_INFO_HEADER *fsp_info_header)
  */
 void romstage_main_continue(EFI_STATUS status, void *hob_list_ptr)
 {
-	int cbmem_was_initted;
 	void *cbmem_hob_ptr;
 	uint32_t prev_sleep_state;
 
@@ -227,7 +230,7 @@ void romstage_main_continue(EFI_STATUS status, void *hob_list_ptr)
 		__func__, (u32) status, (u32) hob_list_ptr);
 
 	/* FSP reconfigures USB, so reinit it to have debug */
-	if (IS_ENABLED(CONFIG_USBDEBUG_IN_PRE_RAM))
+	if (CONFIG(USBDEBUG_IN_PRE_RAM))
 		usbdebug_hw_init(true);
 
 	printk(BIOS_DEBUG, "FSP Status: 0x%0x\n", (u32)status);
@@ -243,13 +246,7 @@ void romstage_main_continue(EFI_STATUS status, void *hob_list_ptr)
 	late_mainboard_romstage_entry();
 	post_code(0x4c);
 
-	/* if S3 resume skip RAM check */
-	if (prev_sleep_state != ACPI_S3) {
-		quick_ram_check();
-		post_code(0x4d);
-	}
-
-	cbmem_was_initted = !cbmem_recovery(prev_sleep_state == ACPI_S3);
+	cbmem_recovery(prev_sleep_state == ACPI_S3);
 
 	/* Save the HOB pointer in CBMEM to be used in ramstage*/
 	cbmem_hob_ptr = cbmem_add(CBMEM_ID_HOB_POINTER, sizeof(*hob_list_ptr));
@@ -260,9 +257,11 @@ void romstage_main_continue(EFI_STATUS status, void *hob_list_ptr)
 
 	romstage_handoff_init(prev_sleep_state == ACPI_S3);
 
-	post_code(0x4f);
+	if (CONFIG(SMM_TSEG))
+		smm_list_regions();
 
 	/* Load the ramstage. */
+	post_code(0x4f);
 	run_ramstage();
 	while (1);
 }

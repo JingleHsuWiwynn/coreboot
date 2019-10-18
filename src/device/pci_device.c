@@ -1,22 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * It was originally based on the Linux kernel (drivers/pci/pci.c).
- * Copyright 1993 -- 1997 Drew Eckhardt, Frederic Potter,
- * David Mosberger-Tang
- *
- * Copyright 1997 -- 1999 Martin Mares <mj@atrey.karlin.mff.cuni.cz>
- *
- * Copyright (C) 2003-2004 Linux Networx
- * (Written by Eric Biederman <ebiederman@lnxi.com> for Linux Networx)
- * Copyright (C) 2003-2006 Ronald G. Minnich <rminnich@gmail.com>
- * Copyright (C) 2004-2005 Li-Ta Lo <ollie@lanl.gov>
- * Copyright (C) 2005-2006 Tyan
- * (Written by Yinghai Lu <yhlu@tyan.com> for Tyan)
- * Copyright (C) 2005-2009 coresystems GmbH
- * (Written by Stefan Reinauer <stepan@coresystems.de> for coresystems GmbH)
- * Copyright (C) 2014 Sage Electronic Engineering, LLC.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -28,11 +12,12 @@
  */
 
 /*
+ * Originally based on the Linux kernel (drivers/pci/pci.c).
  * PCI Bus Services, see include/linux/pci.h for further explanation.
  */
 
 #include <arch/acpi.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <bootmode.h>
 #include <console/console.h>
 #include <stdlib.h>
@@ -49,6 +34,8 @@
 #include <pc80/i8259.h>
 #include <security/vboot/vbnv.h>
 #include <timestamp.h>
+#include <types.h>
+
 
 u8 pci_moving_config8(struct device *dev, unsigned int reg)
 {
@@ -99,73 +86,6 @@ u32 pci_moving_config32(struct device *dev, unsigned int reg)
 	pci_write_config32(dev, reg, value);
 
 	return ones ^ zeroes;
-}
-
-/**
- * Given a device, a capability type, and a last position, return the next
- * matching capability. Always start at the head of the list.
- *
- * @param dev Pointer to the device structure.
- * @param cap PCI_CAP_LIST_ID of the PCI capability we're looking for.
- * @param last Location of the PCI capability register to start from.
- * @return The next matching capability.
- */
-unsigned pci_find_next_capability(struct device *dev, unsigned cap,
-				  unsigned last)
-{
-	unsigned pos = 0;
-	u16 status;
-	unsigned reps = 48;
-
-	status = pci_read_config16(dev, PCI_STATUS);
-	if (!(status & PCI_STATUS_CAP_LIST))
-		return 0;
-
-	switch (dev->hdr_type & 0x7f) {
-	case PCI_HEADER_TYPE_NORMAL:
-	case PCI_HEADER_TYPE_BRIDGE:
-		pos = PCI_CAPABILITY_LIST;
-		break;
-	case PCI_HEADER_TYPE_CARDBUS:
-		pos = PCI_CB_CAPABILITY_LIST;
-		break;
-	default:
-		return 0;
-	}
-
-	pos = pci_read_config8(dev, pos);
-	while (reps-- && (pos >= 0x40)) { /* Loop through the linked list. */
-		int this_cap;
-
-		pos &= ~3;
-		this_cap = pci_read_config8(dev, pos + PCI_CAP_LIST_ID);
-		printk(BIOS_SPEW, "Capability: type 0x%02x @ 0x%02x\n",
-		       this_cap, pos);
-		if (this_cap == 0xff)
-			break;
-
-		if (!last && (this_cap == cap))
-			return pos;
-
-		if (last == pos)
-			last = 0;
-
-		pos = pci_read_config8(dev, pos + PCI_CAP_LIST_NEXT);
-	}
-	return 0;
-}
-
-/**
- * Given a device, and a capability type, return the next matching
- * capability. Always start at the head of the list.
- *
- * @param dev Pointer to the device structure.
- * @param cap PCI_CAP_LIST_ID of the PCI capability we're looking for.
- * @return The next matching capability.
- */
-unsigned int pci_find_capability(struct device *dev, unsigned int cap)
-{
-	return pci_find_next_capability(dev, cap, 0);
 }
 
 /**
@@ -659,11 +579,12 @@ void pci_dev_set_resources(struct device *dev)
 
 void pci_dev_enable_resources(struct device *dev)
 {
-	const struct pci_operations *ops;
+	const struct pci_operations *ops = NULL;
 	u16 command;
 
 	/* Set the subsystem vendor and device ID for mainboard devices. */
-	ops = ops_pci(dev);
+	if (dev->ops)
+		ops = dev->ops->ops_pci;
 	if (dev->on_mainboard && ops && ops->set_subsystem) {
 		if (CONFIG_SUBSYSTEM_VENDOR_ID)
 			dev->subsystem_vendor = CONFIG_SUBSYSTEM_VENDOR_ID;
@@ -705,7 +626,7 @@ void pci_bus_enable_resources(struct device *dev)
 		dev->command |= PCI_COMMAND_IO;
 	ctrl = pci_read_config16(dev, PCI_BRIDGE_CONTROL);
 	ctrl |= dev->link_list->bridge_ctrl;
-	ctrl |= (PCI_BRIDGE_CTL_PARITY + PCI_BRIDGE_CTL_SERR); /* Error check. */
+	ctrl |= (PCI_BRIDGE_CTL_PARITY | PCI_BRIDGE_CTL_SERR); /* Error check. */
 	printk(BIOS_DEBUG, "%s bridge ctrl <- %04x\n", dev_path(dev), ctrl);
 	pci_write_config16(dev, PCI_BRIDGE_CONTROL, ctrl);
 
@@ -729,18 +650,48 @@ void pci_bus_reset(struct bus *bus)
 void pci_dev_set_subsystem(struct device *dev, unsigned int vendor,
 			   unsigned int device)
 {
-	pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-			   ((device & 0xffff) << 16) | (vendor & 0xffff));
+	uint8_t offset;
+
+	/* Header type */
+	switch (dev->hdr_type & 0x7f) {
+	case PCI_HEADER_TYPE_NORMAL:
+		offset = PCI_SUBSYSTEM_VENDOR_ID;
+		break;
+	case PCI_HEADER_TYPE_BRIDGE:
+		offset = pci_find_capability(dev, PCI_CAP_ID_SSVID);
+		if (!offset)
+			return;
+		offset += 4; /* Vendor ID at offset 4 */
+		break;
+	case PCI_HEADER_TYPE_CARDBUS:
+		offset = PCI_CB_SUBSYSTEM_VENDOR_ID;
+		break;
+	default:
+		return;
+	}
+
+	if (!vendor || !device) {
+		pci_write_config32(dev, offset,
+			pci_read_config32(dev, PCI_VENDOR_ID));
+	} else {
+		pci_write_config32(dev, offset,
+			((device & 0xffff) << 16) | (vendor & 0xffff));
+	}
 }
 
-static int should_run_oprom(struct device *dev)
+static int should_run_oprom(struct device *dev, struct rom_header *rom)
 {
 	static int should_run = -1;
+
+	if (CONFIG(VENDORCODE_ELTAN_VBOOT))
+		if (rom != NULL)
+			if (!verified_boot_should_run_oprom(rom))
+				return 0;
 
 	if (should_run >= 0)
 		return should_run;
 
-	if (IS_ENABLED(CONFIG_ALWAYS_RUN_OPROM)) {
+	if (CONFIG(ALWAYS_RUN_OPROM)) {
 		should_run = 1;
 		return should_run;
 	}
@@ -749,9 +700,6 @@ static int should_run_oprom(struct device *dev)
 	 * something on the screen before the kernel is loaded.
 	 */
 	should_run = display_init_required();
-
-	if (!should_run && IS_ENABLED(CONFIG_CHROMEOS))
-		should_run = vboot_wants_oprom();
 
 	if (!should_run)
 		printk(BIOS_DEBUG, "Not running VGA Option ROM\n");
@@ -763,12 +711,12 @@ static int should_load_oprom(struct device *dev)
 	/* If S3_VGA_ROM_RUN is disabled, skip running VGA option
 	 * ROMs when coming out of an S3 resume.
 	 */
-	if (!IS_ENABLED(CONFIG_S3_VGA_ROM_RUN) && acpi_is_wakeup_s3() &&
+	if (!CONFIG(S3_VGA_ROM_RUN) && acpi_is_wakeup_s3() &&
 		((dev->class >> 8) == PCI_CLASS_DISPLAY_VGA))
 		return 0;
-	if (IS_ENABLED(CONFIG_ALWAYS_LOAD_OPROM))
+	if (CONFIG(ALWAYS_LOAD_OPROM))
 		return 1;
-	if (should_run_oprom(dev))
+	if (should_run_oprom(dev, NULL))
 		return 1;
 
 	return 0;
@@ -779,7 +727,7 @@ void pci_dev_init(struct device *dev)
 {
 	struct rom_header *rom, *ram;
 
-	if (!IS_ENABLED(CONFIG_VGA_ROM_RUN))
+	if (!CONFIG(VGA_ROM_RUN))
 		return;
 
 	/* Only execute VGA ROMs. */
@@ -799,10 +747,11 @@ void pci_dev_init(struct device *dev)
 		return;
 	timestamp_add_now(TS_OPROM_COPY_END);
 
-	if (!should_run_oprom(dev))
+	if (!should_run_oprom(dev, rom))
 		return;
 
 	run_bios(dev, (unsigned long)ram);
+
 	gfx_set_init_done(1);
 	printk(BIOS_DEBUG, "VGA Option ROM was run\n");
 	timestamp_add_now(TS_OPROM_END);
@@ -817,7 +766,7 @@ struct device_operations default_pci_ops_dev = {
 	.read_resources   = pci_dev_read_resources,
 	.set_resources    = pci_dev_set_resources,
 	.enable_resources = pci_dev_enable_resources,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.write_acpi_tables = pci_rom_write_acpi_tables,
 	.acpi_fill_ssdt_generator = pci_rom_ssdt,
 #endif
@@ -844,6 +793,43 @@ struct device_operations default_pci_ops_bus = {
 };
 
 /**
+ * Check for compatibility to route legacy VGA cycles through a bridge.
+ *
+ * Originally, when decoding i/o ports for legacy VGA cycles, bridges
+ * should only consider the 10 least significant bits of the port address.
+ * This means all VGA registers were aliased every 1024 ports!
+ *     e.g. 0x3b0 was also decoded as 0x7b0, 0xbb0 etc.
+ *
+ * To avoid this mess, a bridge control bit (VGA16) was introduced in
+ * 2003 to enable decoding of 16-bit port addresses. As we don't want
+ * to make this any more complex for now, we use this bit if possible
+ * and only warn if it's not supported (in set_vga_bridge_bits()).
+ */
+static void pci_bridge_vga_compat(struct bus *const bus)
+{
+	uint16_t bridge_ctrl;
+
+	bridge_ctrl = pci_read_config16(bus->dev, PCI_BRIDGE_CONTROL);
+
+	/* Ensure VGA decoding is disabled during probing (it should
+	   be by default, but we run blobs nowadays) */
+	bridge_ctrl &= ~PCI_BRIDGE_CTL_VGA;
+	pci_write_config16(bus->dev, PCI_BRIDGE_CONTROL, bridge_ctrl);
+
+	/* If the upstream bridge doesn't support VGA16, we don't have to check */
+	bus->no_vga16 |= bus->dev->bus->no_vga16;
+	if (bus->no_vga16)
+		return;
+
+	/* Test if we can enable 16-bit decoding */
+	bridge_ctrl |= PCI_BRIDGE_CTL_VGA16;
+	pci_write_config16(bus->dev, PCI_BRIDGE_CONTROL, bridge_ctrl);
+	bridge_ctrl = pci_read_config16(bus->dev, PCI_BRIDGE_CONTROL);
+
+	bus->no_vga16 = !(bridge_ctrl & PCI_BRIDGE_CTL_VGA16);
+}
+
+/**
  * Detect the type of downstream bridge.
  *
  * This function is a heuristic to detect which type of bus is downstream
@@ -859,7 +845,7 @@ struct device_operations default_pci_ops_bus = {
  */
 static struct device_operations *get_pci_bridge_ops(struct device *dev)
 {
-#if IS_ENABLED(CONFIG_PCIX_PLUGIN_SUPPORT)
+#if CONFIG(PCIX_PLUGIN_SUPPORT)
 	unsigned int pcixpos;
 	pcixpos = pci_find_capability(dev, PCI_CAP_ID_PCIX);
 	if (pcixpos) {
@@ -867,7 +853,7 @@ static struct device_operations *get_pci_bridge_ops(struct device *dev)
 		return &default_pcix_ops_bus;
 	}
 #endif
-#if IS_ENABLED(CONFIG_HYPERTRANSPORT_PLUGIN_SUPPORT)
+#if CONFIG(HYPERTRANSPORT_PLUGIN_SUPPORT)
 	unsigned int htpos = 0;
 	while ((htpos = pci_find_next_capability(dev, PCI_CAP_ID_HT, htpos))) {
 		u16 flags;
@@ -880,7 +866,7 @@ static struct device_operations *get_pci_bridge_ops(struct device *dev)
 		}
 	}
 #endif
-#if IS_ENABLED(CONFIG_PCIEXP_PLUGIN_SUPPORT)
+#if CONFIG(PCIEXP_PLUGIN_SUPPORT)
 	unsigned int pciexpos;
 	pciexpos = pci_find_capability(dev, PCI_CAP_ID_PCIE);
 	if (pciexpos) {
@@ -970,7 +956,7 @@ static void set_pci_ops(struct device *dev)
 			goto bad;
 		dev->ops = get_pci_bridge_ops(dev);
 		break;
-#if IS_ENABLED(CONFIG_CARDBUS_PLUGIN_SUPPORT)
+#if CONFIG(CARDBUS_PLUGIN_SUPPORT)
 	case PCI_HEADER_TYPE_CARDBUS:
 		dev->ops = &default_cardbus_ops_bus;
 		break;
@@ -1344,6 +1330,8 @@ void do_pci_scan_bridge(struct device *dev,
 
 	bus = dev->link_list;
 
+	pci_bridge_vga_compat(bus);
+
 	pci_bridge_route(bus, PCI_ROUTE_SCAN);
 
 	do_scan_bus(bus, 0x00, 0xff);
@@ -1529,7 +1517,7 @@ int get_pci_irq_pins(struct device *dev, struct device **parent_bdg)
 	return target_pin;
 }
 
-#if IS_ENABLED(CONFIG_PC80_SYSTEM)
+#if CONFIG(PC80_SYSTEM)
 /**
  * Assign IRQ numbers.
  *
@@ -1539,27 +1527,24 @@ int get_pci_irq_pins(struct device *dev, struct device **parent_bdg)
  *
  * This function should be called for each PCI slot in your system.
  *
- * @param bus Pointer to the bus structure.
- * @param slot TODO
+ * @param dev Pointer to dev structure.
  * @param pIntAtoD An array of IRQ #s that are assigned to PINTA through PINTD
  *        of this slot. The particular IRQ #s that are passed in depend on the
  *        routing inside your southbridge and on your board.
  */
-void pci_assign_irqs(unsigned bus, unsigned slot,
-		     const unsigned char pIntAtoD[4])
+void pci_assign_irqs(struct device *dev, const unsigned char pIntAtoD[4])
 {
-	unsigned int funct;
-	struct device *pdev;
-	u8 line, irq;
+	u8 slot, line, irq;
 
-	/* Each slot may contain up to eight functions. */
-	for (funct = 0; funct < 8; funct++) {
-		pdev = dev_find_slot(bus, (slot << 3) + funct);
+	/* Each device may contain up to eight functions. */
+	slot = dev->path.pci.devfn >> 3;
 
-		if (!pdev)
-			continue;
+	for (; dev ; dev = dev->sibling) {
 
-		line = pci_read_config8(pdev, PCI_INTERRUPT_PIN);
+		if (dev->path.pci.devfn >> 3 != slot)
+			break;
+
+		line = pci_read_config8(dev, PCI_INTERRUPT_PIN);
 
 		/* PCI spec says all values except 1..4 are reserved. */
 		if ((line < 1) || (line > 4))
@@ -1567,18 +1552,16 @@ void pci_assign_irqs(unsigned bus, unsigned slot,
 
 		irq = pIntAtoD[line - 1];
 
-		printk(BIOS_DEBUG, "Assigning IRQ %d to %d:%x.%d\n",
-		       irq, bus, slot, funct);
+		printk(BIOS_DEBUG, "Assigning IRQ %d to %s\n", irq, dev_path(dev));
 
-		pci_write_config8(pdev, PCI_INTERRUPT_LINE,
-				  pIntAtoD[line - 1]);
+		pci_write_config8(dev, PCI_INTERRUPT_LINE, pIntAtoD[line - 1]);
 
 #ifdef PARANOID_IRQ_ASSIGNMENTS
 		irq = pci_read_config8(pdev, PCI_INTERRUPT_LINE);
 		printk(BIOS_DEBUG, "  Readback = %d\n", irq);
 #endif
 
-#if IS_ENABLED(CONFIG_PC80_SYSTEM)
+#if CONFIG(PC80_SYSTEM)
 		/* Change to level triggered. */
 		i8259_configure_irq_trigger(pIntAtoD[line - 1],
 					    IRQ_LEVEL_TRIGGERED);

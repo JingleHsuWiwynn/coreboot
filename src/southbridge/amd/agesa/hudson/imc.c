@@ -14,8 +14,7 @@
  */
 
 #include "imc.h"
-#include <arch/io.h>
-#include <delay.h>
+#include <device/mmio.h>
 #include <Porting.h>
 #include <AGESA.h>
 #include <amdlib.h>
@@ -35,7 +34,7 @@ void imc_reg_init(void)
 	write8(VACPI_MMIO_VBASE + PMIO2_BASE + 0x03, 0xff);
 	write8(VACPI_MMIO_VBASE + PMIO2_BASE + 0x04, 0xff);
 
-#if !IS_ENABLED(CONFIG_SOUTHBRIDGE_AMD_AGESA_YANGTZE)
+#if !CONFIG(SOUTHBRIDGE_AMD_AGESA_YANGTZE)
 	write8(VACPI_MMIO_VBASE + PMIO2_BASE + 0x10, 0x06);
 	write8(VACPI_MMIO_VBASE + PMIO2_BASE + 0x11, 0x06);
 	write8(VACPI_MMIO_VBASE + PMIO2_BASE + 0x12, 0xf7);
@@ -43,7 +42,7 @@ void imc_reg_init(void)
 	write8(VACPI_MMIO_VBASE + PMIO2_BASE + 0x14, 0xff);
 #endif
 
-#if IS_ENABLED(CONFIG_SOUTHBRIDGE_AMD_AGESA_YANGTZE)
+#if CONFIG(SOUTHBRIDGE_AMD_AGESA_YANGTZE)
 	UINT8 PciData;
 	PCI_ADDR PciAddress;
 	AMD_CONFIG_PARAMS StdHeader;
@@ -55,7 +54,6 @@ void imc_reg_init(void)
 #endif
 }
 
-#ifndef __PRE_RAM__
 void enable_imc_thermal_zone(void)
 {
 	AMD_CONFIG_PARAMS StdHeader;
@@ -84,4 +82,3 @@ void enable_imc_thermal_zone(void)
 	WriteECmsg(MSG_SYS_TO_IMC, AccessWidth8, &FunNum, &StdHeader);     // function number
 	WaitForEcLDN9MailboxCmdAck(&StdHeader);
 }
-#endif

@@ -23,6 +23,8 @@
 #include <timer.h>
 #include <timestamp.h>
 #include <baseboard/variants.h>
+#include <soc/pci_devs.h>
+#include <types.h>
 
 void variant_mainboard_final(void)
 {

@@ -15,10 +15,6 @@ source "src/soc/intel/common/pch/Kconfig"
 comment "Intel SoC Common coreboot stages"
 source "src/soc/intel/common/basecode/Kconfig"
 
-config DISPLAY_SMM_MEMORY_MAP
-	bool "SMM: Display the SMM memory map"
-	default n
-
 config SOC_INTEL_COMMON_RESET
 	bool
 	default n
@@ -51,13 +47,6 @@ config SOC_INTEL_COMMON_ACPI
 	bool
 	default n
 
-config SOC_INTEL_COMMON_ACPI_EC_PTS_WAK
-	bool
-	default n
-	help
-	  Set this option to have the platform level _PTS/_WAK methods call
-	  methods provided by the Embedded Controller.
-
 config SOC_INTEL_COMMON_NHLT
 	bool
 	default n
@@ -67,5 +56,16 @@ config TPM_TIS_ACPI_INTERRUPT
 	help
 	  acpi_get_gpe() is used to provide interrupt status to TPM layer.
 	  This option specifies the GPE number.
+
+config SOC_INTEL_DEBUG_CONSENT
+	bool "Enable SOC debug interface"
+	default n
+	help
+	  Set this option to enable default debug interface of SoC such as DBC
+	  or DCI.
+
+config SMM_MODULE_STACK_SIZE
+	hex
+	default 0x800
 
 endif # SOC_INTEL_COMMON

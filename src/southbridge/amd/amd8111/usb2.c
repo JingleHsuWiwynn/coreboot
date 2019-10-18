@@ -18,23 +18,7 @@
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
-#include <device/pci_ops.h>
 #include "amd8111.h"
-
-#if 0
-
-static void lpci_set_subsystem(struct device *dev, unsigned int vendor,
-			       unsigned int device)
-{
-	pci_write_config32(dev, 0x70,
-		((device & 0xffff) << 16) | (vendor & 0xffff));
-}
-
-static struct pci_operations lops_pci = {
-	.set_subsystem = lpci_set_subsystem,
-};
-
-#endif
 
 static void amd8111_usb2_enable(struct device *dev)
 {
@@ -50,7 +34,6 @@ static struct device_operations usb2_ops  = {
 	.enable_resources = pci_dev_enable_resources,
 	.scan_bus         = 0,
 	.enable           = amd8111_usb2_enable,
-	// .ops_pci          = &lops_pci,
 };
 
 static const struct pci_driver usb2_driver __pci_driver = {

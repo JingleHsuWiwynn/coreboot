@@ -17,8 +17,6 @@
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
-#include <string.h>
-#include <arch/acpi.h>
 #include <arch/cpu.h>
 #include <cpu/cpu.h>
 #include <cpu/x86/mtrr.h>
@@ -26,6 +24,7 @@
 #include <cpu/x86/lapic.h>
 #include <cpu/x86/mp.h>
 #include <cpu/intel/microcode.h>
+#include <cpu/intel/smm_reloc.h>
 #include <cpu/intel/speedstep.h>
 #include <cpu/intel/turbo.h>
 #include <cpu/x86/cache.h>
@@ -197,8 +196,7 @@ static int pcode_mailbox_write(u32 command, u32 data)
 
 static void initialize_vr_config(void)
 {
-	struct device *dev = SA_DEV_ROOT;
-	config_t *conf = dev->chip_info;
+	config_t *conf = config_of_soc();
 	msr_t msr;
 
 	printk(BIOS_DEBUG, "Initializing VR config.\n");
@@ -327,8 +325,8 @@ void set_power_limits(u8 power_limit_1_time)
 	unsigned int tdp, min_power, max_power, max_time;
 	u8 power_limit_1_val;
 
-	if (power_limit_1_time > ARRAY_SIZE(power_limit_time_sec_to_msr))
-		power_limit_1_time = 28;
+	if (power_limit_1_time >= ARRAY_SIZE(power_limit_time_sec_to_msr))
+		power_limit_1_time = ARRAY_SIZE(power_limit_time_sec_to_msr) - 1;
 
 	if (!(msr.lo & PLATFORM_INFO_SET_TDP))
 		return;
@@ -452,9 +450,9 @@ static void configure_c_states(void)
 
 static void configure_thermal_target(void)
 {
-	struct device *dev = SA_DEV_ROOT;
-	config_t *conf = dev->chip_info;
+	config_t *conf = config_of_soc();
 	msr_t msr;
+
 
 	/* Set TCC activation offset if supported */
 	msr = rdmsr(MSR_PLATFORM_INFO);
@@ -654,7 +652,7 @@ static void post_mp_init(void)
 
 	/* Now that all APs have been relocated as well as the BSP let SMIs
 	 * start flowing. */
-	southbridge_smm_enable_smi();
+	smm_southbridge_enable_smi();
 
 	/* Lock down the SMRAM space. */
 	smm_lock();

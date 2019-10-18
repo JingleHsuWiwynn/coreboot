@@ -14,7 +14,6 @@
  */
 
 #include <console/console.h>
-#include <arch/io.h>
 #include <arch/cpu.h>
 #include <device/device.h>
 #include <device/pci.h>
@@ -264,7 +263,6 @@ u8 PcieTrainPort(struct device *nb_dev, struct device *dev, u32 port)
 		gfx_gpp_sb_sel = PCIE_CORE_INDEX_GPP;
 		break;
 	default:
-		gfx_gpp_sb_sel = -1;
 		return 0;
 	}
 
@@ -343,7 +341,7 @@ u8 PcieTrainPort(struct device *nb_dev, struct device *dev, u32 port)
 void rs780_set_tom(struct device *nb_dev)
 {
 	/* set TOM */
-#if IS_ENABLED(CONFIG_GFXUMA)
+#if CONFIG(GFXUMA)
 	pci_write_config32(nb_dev, 0x90, uma_memory_base);
 	//nbmc_write_index(nb_dev, 0x1e, uma_memory_base);
 #else

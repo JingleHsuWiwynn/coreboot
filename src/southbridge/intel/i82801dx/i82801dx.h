@@ -30,13 +30,15 @@
 #include <arch/acpi.h>
 
 #if !defined(__ASSEMBLER__)
-#if !defined(__SIMPLE_DEVICE__)
+
+#include <device/device.h>
 #include "chip.h"
-extern void i82801dx_enable(struct device *dev);
-#else
+
+void i82801dx_enable(struct device *dev);
 void enable_smbus(void);
 int smbus_read_byte(unsigned device, unsigned address);
-#endif
+void aseg_smm_lock(void);
+
 #endif
 
 #define DEBUG_PERIODIC_SMIS 0

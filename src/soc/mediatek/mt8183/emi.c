@@ -13,11 +13,40 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
-#include <soc/emi.h>
-#include <soc/infracfg.h>
+#include <device/mmio.h>
+#include <soc/dramc_param.h>
 #include <soc/dramc_pi_api.h>
 #include <soc/dramc_register.h>
+#include <soc/emi.h>
+#include <soc/infracfg.h>
+#include <soc/mt6358.h>
+#include <soc/spm.h>
+
+static const u8 freq_shuffle[DRAM_DFS_SHUFFLE_MAX] = {
+	[DRAM_DFS_SHUFFLE_1] = LP4X_DDR3200,
+	[DRAM_DFS_SHUFFLE_2] = LP4X_DDR2400,
+	[DRAM_DFS_SHUFFLE_3] = LP4X_DDR1600,
+};
+
+static const u8 freq_shuffle_emcp[DRAM_DFS_SHUFFLE_MAX] = {
+	[DRAM_DFS_SHUFFLE_1] = LP4X_DDR3600,
+	[DRAM_DFS_SHUFFLE_2] = LP4X_DDR3200,
+	[DRAM_DFS_SHUFFLE_3] = LP4X_DDR1600,
+};
+
+u32 frequency_table[LP4X_DDRFREQ_MAX] = {
+	[LP4X_DDR1600] = 1600,
+	[LP4X_DDR2400] = 2400,
+	[LP4X_DDR3200] = 3200,
+	[LP4X_DDR3600] = 3600,
+};
+
+static const u32 vcore_lp4x[LP4X_DDRFREQ_MAX] = {
+	[LP4X_DDR1600] = 725000,
+	[LP4X_DDR2400] = 725000,
+	[LP4X_DDR3200] = 762500,
+	[LP4X_DDR3600] = 800000,
+};
 
 struct emi_regs *emi_regs = (void *)EMI_BASE;
 const u8 phy_mapping[CHANNEL_MAX][16] = {
@@ -30,6 +59,12 @@ const u8 phy_mapping[CHANNEL_MAX][16] = {
 		0, 1, 5, 6, 3, 7, 4, 2,
 		9, 8, 12, 15, 11, 14, 13, 10
 	}
+};
+
+struct optimize_ac_time {
+	u8 rfc;
+	u8 rfc_05t;
+	u16 tx_ref_cnt;
 };
 
 void dramc_set_broadcast(u32 onoff)
@@ -154,6 +189,24 @@ static void global_option_init(const struct sdram_params *params)
 	set_MRR_pinmux_mapping();
 }
 
+static void set_vcore_voltage(u8 freq_group)
+{
+	const u32 vcore = vcore_lp4x[freq_group];
+	dramc_dbg("Set DRAM voltage (freq %d): vcore = %u\n",
+		  frequency_table[freq_group], vcore);
+	pmic_set_vcore_vol(vcore);
+}
+
+static void set_vdram1_vddq_voltage(void)
+{
+	const u32 vdram1 = 1125000;
+	const u32 vddq = 600000;
+	dramc_dbg("Set DRAM voltage: vdram1 = %u, vddq = %u\n",
+		  vdram1, vddq);
+	pmic_set_vdram1_vol(vdram1);
+	pmic_set_vddq_vol(vddq);
+}
+
 static void emi_esl_setting1(void)
 {
 	dramc_set_broadcast(DRAMC_BROADCAST_ON);
@@ -268,40 +321,234 @@ static void dramc_init_pre_settings(void)
 	setbits_le32(&ch[0].phy.misc_ctrl1, 0x1 << 31);
 }
 
-static void dramc_ac_timing_optimize(void)
+static void dramc_ac_timing_optimize(u8 freq_group)
 {
+	struct optimize_ac_time rf_cab_opt[LP4X_DDRFREQ_MAX] = {
+		[LP4X_DDR1600] = {.rfc = 44, .rfc_05t = 0, .tx_ref_cnt = 62},
+		[LP4X_DDR2400] = {.rfc = 44, .rfc_05t = 0, .tx_ref_cnt = 62},
+		[LP4X_DDR3200] = {.rfc = 100, .rfc_05t = 0, .tx_ref_cnt = 119},
+		[LP4X_DDR3600] = {.rfc = 118, .rfc_05t = 1, .tx_ref_cnt = 138},
+	};
+
 	for (size_t chn = 0; chn < CHANNEL_MAX; chn++) {
 		clrsetbits_le32(&ch[chn].ao.shu[0].actim[3],
-			0xff << 16, 0x64 << 16);
-		clrbits_le32(&ch[chn].ao.shu[0].ac_time_05t, 0x1 << 2);
+			0xff << 16, rf_cab_opt[freq_group].rfc << 16);
+		clrbits_le32(&ch[chn].ao.shu[0].ac_time_05t,
+			rf_cab_opt[freq_group].rfc_05t << 2);
 		clrsetbits_le32(&ch[chn].ao.shu[0].actim[4],
-			0x3ff << 0, 0x77 << 0);
+			0x3ff << 0, rf_cab_opt[freq_group].tx_ref_cnt << 0);
 	}
 }
 
-static void init_dram(const struct sdram_params *params)
+static void spm_pinmux_setting(void)
+{
+	clrsetbits_le32(&mtk_spm->poweron_config_set,
+		(0xffff << 16) | (0x1 << 0), (0xb16 << 16) | (0x1 << 0));
+	clrbits_le32(&mtk_spm->pcm_pwr_io_en, (0xff << 0) | (0xff << 16));
+	write32(&mtk_spm->dramc_dpy_clk_sw_con_sel, 0xffffffff);
+	write32(&mtk_spm->dramc_dpy_clk_sw_con_sel2, 0xffffffff);
+}
+
+static void dfs_init_for_calibration(const struct sdram_params *params,
+				     u8 freq_group,
+				     struct dram_impedance *impedance)
+{
+	dramc_init(params, freq_group, impedance);
+	dramc_apply_config_before_calibration(freq_group);
+}
+
+static void init_dram(const struct sdram_params *params, u8 freq_group,
+		      struct dram_impedance *impedance)
 {
 	global_option_init(params);
 	emi_init(params);
 
 	dramc_set_broadcast(DRAMC_BROADCAST_ON);
 	dramc_init_pre_settings();
-	dramc_sw_impedance(params);
+	spm_pinmux_setting();
 
-	dramc_init();
+	dramc_sw_impedance_cal(params, ODT_OFF, impedance);
+	dramc_sw_impedance_cal(params, ODT_ON, impedance);
+
+	dramc_init(params, freq_group, impedance);
+	dramc_apply_config_before_calibration(freq_group);
 	emi_init2(params);
 }
 
-static void do_calib(const struct sdram_params *params)
+void enable_emi_dcm(void)
 {
-	dramc_apply_pre_calibration_config();
-	dramc_calibrate_all_channels(params);
-	dramc_ac_timing_optimize();
+	clrbits_le32(&emi_regs->conm, 0xff << 24);
+	clrbits_le32(&emi_regs->conn, 0xff << 24);
+
+	for (size_t chn = 0; chn < CHANNEL_MAX; chn++)
+		clrbits_le32(&ch[chn].emi.chn_conb, 0xff << 24);
+}
+
+struct shuffle_reg_addr {
+	u32 start;
+	u32 end;
+};
+
+#define AO_SHU_ADDR(s, e) \
+	{ \
+		.start = offsetof(struct dramc_ao_regs_shu, s), \
+		.end = offsetof(struct dramc_ao_regs_shu, e), \
+	}
+
+static const struct shuffle_reg_addr dramc_regs[] = {
+	AO_SHU_ADDR(actim, hwset_vrcg),
+	AO_SHU_ADDR(rk[0], rk[0].dqs2dq_cal5),
+	AO_SHU_ADDR(rk[1], rk[1].dqs2dq_cal5),
+	AO_SHU_ADDR(rk[2], rk[2].dqs2dq_cal5),
+	AO_SHU_ADDR(dqsg_retry, dqsg_retry),
+};
+
+#define PHY_SHU_ADDR(s, e) \
+	{ \
+		.start = offsetof(struct ddrphy_ao_shu, s), \
+		.end = offsetof(struct ddrphy_ao_shu, e), \
+	}
+
+static const struct shuffle_reg_addr phy_regs[] = {
+	PHY_SHU_ADDR(b[0], b[0].dll[1]),
+	PHY_SHU_ADDR(b[1], b[1].dll[1]),
+	PHY_SHU_ADDR(ca_cmd, ca_dll[1]),
+	PHY_SHU_ADDR(pll[0], pll[15]),
+	PHY_SHU_ADDR(pll20, misc0),
+	PHY_SHU_ADDR(rk[0].b[0], rk[0].b[0].rsvd_20[3]),
+	PHY_SHU_ADDR(rk[0].b[1], rk[0].b[1].rsvd_20[3]),
+	PHY_SHU_ADDR(rk[0].ca_cmd, rk[0].rsvd_22[1]),
+	PHY_SHU_ADDR(rk[1].b[0], rk[1].b[0].rsvd_20[3]),
+	PHY_SHU_ADDR(rk[1].b[1], rk[1].b[1].rsvd_20[3]),
+	PHY_SHU_ADDR(rk[1].ca_cmd, rk[1].rsvd_22[1]),
+	PHY_SHU_ADDR(rk[2].b[0], rk[2].b[0].rsvd_20[3]),
+	PHY_SHU_ADDR(rk[2].b[1], rk[2].b[1].rsvd_20[3]),
+	PHY_SHU_ADDR(rk[2].ca_cmd, rk[2].rsvd_22[1]),
+};
+
+static void dramc_save_result_to_shuffle(u32 src_shuffle, u32 dst_shuffle)
+{
+	u32 offset, chn, index, value;
+	u8 *src_addr, *dst_addr;
+
+	if (src_shuffle == dst_shuffle)
+		return;
+
+	dramc_show("Save shuffle %u to shuffle %u\n", src_shuffle, dst_shuffle);
+
+	for (chn = 0; chn < CHANNEL_MAX; chn++) {
+		/* DRAMC */
+		for (index = 0; index < ARRAY_SIZE(dramc_regs); index++) {
+			for (offset = dramc_regs[index].start;
+				offset <= dramc_regs[index].end; offset += 4) {
+				src_addr = (u8 *)&ch[chn].ao.shu[src_shuffle] +
+					offset;
+				dst_addr = (u8 *)&ch[chn].ao.shu[dst_shuffle] +
+					offset;
+				write32(dst_addr, read32(src_addr));
+
+			}
+		}
+		dramc_show("the dramc register of chn %d saved!\n", chn);
+
+		/* DRAMC-exception-1 */
+		src_addr = (u8 *)&ch[chn].ao.shuctrl2;
+		dst_addr = (u8 *)&ch[chn].ao.dvfsdll;
+		value = read32(src_addr) & 0x7f;
+
+		if (dst_shuffle == DRAM_DFS_SHUFFLE_2)
+			clrsetbits_le32(dst_addr, 0x7f << 0x8, value << 0x8);
+		else if (dst_shuffle == DRAM_DFS_SHUFFLE_3)
+			clrsetbits_le32(dst_addr, 0x7f << 0x16, value << 0x16);
+
+		dramc_show("the dramc exception-1 register of chn %d saved!\n", chn);
+
+		/* DRAMC-exception-2 */
+		src_addr = (u8 *)&ch[chn].ao.dvfsdll;
+		value = (read32(src_addr) >> 1) & 0x1;
+
+		if (dst_shuffle == DRAM_DFS_SHUFFLE_2)
+			clrsetbits_le32(src_addr, 0x1 << 2, value << 2);
+		else if (dst_shuffle == DRAM_DFS_SHUFFLE_3)
+			clrsetbits_le32(src_addr, 0x1 << 3, value << 3);
+
+		dramc_show("the dramc exception-2 register of chn %d saved!\n", chn);
+
+		/* PHY */
+		for (index = 0; index < ARRAY_SIZE(phy_regs); index++) {
+			for (offset = phy_regs[index].start;
+				offset <= phy_regs[index].end; offset += 4) {
+				src_addr = (u8 *)&ch[chn].phy.shu[src_shuffle] +
+					offset;
+				dst_addr = (u8 *)&ch[chn].phy.shu[dst_shuffle] +
+					offset;
+				write32(dst_addr, read32(src_addr));
+
+			}
+		}
+		dramc_show("the phy register of chn %d saved!\n", chn);
+	}
+}
+
+static int run_calib(const struct dramc_param *dparam,
+		     struct dram_impedance *impedance,
+		     const int shuffle, bool *first_run)
+{
+	const u8 *freq_tbl;
+
+	if (CONFIG(MT8183_DRAM_EMCP))
+		freq_tbl = freq_shuffle_emcp;
+	else
+		freq_tbl = freq_shuffle;
+
+	const u8 freq_group = freq_tbl[shuffle];
+	const struct sdram_params *params = &dparam->freq_params[shuffle];
+
+	set_vcore_voltage(freq_group);
+
+	dramc_show("Run calibration (freq: %u, first: %d)\n",
+		   freq_group, *first_run);
+
+	if (*first_run)
+		init_dram(params, freq_group, impedance);
+	else
+		dfs_init_for_calibration(params, freq_group, impedance);
+	*first_run = false;
+
+	dramc_show("Start K (current clock: %u\n", params->frequency);
+	if (dramc_calibrate_all_channels(params, freq_group) != 0)
+		return -1;
+	dramc_ac_timing_optimize(freq_group);
+	dramc_show("K finished (current clock: %u\n", params->frequency);
+
+	dramc_save_result_to_shuffle(DRAM_DFS_SHUFFLE_1, shuffle);
+	return 0;
+}
+
+static void after_calib(void)
+{
+	dramc_apply_config_after_calibration();
 	dramc_runtime_config();
 }
 
-void mt_set_emi(const struct sdram_params *params)
+int mt_set_emi(const struct dramc_param *dparam)
 {
-	init_dram(params);
-	do_calib(params);
+	struct dram_impedance impedance;
+	bool first_run = true;
+	set_vdram1_vddq_voltage();
+
+	if (CONFIG(MT8183_DRAM_DVFS)) {
+		if (run_calib(dparam, &impedance, DRAM_DFS_SHUFFLE_3,
+			      &first_run) != 0)
+			return -1;
+		if (run_calib(dparam, &impedance, DRAM_DFS_SHUFFLE_2,
+			      &first_run) != 0)
+			return -1;
+	}
+
+	if (run_calib(dparam, &impedance, DRAM_DFS_SHUFFLE_1, &first_run) != 0)
+		return -1;
+
+	after_calib();
+	return 0;
 }

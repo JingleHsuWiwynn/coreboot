@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2007-2009 coresystems GmbH
  * Copyright (C) 2013 Google Inc.
- * Copyright (C) 2018 Eltan B.V.
+ * Copyright (C) 2018-2019 Eltan B.V.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -42,13 +42,23 @@ Device (LPCB)
 	Device (FWH)		/* Firmware Hub */
 	{
 		Name (_HID, EISAID("INT0800"))
-		Name (_CRS, ResourceTemplate()
+		Name (RBUF, ResourceTemplate()
 		{
-			Memory32Fixed(ReadOnly, 0xff000000, 0x01000000)
+			Memory32Fixed(ReadOnly, 0, 0, FBAR)
 		})
+
+		Method (_CRS)
+		{
+			CreateDwordField (^RBUF, ^FBAR._BAS, FBAS)
+			CreateDwordField (^RBUF, ^FBAR._LEN, FLEN)
+			Multiply(CONFIG_COREBOOT_ROMSIZE_KB, 1024, Local0)
+			Store(Local0, FLEN)
+			Add(Subtract(0xffffffff, Local0), 1, FBAS)
+			Return (^RBUF)
+		}
 	}
 
-#if !IS_ENABLED(CONFIG_DISABLE_HPET)
+#if !CONFIG(DISABLE_HPET)
 	Device (HPET)
 	{
 		Name (_HID, EISAID("PNP0103"))

@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2012 Google LLC
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -17,6 +15,7 @@
 #include <rmodule.h>
 #include <cpu/x86/smm.h>
 #include <cpu/x86/cache.h>
+#include <commonlib/helpers.h>
 #include <console/console.h>
 
 #define FXSAVE_SIZE 512
@@ -184,7 +183,7 @@ static int smm_module_setup_stub(void *smbase, struct smm_loader_params *params,
 	void *stacks_top;
 	size_t size;
 	char *base;
-	int i;
+	size_t i;
 	struct smm_stub_params *stub_params;
 	struct rmodule smm_stub;
 
@@ -346,7 +345,7 @@ int smm_load_module(void *smram, size_t size, struct smm_loader_params *params)
 		return -1;
 
 	/* Clear SMM region */
-	if (IS_ENABLED(CONFIG_DEBUG_SMI))
+	if (CONFIG(DEBUG_SMI))
 		memset(smram, 0xcd, size);
 
 	total_stack_size = params->per_cpu_stack_size *
@@ -370,7 +369,7 @@ int smm_load_module(void *smram, size_t size, struct smm_loader_params *params)
 		base += alignment_size;
 	}
 
-	if (IS_ENABLED(CONFIG_SSE)) {
+	if (CONFIG(SSE)) {
 		fxsave_size = FXSAVE_SIZE * params->num_concurrent_stacks;
 		/* FXSAVE area below all the stacks stack. */
 		fxsave_area = params->stack_top;

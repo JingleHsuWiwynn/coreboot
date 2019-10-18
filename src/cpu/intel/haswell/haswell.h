@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2011 The ChromiumOS Authors. All rights reserved.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2 of
@@ -34,7 +32,7 @@
 /* Haswell bus clock is fixed at 100MHz */
 #define HASWELL_BCLK			100
 
-#define CORE_THREAD_COUNT_MSR		0x35
+#define MSR_CORE_THREAD_COUNT		0x35
 #define MSR_FEATURE_CONFIG		0x13c
 #define MSR_FLEX_RATIO			0x194
 #define  FLEX_RATIO_LOCK		(1 << 20)
@@ -118,15 +116,9 @@
 /* Data is passed through bits 31:0 of the data register. */
 #define BIOS_MAILBOX_DATA			0x5da0
 
-/* Region of SMM space is reserved for multipurpose use. It falls below
- * the IED region and above the SMM handler. */
-#define RESERVED_SMM_SIZE CONFIG_SMM_RESERVED_SIZE
-#define RESERVED_SMM_OFFSET \
-	(CONFIG_SMM_TSEG_SIZE - CONFIG_IED_REGION_SIZE - RESERVED_SMM_SIZE)
-
 /* Sanity check config options. */
-#if (CONFIG_SMM_TSEG_SIZE <= (CONFIG_IED_REGION_SIZE + RESERVED_SMM_SIZE))
-# error "CONFIG_SMM_TSEG_SIZE <= (CONFIG_IED_REGION_SIZE + RESERVED_SMM_SIZE)"
+#if (CONFIG_SMM_TSEG_SIZE <= (CONFIG_IED_REGION_SIZE + CONFIG_SMM_RESERVED_SIZE))
+# error "CONFIG_SMM_TSEG_SIZE <= (CONFIG_IED_REGION_SIZE + CONFIG_SMM_RESERVED_SIZE)"
 #endif
 #if (CONFIG_SMM_TSEG_SIZE < 0x800000)
 # error "CONFIG_SMM_TSEG_SIZE must at least be 8MiB"
@@ -138,45 +130,26 @@
 # error "CONFIG_IED_REGION_SIZE is not a power of 2"
 #endif
 
-#if !defined(__ROMCC__) // FIXME romcc should handle below constructs
-
-#if defined(__PRE_RAM__)
 struct pei_data;
 struct rcba_config_instruction;
 struct romstage_params {
 	struct pei_data *pei_data;
 	const void *gpio_map;
 	const struct rcba_config_instruction *rcba_config;
-	unsigned long bist;
 	void (*copy_spd)(struct pei_data *);
 };
 void romstage_common(const struct romstage_params *params);
-#endif
 
-#ifdef __SMM__
 /* Lock MSRs */
 void intel_cpu_haswell_finalize_smm(void);
-#else
+
 /* Configure power limits for turbo mode */
 void set_power_limits(u8 power_limit_1_time);
 int cpu_config_tdp_levels(void);
-void smm_relocation_handler(int cpu, uintptr_t curr_smbase,
-				uintptr_t staggered_smbase);
-void smm_info(uintptr_t *perm_smbase, size_t *perm_smsize,
-		size_t *smm_save_state_size);
-void smm_initialize(void);
-void smm_relocate(void);
-struct bus;
-void bsp_init_and_start_aps(struct bus *cpu_bus);
-/* Determine if HyperThreading is disabled. The variable is not valid until
- * setup_ap_init() has been called. */
-#endif
 
 /* CPU identification */
 int haswell_family_model(void);
 int haswell_stepping(void);
 int haswell_is_ult(void);
-
-#endif
 
 #endif

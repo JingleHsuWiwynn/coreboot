@@ -19,14 +19,15 @@
 #include <assert.h>
 #include <stdint.h>
 #include <arch/io.h>
-#include <arch/acpi.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
-#include <reset.h>
+
 #include "hudson.h"
 #include "pci_devs.h"
 #include <Fch/Fch.h>
 
-#if IS_ENABLED(CONFIG_HUDSON_UART)
+#if CONFIG(HUDSON_UART)
 
 #include <cpu/x86/msr.h>
 #include <delay.h>

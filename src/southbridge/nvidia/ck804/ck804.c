@@ -14,7 +14,6 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
@@ -58,9 +57,6 @@ static void ck804_enable(struct device *dev)
 	unsigned index = 0, index2 = 0, deviceid, vendorid, devfn;
 	u32 reg_old, reg;
 	u8 byte;
-
-	struct southbridge_nvidia_ck804_config *conf;
-	conf = dev->chip_info;
 
 	if (dev->device == 0x0000) {
 		vendorid = pci_read_config32(dev, PCI_VENDOR_ID);

@@ -21,16 +21,11 @@
 
 static const struct pad_config default_override_table[] = {
 
-	PAD_NC(GPIO_50, UP_20K),
-	PAD_NC(GPIO_51, UP_20K),
 	PAD_NC(GPIO_52, UP_20K),
 	PAD_NC(GPIO_53, UP_20K),
 	PAD_NC(GPIO_67, UP_20K),
 	PAD_NC(GPIO_117, UP_20K),
 
-	PAD_NC(GPIO_138, UP_20K),
-	PAD_NC(GPIO_139, UP_20K),
-	PAD_NC(GPIO_140, UP_20K),
 	PAD_NC(GPIO_143, UP_20K),
 	PAD_NC(GPIO_144, UP_20K),
 	PAD_NC(GPIO_145, UP_20K),
@@ -40,9 +35,6 @@ static const struct pad_config default_override_table[] = {
 					DISPUPD),
 
 	PAD_NC(GPIO_161, UP_20K),
-
-	/* EN_PP3300_WLAN_L */
-	PAD_CFG_GPO_IOSSTATE_IOSTERM(GPIO_178, 0, DEEP, NONE, Tx0RxDCRx0, DISPUPD),
 
 	PAD_NC(GPIO_213, DN_20K),
 	PAD_NC(GPIO_214, DN_20K),

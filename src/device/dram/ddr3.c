@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2011-2013  Alexandru Gagniuc <mr.nuke.me@gmail.com>
- *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 2 of the License, or
@@ -23,10 +21,12 @@
 #include <console/console.h>
 #include <device/device.h>
 #include <device/dram/ddr3.h>
+#include <device/dram/common.h>
 #include <string.h>
 #include <memory_info.h>
 #include <cbmem.h>
 #include <smbios.h>
+#include <types.h>
 
 /*==============================================================================
  * = DDR3 SPD decoding helpers
@@ -47,24 +47,6 @@ int spd_dimm_is_registered_ddr3(enum spd_dimm_type type)
 		return 1;
 
 	return 0;
-}
-
-u16 ddr3_crc16(const u8 *ptr, int n_crc)
-{
-	int i;
-	u16 crc = 0;
-
-	while (--n_crc >= 0) {
-		crc = crc ^ ((int)*ptr++ << 8);
-		for (i = 0; i < 8; ++i)
-			if (crc & 0x8000) {
-				crc = (crc << 1) ^ 0x1021;
-			} else {
-				crc = crc << 1;
-			}
-	}
-
-	return crc;
 }
 
 /**
@@ -90,7 +72,7 @@ u16 spd_ddr3_calc_crc(u8 *spd, int len)
 		/* Not enough bytes available to get the CRC */
 		return 0;
 
-	return ddr3_crc16(spd, n_crc);
+	return ddr_crc16(spd, n_crc);
 }
 
 /**
@@ -107,7 +89,7 @@ u16 spd_ddr3_calc_unique_crc(u8 *spd, int len)
 		/* Not enough bytes available to get the CRC */
 		return 0;
 
-	return ddr3_crc16(&spd[117], 11);
+	return ddr_crc16(&spd[117], 11);
 }
 
 /**
@@ -136,7 +118,7 @@ int spd_decode_ddr3(dimm_attr * dimm, spd_raw_data spd)
 	u8 reg8;
 	u32 mtb;		/* medium time base */
 	u32 ftb;		/* fine time base */
-	unsigned int val, param;
+	unsigned int val;
 
 	ret = SPD_STATUS_OK;
 
@@ -173,8 +155,7 @@ int spd_decode_ddr3(dimm_attr * dimm, spd_raw_data spd)
 		printram("  Invalid number of memory banks\n");
 		ret = SPD_STATUS_INVALID_FIELD;
 	}
-	param = 1 << (val + 3);
-	printram("  Banks              : %u\n", param);
+	printram("  Banks              : %u\n", 1 << (val + 3));
 	/* SDRAM capacity */
 	capacity_shift = reg8 & 0x0f;
 	if (capacity_shift > 0x06) {
@@ -382,8 +363,7 @@ int spd_decode_ddr3(dimm_attr * dimm, spd_raw_data spd)
 		 dimm->flags.therm_sensor ? "yes" : "no");
 
 	/*  SDRAM Device Type */
-	reg8 = spd[33];
-	printram("  Standard SDRAM     : %s\n", (reg8 & 0x80) ? "no" : "yes");
+	printram("  Standard SDRAM     : %s\n", (spd[33] & 0x80) ? "no" : "yes");
 
 	if (spd[63] & 0x01) {
 		dimm->flags.pins_mirrored = 1;

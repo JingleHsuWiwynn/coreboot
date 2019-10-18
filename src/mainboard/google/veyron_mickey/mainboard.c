@@ -14,13 +14,11 @@
  */
 
 #include <arch/cache.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <boot/coreboot_tables.h>
-#include <delay.h>
 #include <device/device.h>
 #include <device/i2c_simple.h>
 #include <edid.h>
-#include <elog.h>
 #include <gpio.h>
 #include <soc/display.h>
 #include <soc/grf.h>
@@ -102,10 +100,10 @@ void lb_board(struct lb_header *header)
 	struct lb_range *dma;
 
 	dma = (struct lb_range *)lb_new_record(header);
-	dma->tag = LB_TAB_DMA;
+	dma->tag = LB_TAG_DMA;
 	dma->size = sizeof(*dma);
 	dma->range_start = (uintptr_t)_dma_coherent;
-	dma->range_size = _dma_coherent_size;
+	dma->range_size = REGION_SIZE(dma_coherent);
 }
 
 void mainboard_power_on_backlight(void)

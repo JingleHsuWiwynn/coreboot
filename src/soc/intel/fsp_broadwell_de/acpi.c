@@ -21,6 +21,7 @@
 #include <arch/acpi.h>
 #include <arch/acpigen.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <arch/smp/mpspec.h>
 #include <console/console.h>
 #include <cpu/x86/msr.h>
@@ -37,7 +38,9 @@
 #include <soc/pattrs.h>
 #include <soc/pci_devs.h>
 #include <soc/broadwell_de.h>
-#include <chip.h>
+#include <version.h>
+
+#include "chip.h"
 
 uint16_t get_pmbase(void)
 {
@@ -171,13 +174,13 @@ void acpi_fill_in_fadt(acpi_fadt_t *fadt, acpi_facs_t *facs, void *dsdt)
 	memcpy(header->oem_id, OEM_ID, 6);
 	memcpy(header->oem_table_id, ACPI_TABLE_CREATOR, 8);
 	memcpy(header->asl_compiler_id, ASLC, 4);
-	header->asl_compiler_revision = 1;
+	header->asl_compiler_revision = asl_revision;
 
 	/* ACPI Pointers */
 	fadt->firmware_ctrl = (unsigned long) facs;
 	fadt->dsdt = (unsigned long) dsdt;
 
-	fadt->model                = 0; /* reserved, should be 0 ACPI 3.0 */
+	fadt->reserved             = 0; /* reserved, should be 0 ACPI 3.0 */
 	fadt->preferred_pm_profile = 0;
 	fadt->sci_int              = acpi_sci_irq();
 
@@ -313,7 +316,7 @@ void acpi_fill_in_fadt(acpi_fadt_t *fadt, acpi_facs_t *facs, void *dsdt)
 static unsigned long acpi_fill_dmar(unsigned long current)
 {
 	uint32_t vtbar, tmp = current;
-	struct device *dev = pcidev_path_on_root(VTD_DEV_FUNC);
+	struct device *dev = pcidev_path_on_root(IIO_DEVFN_VTD);
 	uint16_t bdf, hpet_bdf[8];
 	uint8_t i, j;
 
@@ -330,7 +333,7 @@ static unsigned long acpi_fill_dmar(unsigned long current)
 	current += acpi_create_dmar_ds_ioapic(current,
 			9, 0, 5, 4);
 	/* Get the PCI BDF for the PCH I/O APIC */
-	dev = pcidev_path_on_root(LPC_DEV_FUNC);
+	dev = pcidev_path_on_root(PCH_DEVFN_LPC);
 	bdf = pci_read_config16(dev, 0x6c);
 	current += acpi_create_dmar_ds_ioapic(current,
 			8, (bdf >> 8), PCI_SLOT(bdf), PCI_FUNC(bdf));
@@ -431,7 +434,7 @@ static void generate_P_state_entries(int core, int cores_per_package)
 {
 	int ratio_min, ratio_max, ratio_step;
 	int coord_type, power_max, power_unit, num_entries;
-	int ratio, power, clock, clock_max;
+	int ratio, power, clock;
 	int turbo;
 	u32 control_status;
 	msr_t msr;
@@ -446,7 +449,6 @@ static void generate_P_state_entries(int core, int cores_per_package)
 	msr = rdmsr(MSR_PLATFORM_INFO);
 	ratio_min = (msr.hi >>  8) & 0xff;	// LFM
 	ratio_max = (msr.lo >>  8) & 0xff;	// HFM
-	clock_max = (ratio_max * 100);
 
 	/* Calculate CPU TDP in mW */
 	msr = rdmsr(MSR_PKG_POWER_SKU_UNIT);
@@ -562,5 +564,16 @@ unsigned long acpi_madt_irq_overrides(unsigned long current)
 	current += acpi_create_madt_irqoverride(irqovr, 0, sci_irq, sci_irq,
 	                                        sci_flags);
 
+	return current;
+}
+
+unsigned long southcluster_write_acpi_tables(struct device *device,
+						 unsigned long current,
+						 acpi_rsdp_t *rsdp)
+{
+	current = acpi_write_hpet(device, current, rsdp);
+	current = acpi_align_current(current);
+
+	printk(BIOS_DEBUG, "current = %lx\n", current);
 	return current;
 }

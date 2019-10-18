@@ -1,9 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2015 Timothy Pearson <tpearson@raptorengineeringinc.com>, Raptor Engineering
- * Copyright (C) 2007 Advanced Micro Devices, Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -18,7 +15,7 @@
 #include <cpu/x86/msr.h>
 #include <cpu/amd/mtrr.h>
 
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/device.h>
 #include <device/pci.h>
 
@@ -44,7 +41,7 @@ static inline uint8_t is_fam15h(void)
 uint64_t get_uma_memory_size(uint64_t topmem)
 {
 	uint64_t uma_size = 0;
-	if (IS_ENABLED(CONFIG_GFXUMA)) {
+	if (CONFIG(GFXUMA)) {
 		/* refer to UMA Size Consideration in 780 BDG. */
 		if (topmem >= 0x40000000)	/* 1GB and above system memory */
 			uma_size = 0x10000000;	/* 256M recommended UMA */
@@ -68,7 +65,7 @@ uint64_t get_cc6_memory_size()
 	if (is_fam15h()) {
 		enable_cc6 = 0;
 
-#ifdef __PRE_RAM__
+#if ENV_PCI_SIMPLE_DEVICE
 		if (pci_read_config32(PCI_DEV(0, 0x18, 2), 0x118) & (0x1 << 18))
 			enable_cc6 = 1;
 #else

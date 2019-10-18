@@ -1,9 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2015 Timothy Pearson <tpearson@raptorengineeringinc.com>, Raptor Engineering
- * Copyright (C) 2013 Google, Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -19,6 +16,7 @@
 #include <cpu/amd/msr.h>
 #include <timer.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <northbridge/amd/amdht/AsPsDefs.h>
 
 static struct monotonic_counter {

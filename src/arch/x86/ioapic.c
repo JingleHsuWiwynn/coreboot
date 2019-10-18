@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2010 coresystems GmbH
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -13,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <arch/ioapic.h>
 #include <console/console.h>
 #include <cpu/x86/lapic.h>
@@ -103,7 +101,7 @@ static void load_vectors(void *ioapic_base)
 
 	ioapic_interrupts = ioapic_interrupt_count(ioapic_base);
 
-	if (IS_ENABLED(CONFIG_IOAPIC_INTERRUPTS_ON_FSB)) {
+	if (CONFIG(IOAPIC_INTERRUPTS_ON_FSB)) {
 		/*
 		 * For the Pentium 4 and above APICs deliver their interrupts
 		 * on the front side bus, enable that.
@@ -111,7 +109,7 @@ static void load_vectors(void *ioapic_base)
 		printk(BIOS_DEBUG, "IOAPIC: Enabling interrupts on FSB\n");
 		io_apic_write(ioapic_base, 0x03,
 			      io_apic_read(ioapic_base, 0x03) | (1 << 0));
-	} else if (IS_ENABLED(CONFIG_IOAPIC_INTERRUPTS_ON_APIC_SERIAL_BUS)) {
+	} else if (CONFIG(IOAPIC_INTERRUPTS_ON_APIC_SERIAL_BUS)) {
 		printk(BIOS_DEBUG,
 			"IOAPIC: Enabling interrupts on APIC serial bus\n");
 		io_apic_write(ioapic_base, 0x03, 0);

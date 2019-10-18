@@ -27,10 +27,10 @@ chip soc/intel/skylake
 	register "ScsEmmcEnabled" = "1"
 	register "ScsEmmcHs400Enabled" = "1"
 	register "ScsSdCardEnabled" = "2"
-	register "InternalGfx" = "1"
 	register "SkipExtGfxScan" = "1"
 	register "Device4Enable" = "1"
 	register "SaGv" = "SaGv_Enabled"
+	register "PchHdaVcType" = "Vc1"
 
 	register "pirqa_routing" = "PCH_IRQ11"
 	register "pirqb_routing" = "PCH_IRQ10"
@@ -54,8 +54,6 @@ chip soc/intel/skylake
 	# SLP_A Minimum Assertion Width. Values 0: 0ms, 1: 4s, 2: 98ms, 3: 2s
 	register "PmConfigSlpAMinAssert" = "0x03"
 
-	# Determines if enable Serial IRQ. Values 0: Disabled, 1: Enabled
-	register "SerialIrqConfigSirqEnable" = "0x01"
 
 	# VR Settings Configuration for 4 Domains
 	#+----------------+-------+-------+-------+-------+

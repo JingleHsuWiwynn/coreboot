@@ -64,7 +64,7 @@
 
 uint32_t nc_read_top_of_low_memory(void)
 {
-	MAYBE_STATIC uint32_t tolm = 0;
+	MAYBE_STATIC_BSS uint32_t tolm = 0;
 
 	if (tolm)
 		return tolm;
@@ -131,7 +131,7 @@ static void nc_read_resources(struct device *dev)
 	reserved_ram_resource(dev, index++, (0xc0000 >> 10),
 	                      (0x100000 - 0xc0000) >> 10);
 
-	if (IS_ENABLED(CONFIG_CHROMEOS))
+	if (CONFIG(CHROMEOS))
 		chromeos_reserve_ram_oops(dev, index++);
 }
 

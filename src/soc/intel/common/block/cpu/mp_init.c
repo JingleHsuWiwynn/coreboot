@@ -13,15 +13,15 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <assert.h>
 #include <bootstate.h>
+#include <console/console.h>
 #include <cpu/cpu.h>
 #include <cpu/x86/mtrr.h>
 #include <cpu/x86/msr.h>
 #include <cpu/x86/mp.h>
 #include <cpu/intel/microcode.h>
-#include <intelblocks/chip.h>
+#include <intelblocks/cfg.h>
 #include <intelblocks/cpulib.h>
 #include <intelblocks/fast_spi.h>
 #include <intelblocks/mp_init.h>
@@ -70,11 +70,20 @@ static const struct cpu_device_id cpu_table[] = {
 	{ X86_VENDOR_INTEL, CPUID_APOLLOLAKE_E0 },
 	{ X86_VENDOR_INTEL, CPUID_GLK_A0 },
 	{ X86_VENDOR_INTEL, CPUID_GLK_B0 },
+	{ X86_VENDOR_INTEL, CPUID_GLK_R0 },
+	{ X86_VENDOR_INTEL, CPUID_WHISKEYLAKE_V0 },
 	{ X86_VENDOR_INTEL, CPUID_WHISKEYLAKE_W0 },
 	{ X86_VENDOR_INTEL, CPUID_COFFEELAKE_U0 },
+	{ X86_VENDOR_INTEL, CPUID_COFFEELAKE_B0 },
 	{ X86_VENDOR_INTEL, CPUID_COFFEELAKE_D0 },
+	{ X86_VENDOR_INTEL, CPUID_COFFEELAKE_P0 },
+	{ X86_VENDOR_INTEL, CPUID_COFFEELAKE_R0 },
 	{ X86_VENDOR_INTEL, CPUID_ICELAKE_A0 },
 	{ X86_VENDOR_INTEL, CPUID_ICELAKE_B0 },
+	{ X86_VENDOR_INTEL, CPUID_COMETLAKE_U_A0 },
+	{ X86_VENDOR_INTEL, CPUID_COMETLAKE_U_K0_S0 },
+	{ X86_VENDOR_INTEL, CPUID_COMETLAKE_H_S_6_2_P0 },
+	{ X86_VENDOR_INTEL, CPUID_COMETLAKE_H_S_10_2_P0 },
 	{ 0, 0 },
 };
 
@@ -129,7 +138,7 @@ static void init_cpus(void *unused)
 	struct device *dev = dev_find_path(NULL, DEVICE_PATH_CPU_CLUSTER);
 	assert(dev != NULL);
 
-	if (chip_get_fsp_mp_init())
+	if (CONFIG(USE_INTEL_FSP_MP_INIT))
 		return;
 
 	microcode_patch = intel_microcode_find();
@@ -147,10 +156,10 @@ static void wrapper_x86_setup_mtrrs(void *unused)
 /* Ensure to re-program all MTRRs based on DRAM resource settings */
 static void post_cpus_init(void *unused)
 {
-	if (chip_get_fsp_mp_init())
+	if (CONFIG(USE_INTEL_FSP_MP_INIT))
 		return;
 
-	if (mp_run_on_all_cpus(&wrapper_x86_setup_mtrrs, NULL, 1000) < 0)
+	if (mp_run_on_all_cpus(&wrapper_x86_setup_mtrrs, NULL) < 0)
 		printk(BIOS_ERR, "MTRR programming failure\n");
 
 	x86_mtrr_check();

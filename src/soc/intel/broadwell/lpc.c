@@ -15,7 +15,6 @@
  */
 
 #include <console/console.h>
-#include <delay.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
@@ -24,6 +23,7 @@
 #include <pc80/i8259.h>
 #include <arch/cpu.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <arch/ioapic.h>
 #include <arch/acpi.h>
 #include <cpu/cpu.h>
@@ -104,7 +104,7 @@ static void enable_hpet(struct device *dev)
 static void pch_pirq_init(struct device *dev)
 {
 	struct device *irq_dev;
-	config_t *config = dev->chip_info;
+	config_t *config = config_of(dev);
 
 	pci_write_config8(dev, PIRQA_ROUT, config->pirqa_routing);
 	pci_write_config8(dev, PIRQB_ROUT, config->pirqb_routing);
@@ -151,7 +151,7 @@ static void pch_power_options(struct device *dev)
 	u16 reg16;
 	const char *state;
 	/* Get the chip configuration */
-	config_t *config = dev->chip_info;
+	config_t *config = config_of(dev);
 	int pwr_on = CONFIG_MAINBOARD_POWER_FAILURE_STATE;
 
 	/* Which state do we want to goto after g3 (power restored)?
@@ -218,7 +218,7 @@ static const struct reg_script pch_misc_init_script[] = {
 	REG_MMIO_OR32(RCBA_BASE_ADDRESS + 0x1114, (1 << 15) | (1 << 14)),
 	/* Setup SERIRQ, enable continuous mode */
 	REG_PCI_OR8(SERIRQ_CNTL, (1 << 7) | (1 << 6)),
-#if !IS_ENABLED(CONFIG_SERIRQ_CONTINUOUS_MODE)
+#if !CONFIG(SERIRQ_CONTINUOUS_MODE)
 	REG_PCI_RMW8(SERIRQ_CNTL, ~(1 << 6), 0),
 #endif
 	REG_SCRIPT_END
@@ -318,7 +318,7 @@ static void pch_enable_mphy(void)
 
 static void pch_init_deep_sx(struct device *dev)
 {
-	config_t *config = dev->chip_info;
+	config_t *config = config_of(dev);
 
 	if (config->deep_sx_enable_ac) {
 		RCBA32_OR(DEEP_S3_POL, DEEP_S3_EN_AC);
@@ -365,6 +365,7 @@ static void pch_cg_init(struct device *dev)
 {
 	u32 reg32;
 	u16 reg16;
+	struct device *igd_dev = pcidev_path_on_root(SA_DEVFN_IGD);
 
 	/* DMI */
 	RCBA32_OR(0x2234, 0xf);
@@ -388,7 +389,7 @@ static void pch_cg_init(struct device *dev)
 	RCBA32_AND_OR(0x2614, ~0x64ff0000, 0x0a206500);
 
 	/* Check for 0:2.0@0x08 >= 0x0b */
-	if (pch_is_wpt() || pci_read_config8(SA_DEV_IGD, 0x8) >= 0x0b)
+	if (pch_is_wpt() || pci_read_config8(igd_dev, 0x8) >= 0x0b)
 		RCBA32_OR(0x2614, (1 << 26));
 
 	RCBA32_OR(0x900, 0x0000031f);
@@ -428,13 +429,11 @@ static void pch_cg_init(struct device *dev)
 
 static void pch_set_acpi_mode(void)
 {
-#if IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)
-	if (!acpi_is_wakeup_s3()) {
+	if (CONFIG(HAVE_SMI_HANDLER) && !acpi_is_wakeup_s3()) {
 		printk(BIOS_DEBUG, "Disabling ACPI via APMC:\n");
 		outb(APM_CNT_ACPI_DISABLE, APM_CNT);
 		printk(BIOS_DEBUG, "done.\n");
 	}
-#endif /* CONFIG_HAVE_SMI_HANDLER */
 }
 
 static void lpc_init(struct device *dev)
@@ -502,7 +501,7 @@ static void pch_lpc_add_mmio_resources(struct device *dev)
 #define LPC_DEFAULT_IO_RANGE_LOWER 0
 #define LPC_DEFAULT_IO_RANGE_UPPER 0x1000
 
-static inline int pch_io_range_in_default(u16 base, u16 size)
+static inline int pch_io_range_in_default(int base, int size)
 {
 	/* Does it start above the range? */
 	if (base >= LPC_DEFAULT_IO_RANGE_UPPER)
@@ -552,7 +551,7 @@ static void pch_lpc_add_gen_io_resources(struct device *dev, int reg_value,
 static void pch_lpc_add_io_resources(struct device *dev)
 {
 	struct resource *res;
-	config_t *config = dev->chip_info;
+	config_t *config = config_of(dev);
 
 	/* Add the default claimed IO range for the LPC device. */
 	res = new_resource(dev, 0);
@@ -620,7 +619,7 @@ static unsigned long broadwell_write_acpi_tables(struct device *device,
 						 unsigned long current,
 						 struct acpi_rsdp *rsdp)
 {
-	if (IS_ENABLED(CONFIG_INTEL_PCH_UART_CONSOLE))
+	if (CONFIG(INTEL_PCH_UART_CONSOLE))
 		current = acpi_write_dbg2_pci_uart(rsdp, current,
 			(CONFIG_INTEL_PCH_UART_CONSOLE_NUMBER == 1) ?
 				PCH_DEV_UART1 : PCH_DEV_UART0,
@@ -635,7 +634,7 @@ static struct device_operations device_ops = {
 	.acpi_inject_dsdt_generator = southcluster_inject_dsdt,
 	.write_acpi_tables      = broadwell_write_acpi_tables,
 	.init			= &lpc_init,
-	.scan_bus		= &scan_lpc_bus,
+	.scan_bus		= &scan_static_bus,
 	.ops_pci		= &broadwell_pci_ops,
 };
 

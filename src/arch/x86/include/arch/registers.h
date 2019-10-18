@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2009 coresystems GmbH
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -60,7 +58,7 @@ struct eregs {
 };
 #endif // !ASSEMBLER
 
-#if IS_ENABLED(CONFIG_COMPILER_LLVM_CLANG)
+#if CONFIG(COMPILER_LLVM_CLANG)
 #define ADDR32(opcode) opcode
 #else
 #define ADDR32(opcode) addr32 opcode

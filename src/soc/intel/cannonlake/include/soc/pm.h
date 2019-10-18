@@ -141,7 +141,6 @@
 #if !defined(__ACPI__)
 
 #include <arch/acpi.h>
-#include <arch/io.h>
 #include <soc/gpe.h>
 #include <soc/iomap.h>
 #include <soc/smbus.h>
@@ -169,6 +168,9 @@ uint16_t smbus_tco_regs(void);
 
 /* Set the DISB after DRAM init */
 void pmc_set_disb(void);
+
+/* Clear PMCON status bits */
+void pmc_clear_pmcon_sts(void);
 
 #endif /* !defined(__ACPI__) */
 #endif

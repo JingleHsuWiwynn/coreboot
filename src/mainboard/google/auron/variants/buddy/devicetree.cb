@@ -9,9 +9,8 @@ chip soc/intel/broadwell
 	# Enable HDMI Hotplug with 6ms pulse
 	register "gpu_dp_b_hotplug" = "0x06"
 
-	# Set backlight PWM values for eDP
-	register "gpu_cpu_backlight" = "0x00000200"
-	register "gpu_pch_backlight" = "0x04000000"
+	# Set backlight PWM value for eDP
+	register "gpu_pch_backlight_pwm_hz" = "200"
 
 	# Enable Panel and configure power delays
 	register "gpu_panel_port_select" = "1"			# eDP
@@ -90,8 +89,8 @@ chip soc/intel/broadwell
 		device pci 1b.0 off end # High Definition Audio
 		device pci 1c.0 off end # PCIe Port #1
 		device pci 1c.1 off end # PCIe Port #2
-		device pci 1c.2 on end # PCIe Port #3
-		device pci 1c.3 on end # PCIe Port #4
+		device pci 1c.2 on end # PCIe Port #3 - LAN (becomes RP1)
+		device pci 1c.3 on end # PCIe Port #4 - WLAN (becomes RP2)
 		device pci 1c.4 on end # PCIe Port #5
 		device pci 1c.5 off end # PCIe Port #6
 		device pci 1d.0 on end # USB2 EHCI

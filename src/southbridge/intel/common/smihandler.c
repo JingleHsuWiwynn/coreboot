@@ -16,15 +16,18 @@
 
 #include <types.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <arch/acpi.h>
 #include <console/console.h>
 #include <cpu/x86/cache.h>
 #include <device/pci_def.h>
 #include <cpu/x86/smm.h>
+#include <cpu/intel/em64t101_save_state.h>
 #include <elog.h>
 #include <halt.h>
 #include <pc80/mc146818rtc.h>
 #include <southbridge/intel/common/pmbase.h>
+#include <smmstore.h>
 
 #include "pmutil.h"
 
@@ -135,7 +138,7 @@ static void southbridge_smi_sleep(void)
 	/* Do any mainboard sleep handling */
 	mainboard_smi_sleep(slp_typ);
 
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 	/* Log S3, S4, and S5 entry */
 	if (slp_typ >= ACPI_S3)
 		elog_add_event_byte(ELOG_TYPE_ACPI_ENTER, slp_typ);
@@ -243,7 +246,7 @@ em64t101_smm_state_save_area_t *smi_apmc_find_state_save(u8 cmd)
 	return NULL;
 }
 
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 static void southbridge_smi_gsmi(void)
 {
 	u32 *ret, *param;
@@ -265,6 +268,26 @@ static void southbridge_smi_gsmi(void)
 	*ret = gsmi_exec(sub_command, param);
 }
 #endif
+
+static void southbridge_smi_store(void)
+{
+	u8 sub_command, ret;
+	em64t101_smm_state_save_area_t *io_smi =
+		smi_apmc_find_state_save(APM_CNT_SMMSTORE);
+	uint32_t reg_ebx;
+
+	if (!io_smi)
+		return;
+	/* Command and return value in EAX */
+	sub_command = (io_smi->rax >> 8) & 0xff;
+
+	/* Parameter buffer in EBX */
+	reg_ebx = io_smi->rbx;
+
+	/* drivers/smmstore/smi.c */
+	ret = smmstore_exec(sub_command, (uintptr_t *)reg_ebx);
+	io_smi->rax = ret;
+}
 
 static int mainboard_finalized = 0;
 
@@ -315,11 +338,15 @@ static void southbridge_smi_apmc(void)
 		southbridge_finalize_all();
 		mainboard_finalized = 1;
 		break;
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 	case APM_CNT_ELOG_GSMI:
 		southbridge_smi_gsmi();
 		break;
 #endif
+	case APM_CNT_SMMSTORE:
+		if (CONFIG(SMMSTORE))
+			southbridge_smi_store();
+		break;
 	}
 
 	mainboard_smi_apmc(reg8);
@@ -339,7 +366,7 @@ static void southbridge_smi_pm1(void)
 		// power button pressed
 		u32 reg32;
 		reg32 = (7 << 10) | (1 << 13);
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 		elog_add_event(ELOG_TYPE_POWER_BUTTON);
 #endif
 		write_pmbase32(PM1_CNT, reg32);
@@ -417,7 +444,7 @@ static void southbridge_smi_tco(void)
 	} else if (tco_sts & (1 << 3)) { /* TIMEOUT */
 		/* Handle TCO timeout */
 		printk(BIOS_DEBUG, "TCO Timeout.\n");
-	} else if (!tco_sts) {
+	} else {
 		dump_tco_status(tco_sts);
 	}
 }
@@ -474,14 +501,8 @@ static smi_handler_t southbridge_smi[32] = {
 
 /**
  * @brief Interrupt handler for SMI#
- * @param node
- * @param state_save
  */
-#if IS_ENABLED(CONFIG_SMM_TSEG)
 void southbridge_smi_handler(void)
-#else
-void cpu_smi_handler(unsigned int node, smm_state_save_area_t *state_save)
-#endif
 {
 	int i, dump = 0;
 	u32 smi_sts;

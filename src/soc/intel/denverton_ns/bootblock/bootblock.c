@@ -22,7 +22,6 @@
 #include <soc/bootblock.h>
 #include <soc/iomap.h>
 #include <spi-generic.h>
-#include <timestamp.h>
 #include <console/console.h>
 
 const FSPT_UPD temp_ram_init_params = {
@@ -37,8 +36,8 @@ const FSPT_UPD temp_ram_init_params = {
 			.MicrocodeRegionLength =
 				(UINT32)CONFIG_CPU_MICROCODE_CBFS_LEN,
 			.CodeRegionBase =
-				(UINT32)(0x100000000ULL - CONFIG_CBFS_SIZE),
-			.CodeRegionLength = (UINT32)CONFIG_CBFS_SIZE,
+				(UINT32)(0x100000000ULL - CONFIG_ROM_SIZE),
+			.CodeRegionLength = (UINT32)CONFIG_ROM_SIZE,
 			.Reserved1 = {0},
 	},
 	.FsptConfig = {
@@ -52,19 +51,19 @@ const FSPT_UPD temp_ram_init_params = {
 asmlinkage void bootblock_c_entry(uint64_t base_timestamp)
 {
 	/* Call lib/bootblock.c main */
-	bootblock_main_with_timestamp(base_timestamp, NULL, 0);
+	bootblock_main_with_basetime(base_timestamp);
 };
 
 void bootblock_soc_early_init(void)
 {
 
-#if (IS_ENABLED(CONFIG_CONSOLE_SERIAL))
+#if (CONFIG(CONSOLE_SERIAL))
 	early_uart_init();
 #endif
 };
 
 void bootblock_soc_init(void)
 {
-	if (IS_ENABLED(CONFIG_BOOTBLOCK_CONSOLE))
+	if (CONFIG(BOOTBLOCK_CONSOLE))
 		printk(BIOS_DEBUG, "FSP TempRamInit successful...\n");
 };

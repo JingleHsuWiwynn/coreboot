@@ -20,8 +20,7 @@
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
-#include <arch/io.h>
-#include <delay.h>
+#include <device/mmio.h>
 #include <stdlib.h>
 #include <southbridge/intel/lynxpoint/hda_verb.h>
 
@@ -103,20 +102,8 @@ static void minihd_init(struct device *dev)
 	}
 }
 
-static void minihd_set_subsystem(struct device *dev, unsigned int vendor,
-				 unsigned int device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
-}
-
 static struct pci_operations minihd_pci_ops = {
-	.set_subsystem    = minihd_set_subsystem,
+	.set_subsystem    = pci_dev_set_subsystem,
 };
 
 static struct device_operations minihd_ops = {

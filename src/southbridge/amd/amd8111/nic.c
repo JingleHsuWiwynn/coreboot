@@ -18,10 +18,10 @@
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <delay.h>
 #include "amd8111.h"
-
+#include "chip.h"
 
 #define CMD3		0x54
 

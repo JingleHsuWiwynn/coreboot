@@ -16,12 +16,11 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <timestamp.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <cpu/x86/lapic.h>
 #include <cbfs.h>
-#include <arch/acpi.h>
 #include <console/console.h>
 #include <bootmode.h>
 #include <northbridge/intel/sandybridge/sandybridge.h>
@@ -29,9 +28,8 @@
 #include <northbridge/intel/sandybridge/raminit_native.h>
 #include <southbridge/intel/bd82x6x/pch.h>
 #include <southbridge/intel/common/gpio.h>
-#include <halt.h>
 #include "option_table.h"
-#if IS_ENABLED(CONFIG_DRIVERS_UART_8250IO)
+#if CONFIG(DRIVERS_UART_8250IO)
 #include <superio/smsc/lpc47n207/lpc47n207.h>
 #endif
 
@@ -40,13 +38,10 @@ void pch_enable_lpc(void)
 	/* Set COM1/COM2 decode range */
 	pci_write_config16(PCH_LPC_DEV, LPC_IO_DEC, 0x0010);
 
-#if IS_ENABLED(CONFIG_DRIVERS_UART_8250IO)
+#if CONFIG(DRIVERS_UART_8250IO)
 	/* Enable SuperIO + EC + KBC + COM1 + lpc47n207 config*/
 	pci_write_config16(PCH_LPC_DEV, LPC_EN, CNF1_LPC_EN | MC_LPC_EN |
 		KBC_LPC_EN | CNF2_LPC_EN | COMA_LPC_EN);
-
-	/* map full 256 bytes at 0x1600 to the LPC bus */
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN1_DEC, 0xfc1601);
 
 	try_enabling_LPC47N207_uart();
 #else
@@ -150,7 +145,6 @@ static const uint8_t *locate_spd(void)
 		die("SPD data not found.");
 	if (spd_file_len < (spd_index + 1) * 256)
 		die("Missing SPD data.");
-	// leave onboard dimm address at f0, and copy spd data there.
 	return spd_data[spd_index];
 }
 
@@ -200,8 +194,7 @@ void mainboard_fill_pei_data(struct pei_data *pei_data)
 		},
 	};
 	*pei_data = pei_data_template;
-	// leave onboard dimm address at f0, and copy spd data there.
-	memcpy(pei_data->spd_data[0], locate_spd(), 256);
+	memcpy(pei_data->spd_data[2], locate_spd(), 256);
 }
 
 const struct southbridge_usb_port mainboard_usb_ports[] = {

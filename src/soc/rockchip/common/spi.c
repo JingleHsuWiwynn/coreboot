@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <assert.h>
 #include <console/console.h>
 #include <delay.h>
@@ -23,8 +23,8 @@
 #include <soc/clock.h>
 #include <spi-generic.h>
 #include <spi_flash.h>
-#include <stdlib.h>
 #include <timer.h>
+#include <types.h>
 
 struct rockchip_spi_slave {
 	struct rockchip_spi *regs;
@@ -96,7 +96,7 @@ static void rockchip_spi_set_clk(struct rockchip_spi *regs, unsigned int hz)
 
 void rockchip_spi_init(unsigned int bus, unsigned int speed_hz)
 {
-	assert(bus >= 0 && bus < ARRAY_SIZE(rockchip_spi_slaves));
+	assert(bus < ARRAY_SIZE(rockchip_spi_slaves));
 	struct rockchip_spi *regs = rockchip_spi_slaves[bus].regs;
 	unsigned int ctrlr0 = 0;
 
@@ -134,13 +134,13 @@ void rockchip_spi_init(unsigned int bus, unsigned int speed_hz)
 
 void rockchip_spi_set_sample_delay(unsigned int bus, unsigned int delay_ns)
 {
-	assert(bus >= 0 && bus < ARRAY_SIZE(rockchip_spi_slaves));
+	assert(bus < ARRAY_SIZE(rockchip_spi_slaves));
 	struct rockchip_spi *regs = rockchip_spi_slaves[bus].regs;
 	unsigned int rsd;
 
 	/* Rxd Sample Delay */
 	rsd = DIV_ROUND_CLOSEST(delay_ns * (SPI_SRCCLK_HZ >> 8), 1*GHz >> 8);
-	assert(rsd >= 0 && rsd <= 3);
+	assert(rsd <= 3);
 	clrsetbits_le32(&regs->ctrlr0, SPI_RXDSD_MASK << SPI_RXDSD_OFFSET,
 			rsd << SPI_RXDSD_OFFSET);
 }
@@ -221,23 +221,11 @@ static int do_xfer(struct rockchip_spi *regs, bool use_16bit, const void *dout,
 		 * sychronizing with the SPI clock which is pretty slow.
 		 */
 		if (*bytes_in && !(sr & SR_RF_EMPT)) {
-			int fifo = read32(&regs->rxflr) & RXFLR_LEVEL_MASK;
-			int val;
-
-			if (use_16bit)
-				xferred = fifo * 2;
-			else
-				xferred = fifo;
+			int w = use_16bit ? 2 : 1;
+			xferred = (read32(&regs->rxflr) & RXFLR_LEVEL_MASK) * w;
+			buffer_from_fifo32(in_buf, xferred, &regs->rxdr, 0, w);
 			*bytes_in -= xferred;
-			while (fifo-- > 0) {
-				val = read32(&regs->rxdr);
-				if (use_16bit) {
-					*in_buf++ = val & 0xff;
-					*in_buf++ = (val >> 8) & 0xff;
-				} else {
-					*in_buf++ = val & 0xff;
-				}
-			}
+			in_buf += xferred;
 		}
 
 		min_xfer -= xferred;

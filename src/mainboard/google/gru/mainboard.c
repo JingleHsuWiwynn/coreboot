@@ -15,14 +15,15 @@
  */
 
 #include <assert.h>
+#include <bl31.h>
 #include <boardid.h>
 #include <console/console.h>
+#include <device/mmio.h>
 #include <delay.h>
 #include <device/device.h>
 #include <device/i2c_simple.h>
 #include <ec/google/chromeec/ec.h>
 #include <gpio.h>
-#include <soc/bl31_plat_params.h>
 #include <soc/clock.h>
 #include <soc/display.h>
 #include <soc/grf.h>
@@ -33,6 +34,8 @@
 #include <vendorcode/google/chromeos/chromeos.h>
 
 #include "board.h"
+
+#include <arm-trusted-firmware/include/export/plat/rockchip/common/plat_params_exp.h>
 
 /*
  * We have to drive the stronger pull-up within 1 second of powering up the
@@ -70,9 +73,9 @@ static void configure_emmc(void)
 
 static void register_apio_suspend(void)
 {
-	static struct bl31_apio_param param_apio = {
+	static struct bl_aux_param_rk_apio param_apio = {
 		.h = {
-			.type = PARAM_SUSPEND_APIO,
+			.type = BL_AUX_PARAM_RK_SUSPEND_APIO,
 		},
 		.apio = {
 			.apio1 = 1,
@@ -82,7 +85,7 @@ static void register_apio_suspend(void)
 			.apio5 = 1,
 		},
 	};
-	register_bl31_param(&param_apio.h);
+	register_bl31_aux_param(&param_apio.h);
 }
 
 static void register_gpio_suspend(void)
@@ -96,35 +99,35 @@ static void register_gpio_suspend(void)
 	 * 1.5V and 1.8V are EC-controlled on Scarlet derivatives,
 	 * so we skip them.
 	 */
-	if (!IS_ENABLED(CONFIG_GRU_BASEBOARD_SCARLET)) {
-		static struct bl31_gpio_param param_p15_en = {
-			.h = { .type = PARAM_SUSPEND_GPIO },
-			.gpio = { .polarity = BL31_GPIO_LEVEL_LOW },
+	if (!CONFIG(GRU_BASEBOARD_SCARLET)) {
+		static struct bl_aux_param_gpio param_p15_en = {
+			.h = { .type = BL_AUX_PARAM_RK_SUSPEND_GPIO },
+			.gpio = { .polarity = ARM_TF_GPIO_LEVEL_LOW },
 		};
 		param_p15_en.gpio.index = GPIO_P15V_EN.raw;
-		register_bl31_param(&param_p15_en.h);
+		register_bl31_aux_param(&param_p15_en.h);
 
-		static struct bl31_gpio_param param_p18_audio_en = {
-			.h = { .type = PARAM_SUSPEND_GPIO },
-			.gpio = { .polarity = BL31_GPIO_LEVEL_LOW },
+		static struct bl_aux_param_gpio param_p18_audio_en = {
+			.h = { .type = BL_AUX_PARAM_RK_SUSPEND_GPIO },
+			.gpio = { .polarity = ARM_TF_GPIO_LEVEL_LOW },
 		};
 		param_p18_audio_en.gpio.index = GPIO_P18V_AUDIO_PWREN.raw;
-		register_bl31_param(&param_p18_audio_en.h);
+		register_bl31_aux_param(&param_p18_audio_en.h);
 	}
 
-	static struct bl31_gpio_param param_p30_en = {
-		.h = { .type = PARAM_SUSPEND_GPIO },
-		.gpio = { .polarity = BL31_GPIO_LEVEL_LOW },
+	static struct bl_aux_param_gpio param_p30_en = {
+		.h = { .type = BL_AUX_PARAM_RK_SUSPEND_GPIO },
+		.gpio = { .polarity = ARM_TF_GPIO_LEVEL_LOW },
 	};
 	param_p30_en.gpio.index = GPIO_P30V_EN.raw;
-	register_bl31_param(&param_p30_en.h);
+	register_bl31_aux_param(&param_p30_en.h);
 }
 
 static void register_reset_to_bl31(void)
 {
-	static struct bl31_gpio_param param_reset = {
+	static struct bl_aux_param_gpio param_reset = {
 		.h = {
-			.type = PARAM_RESET,
+			.type = BL_AUX_PARAM_RK_RESET_GPIO,
 		},
 		.gpio = {
 			.polarity = 1,
@@ -134,14 +137,14 @@ static void register_reset_to_bl31(void)
 	/* gru/kevin reset pin: gpio0b3 */
 	param_reset.gpio.index = GPIO_RESET.raw,
 
-	register_bl31_param(&param_reset.h);
+	register_bl31_aux_param(&param_reset.h);
 }
 
 static void register_poweroff_to_bl31(void)
 {
-	static struct bl31_gpio_param param_poweroff = {
+	static struct bl_aux_param_gpio param_poweroff = {
 		.h = {
-			.type = PARAM_POWEROFF,
+			.type = BL_AUX_PARAM_RK_POWEROFF_GPIO,
 		},
 		.gpio = {
 			.polarity = 1,
@@ -155,7 +158,7 @@ static void register_poweroff_to_bl31(void)
 	 */
 	param_poweroff.gpio.index = GPIO_POWEROFF.raw,
 
-	register_bl31_param(&param_poweroff.h);
+	register_bl31_aux_param(&param_poweroff.h);
 }
 
 static void configure_sdmmc(void)
@@ -163,7 +166,7 @@ static void configure_sdmmc(void)
 	gpio_output(GPIO(2, A, 2), 1);  /* SDMMC_SDIO_PWR_EN */
 
 	/* set SDMMC_DET_L pin */
-	if (IS_ENABLED(CONFIG_GRU_BASEBOARD_SCARLET))
+	if (CONFIG(GRU_BASEBOARD_SCARLET))
 		/*
 		 * do not have external pull up, so need to
 		 * set this pin internal pull up
@@ -177,7 +180,7 @@ static void configure_sdmmc(void)
 	 * In Scarlet derivatives, this GPIO set to high will get 3v,
 	 * With other board variants setting this GPIO low results in 3V.
 	 */
-	if (IS_ENABLED(CONFIG_GRU_BASEBOARD_SCARLET))
+	if (CONFIG(GRU_BASEBOARD_SCARLET))
 		gpio_output(GPIO(2, D, 4), 1);
 	else
 		gpio_output(GPIO(2, D, 4), 0);
@@ -225,7 +228,7 @@ static void configure_codec(void)
 	write32(&rk3399_grf->iomux_i2s0, IOMUX_I2S0_SD0);
 	write32(&rk3399_grf->iomux_i2sclk, IOMUX_I2SCLK);
 
-	if (!IS_ENABLED(CONFIG_GRU_BASEBOARD_SCARLET))
+	if (!CONFIG(GRU_BASEBOARD_SCARLET))
 		gpio_output(GPIO_P18V_AUDIO_PWREN, 1);
 	gpio_output(GPIO_SPK_PA_EN, 0);
 
@@ -238,7 +241,7 @@ static void configure_display(void)
 	 * Rainier is Scarlet-derived, but uses EDP so use board-specific
 	 * config rather than baseboard.
 	 */
-	if (IS_ENABLED(CONFIG_BOARD_GOOGLE_SCARLET)) {
+	if (CONFIG(BOARD_GOOGLE_SCARLET)) {
 		gpio_output(GPIO(4, D, 1), 0);	/* DISPLAY_RST_L */
 		gpio_output(GPIO(4, D, 3), 1);	/* PPVARP_LCD */
 		mdelay(10);
@@ -341,9 +344,9 @@ static void mainboard_init(struct device *dev)
 	if (display_init_required())
 		configure_display();
 	setup_usb(0);
-	if (IS_ENABLED(CONFIG_GRU_HAS_WLAN_RESET))
+	if (CONFIG(GRU_HAS_WLAN_RESET))
 		assert_wifi_reset();
-	if (!IS_ENABLED(CONFIG_GRU_BASEBOARD_SCARLET)) {
+	if (!CONFIG(GRU_BASEBOARD_SCARLET)) {
 		configure_touchpad();		/* Scarlet: works differently */
 		setup_usb(1);			/* Scarlet: only one USB port */
 	}
@@ -369,10 +372,10 @@ void mainboard_power_on_backlight(void)
 	gpio_output(GPIO_BL_EN, 1);  /* BL_EN */
 
 	/* Configure as output GPIO, to be toggled by payload. */
-	if (IS_ENABLED(CONFIG_GRU_BASEBOARD_SCARLET))
+	if (CONFIG(GRU_BASEBOARD_SCARLET))
 		gpio_output(GPIO_BACKLIGHT, 0);
 
-	if (IS_ENABLED(CONFIG_BOARD_GOOGLE_GRU))
+	if (CONFIG(BOARD_GOOGLE_GRU))
 		prepare_backlight_i2c();
 }
 

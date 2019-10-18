@@ -17,6 +17,8 @@
 
 #include <stdint.h>
 #include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <arch/acpi.h>
 #include <arch/cpu.h>
 #include <bootstate.h>
@@ -28,6 +30,7 @@
 #include <device/pci_ids.h>
 #include <pc80/mc146818rtc.h>
 #include <drivers/uart/uart8250reg.h>
+#include <string.h>
 
 #include <soc/iomap.h>
 #include <soc/irq.h>
@@ -174,7 +177,7 @@ static void sc_init(struct device *dev)
 	u32 *gen_pmcon1 = (u32 *)(PMC_BASE_ADDRESS + GEN_PMCON1);
 	u32 *actl = (u32 *)(ILB_BASE_ADDRESS + ACTL);
 	const struct baytrail_irq_route *ir = &global_baytrail_irq_route;
-	struct soc_intel_baytrail_config *config = dev->chip_info;
+	struct soc_intel_baytrail_config *config = config_of(dev);
 
 	/* Set up the PIRQ PIC routing based on static config. */
 	for (i = 0; i < NUM_PIRQS; i++) {
@@ -527,7 +530,7 @@ static struct device_operations device_ops = {
 	.enable_resources	= NULL,
 	.init			= sc_init,
 	.enable			= southcluster_enable_dev,
-	.scan_bus		= scan_lpc_bus,
+	.scan_bus		= scan_static_bus,
 	.ops_pci		= &soc_pci_ops,
 };
 

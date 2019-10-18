@@ -13,8 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <assert.h>
 #include <arch/clock.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <console/console.h>
 #include <delay.h>
 #include <soc/addressmap.h>
@@ -377,6 +378,7 @@ clock_display(u32 frequency)
 		printk(BIOS_WARNING, "%s: Failed to match output frequency %u, "
 		       "best difference is %u.\n", __func__, frequency,
 		       best_diff);
+		assert(plld.m != 0);
 		rounded_rate = (ref / plld.m * plld.n) >> plld.p;
 	}
 

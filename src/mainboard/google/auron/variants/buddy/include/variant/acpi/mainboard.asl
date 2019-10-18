@@ -19,7 +19,7 @@ Scope (\_SB.PCI0.I2C0)
 	Device (RTEK)
 	{
 		Name (_HID, "10EC5650")
-		Name (_CID, "10EC5650")
+		Name (_CID, "INTCCFFD")
 		Name (_DDN, "RTEK Codec Controller ")
 		Name (_UID, 1)
 
@@ -113,30 +113,6 @@ Scope (\_SB.PCI0.RP01)
 			If (LEqual (Arg0, 1)) {
 				// Enable GPIO as wake source
 				\_SB.PCI0.LPCB.GPIO.GWAK (Local0)
-			}
-		}
-	}
-}
-
-/*
- * WLAN connected to Root Port 4, becomes Root Port 2 after coalesce
- */
-Scope (\_SB.PCI0.RP02)
-{
-	Device (WLAN)
-	{
-		Name (_ADR, 0x00000000)
-
-		/* GPIO10 is WLAN_WAKE_L_Q */
-		Name (GPIO, BOARD_WLAN_WAKE_GPIO)
-
-		Name (_PRW, Package() { GPIO, 3 })
-
-		Method (_DSW, 3, NotSerialized)
-		{
-			If (LEqual (Arg0, 1)) {
-				// Enable GPIO as wake source
-				\_SB.PCI0.LPCB.GPIO.GWAK (^GPIO)
 			}
 		}
 	}

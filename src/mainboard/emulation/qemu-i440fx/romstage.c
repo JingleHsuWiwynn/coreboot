@@ -14,20 +14,10 @@
  * GNU General Public License for more details.
  */
 
-#include <stdint.h>
+#include <arch/romstage.h>
 #include <cbmem.h>
-#include <console/console.h>
-#include <cpu/intel/romstage.h>
-#include <timestamp.h>
-#include <program_loading.h>
 
-asmlinkage void car_stage_entry(void)
+void mainboard_romstage_entry(void)
 {
-	console_init();
-
 	cbmem_recovery(0);
-
-	timestamp_add_now(TS_START_ROMSTAGE);
-
-	run_ramstage();
 }

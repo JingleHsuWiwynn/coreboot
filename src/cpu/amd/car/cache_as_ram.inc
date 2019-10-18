@@ -1,10 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2005-2007 Advanced Micro Devices, Inc.
- * Copyright (C) 2008 Carl-Daniel Hailfinger
- * Copyright (C) 2015 Timothy Pearson <tpearson@raptorengineeringinc.com>, Raptor Engineering
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -22,8 +18,8 @@
 
 #define CacheSize		CONFIG_DCACHE_RAM_SIZE
 #define CacheBase		CONFIG_DCACHE_RAM_BASE
-#define CacheSizeBSPStack	CONFIG_DCACHE_BSP_STACK_SIZE
-#define CacheSizeBSPSlush	CONFIG_DCACHE_BSP_STACK_SLUSH
+#define CacheSizeBSPStack	CONFIG_DCACHE_BSP_TOP_STACK_SIZE
+#define CacheSizeBSPSlush	CONFIG_DCACHE_BSP_TOP_STACK_SLUSH
 
 /* For CAR with Fam10h. */
 #define CacheSizeAPStack	CONFIG_DCACHE_AP_STACK_SIZE
@@ -141,7 +137,7 @@ CAR_FAM10_out:
 
 CAR_FAM10_errata_applied:
 
-#if IS_ENABLED(CONFIG_MMCONF_SUPPORT)
+#if CONFIG(MMCONF_SUPPORT)
    #if (CONFIG_MMCONF_BASE_ADDRESS > 0xFFFFFFFF)
    #error "MMCONF_BASE_ADDRESS too big"
    #elif (CONFIG_MMCONF_BASE_ADDRESS & 0xFFFFF)
@@ -315,7 +311,7 @@ clear_fixed_var_mtrr_out:
 	 */
 .endm
 
-#if IS_ENABLED(CONFIG_CPU_AMD_MODEL_10XXX)
+#if CONFIG(CPU_AMD_MODEL_10XXX)
   #if CacheSize > 0x80000
   #error Invalid CAR size, must be at most 128k (processor limit is 512k).
   #endif

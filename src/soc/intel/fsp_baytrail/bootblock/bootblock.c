@@ -15,6 +15,8 @@
  */
 
 #include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <cpu/x86/cache.h>
 #include <cpu/x86/msr.h>
 #include <cpu/x86/mtrr.h>
@@ -25,7 +27,6 @@
 #include <soc/iomap.h>
 #include <soc/lpc.h>
 #include <soc/gpio.h>
-#include <reset.h>
 
 /*
  * check for a warm reset and do a hard reset instead.

@@ -29,7 +29,9 @@
 #include <spi-generic.h>
 #include <spi_flash.h>
 #include <pc80/mc146818rtc.h>
-#include <inttypes.h>
+#include <stdint.h>
+#include <types.h>
+
 #include "mct_d.h"
 #include "mct_d_gcc.h"
 
@@ -67,7 +69,7 @@ ssize_t get_s3nv_file_offset(void)
 	return s3nv_region.region.offset;
 }
 
-#ifdef __SIMPLE_DEVICE__
+#if ENV_PCI_SIMPLE_DEVICE
 static uint32_t read_config32_dct(pci_devfn_t dev, uint8_t node, uint8_t dct,
 				  uint32_t reg)
 #else
@@ -77,7 +79,7 @@ static uint32_t read_config32_dct(struct device *dev, uint8_t node, uint8_t dct,
 {
 	if (is_fam15h()) {
 		uint32_t dword;
-#ifdef __PRE_RAM__
+#if ENV_PCI_SIMPLE_DEVICE
 		pci_devfn_t dev_fn1 = PCI_DEV(0, 0x18 + node, 1);
 #else
 		struct device *dev_fn1 = pcidev_on_root(0x18 + node, 1);
@@ -96,7 +98,7 @@ static uint32_t read_config32_dct(struct device *dev, uint8_t node, uint8_t dct,
 	return pci_read_config32(dev, reg);
 }
 
-#ifdef __SIMPLE_DEVICE__
+#if ENV_PCI_SIMPLE_DEVICE
 static void write_config32_dct(pci_devfn_t dev, uint8_t node, uint8_t dct,
 			       uint32_t reg, uint32_t value)
 #else
@@ -106,7 +108,7 @@ static void write_config32_dct(struct device *dev, uint8_t node, uint8_t dct,
 {
 	if (is_fam15h()) {
 		uint32_t dword;
-#ifdef __PRE_RAM__
+#if ENV_PCI_SIMPLE_DEVICE
 		pci_devfn_t dev_fn1 = PCI_DEV(0, 0x18 + node, 1);
 #else
 		struct device *dev_fn1 = pcidev_on_root(0x18 + node, 1);
@@ -125,7 +127,7 @@ static void write_config32_dct(struct device *dev, uint8_t node, uint8_t dct,
 	pci_write_config32(dev, reg, value);
 }
 
-#ifdef __SIMPLE_DEVICE__
+#if ENV_PCI_SIMPLE_DEVICE
 static uint32_t read_amd_dct_index_register(pci_devfn_t dev,
 					uint32_t index_ctl_reg, uint32_t index)
 #else
@@ -145,7 +147,7 @@ static uint32_t read_amd_dct_index_register(struct device *dev,
 	return dword;
 }
 
-#ifdef __SIMPLE_DEVICE__
+#if ENV_PCI_SIMPLE_DEVICE
 static uint32_t read_amd_dct_index_register_dct(pci_devfn_t dev, uint8_t node,
 			uint8_t dct, uint32_t index_ctl_reg, uint32_t index)
 #else
@@ -156,7 +158,7 @@ static uint32_t read_amd_dct_index_register_dct(struct device *dev,
 {
 	if (is_fam15h()) {
 		uint32_t dword;
-#ifdef __PRE_RAM__
+#if ENV_PCI_SIMPLE_DEVICE
 		pci_devfn_t dev_fn1 = PCI_DEV(0, 0x18 + node, 1);
 #else
 		struct device *dev_fn1 = pcidev_on_root(0x18 + node, 1);
@@ -251,7 +253,6 @@ static struct amd_s3_persistent_data *map_s3nv_in_nvram(void)
 	return persistent_data;
 }
 
-#ifdef __PRE_RAM__
 int8_t load_spd_hashes_from_nvram(struct MCTStatStruc *pMCTstat, struct DCTStatStruc *pDCTstat)
 {
 	struct amd_s3_persistent_data *persistent_data;
@@ -267,12 +268,18 @@ int8_t load_spd_hashes_from_nvram(struct MCTStatStruc *pMCTstat, struct DCTStatS
 
 	return 0;
 }
-#endif
 
-#ifdef __RAMSTAGE__
 static uint64_t rdmsr_uint64_t(unsigned long index) {
 	msr_t msr = rdmsr(index);
 	return (((uint64_t)msr.hi) << 32) | ((uint64_t)msr.lo);
+}
+
+static void wrmsr_uint64_t(unsigned long index, uint64_t value)
+{
+	msr_t msr;
+	msr.hi = (value & 0xffffffff00000000ULL) >> 32;
+	msr.lo = (value & 0xffffffff);
+	wrmsr(index, msr);
 }
 
 static uint32_t read_config32_dct_nbpstate(struct device *dev, uint8_t node,
@@ -536,7 +543,7 @@ void copy_mct_data_to_save_variable(struct amd_s3_persistent_data *persistent_da
 			data->f2x9cx0d0f812f = read_amd_dct_index_register_dct(dev_fn2, node, channel, 0x98, 0x0d0f812f);
 
 			/* Stage 11 */
-			if (IS_ENABLED(CONFIG_DIMM_DDR3)) {
+			if (CONFIG(DIMM_DDR3)) {
 				for (i = 0; i < 12; i++)
 					data->f2x9cx30[i] = read_amd_dct_index_register_dct(dev_fn2, node, channel, 0x98, 0x30 + i);
 				for (i = 0; i < 12; i++)
@@ -555,7 +562,7 @@ void copy_mct_data_to_save_variable(struct amd_s3_persistent_data *persistent_da
 		}
 	}
 }
-#else
+
 static void write_config32_dct_nbpstate(pci_devfn_t dev, uint8_t node,
 					uint8_t dct, uint8_t nb_pstate,
 					uint32_t reg, uint32_t value)
@@ -613,15 +620,6 @@ static void write_amd_dct_index_register_dct(pci_devfn_t dev, uint8_t node,
 
 	return write_amd_dct_index_register(dev, index_ctl_reg, index, value);
 }
-#endif
-
-#ifdef __PRE_RAM__
-static void wrmsr_uint64_t(unsigned long index, uint64_t value) {
-	msr_t msr;
-	msr.hi = (value & 0xffffffff00000000ULL) >> 32;
-	msr.lo = (value & 0xffffffff);
-	wrmsr(index, msr);
-}
 
 void restore_mct_data_from_save_variable(struct amd_s3_persistent_data *persistent_data, uint8_t training_only)
 {
@@ -654,7 +652,7 @@ void restore_mct_data_from_save_variable(struct amd_s3_persistent_data *persiste
 				for (i = 0; i < 12; i++)
 					write_amd_dct_index_register_dct(PCI_DEV(0, 0x18 + node, 2), node, channel, 0x98, 0x20 + i, data->f2x9cx20[i]);
 
-				if (IS_ENABLED(CONFIG_DIMM_DDR3)) {
+				if (CONFIG(DIMM_DDR3)) {
 					for (i = 0; i < 12; i++)
 						write_amd_dct_index_register_dct(PCI_DEV(0, 0x18 + node, 2), node, channel, 0x98, 0x30 + i, data->f2x9cx30[i]);
 					for (i = 0; i < 12; i++)
@@ -1093,7 +1091,7 @@ void restore_mct_data_from_save_variable(struct amd_s3_persistent_data *persiste
 	}
 
 	/* Stage 11 */
-	if (IS_ENABLED(CONFIG_DIMM_DDR3)) {
+	if (CONFIG(DIMM_DDR3)) {
 		for (node = 0; node < MAX_NODES_SUPPORTED; node++) {
 			for (channel = 0; channel < 2; channel++) {
 				struct amd_s3_persistent_mct_channel_data *data = &persistent_data->node[node].channel[channel];
@@ -1128,9 +1126,7 @@ void restore_mct_data_from_save_variable(struct amd_s3_persistent_data *persiste
 		}
 	}
 }
-#endif
 
-#ifdef __RAMSTAGE__
 int8_t save_mct_information_to_nvram(void)
 {
 	uint8_t nvram;
@@ -1204,7 +1200,6 @@ int8_t save_mct_information_to_nvram(void)
 
 	return 0;
 }
-#endif
 
 int8_t restore_mct_information_from_nvram(uint8_t training_only)
 {

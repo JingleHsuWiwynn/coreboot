@@ -1,10 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2015 Timothy Pearson <tpearson@raptorengineeringinc.com>,
- * Raptor Engineering
- * Copyright (C) 2009 Rudolf Marek <r.marek@assembler.cz>
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -28,6 +24,7 @@
 #include <lib.h>
 #include <string.h>
 #include <arch/acpigen.h>
+#include <assert.h>
 #include <console/console.h>
 #include <device/device.h>
 
@@ -513,6 +510,63 @@ void acpigen_write_field(const char *name, struct fieldlist *l, size_t count,
 	acpigen_pop_len();
 }
 
+/*
+ * Generate ACPI AML code for IndexField
+ * Arg0: region name
+ * Arg1: Pointer to struct fieldlist.
+ * Arg2: no. of entries in Arg1
+ * Arg3: flags which indicate filed access type, lock rule  & update rule.
+ * Example with fieldlist
+ * struct fieldlist l[] = {
+ *	FIELDLIST_OFFSET(0x84),
+ *	FIELDLIST_NAMESTR("PMCS", 2),
+ *	};
+ * acpigen_write_field("IDX", "DATA" l, ARRAY_SIZE(l), FIELD_ANYACC |
+ *						       FIELD_NOLOCK |
+ *						       FIELD_PRESERVE);
+ * Output:
+ * IndexField (IDX, DATA, AnyAcc, NoLock, Preserve)
+ *	{
+ *		Offset (0x84),
+ *		PMCS,   2
+ *	}
+ */
+void acpigen_write_indexfield(const char *idx, const char *data,
+			      struct fieldlist *l, size_t count, uint8_t flags)
+{
+	uint16_t i;
+	uint32_t current_bit_pos = 0;
+
+	/* FieldOp */
+	acpigen_emit_ext_op(INDEX_FIELD_OP);
+	/* Package Length */
+	acpigen_write_len_f();
+	/* NameString 4 chars only */
+	acpigen_emit_simple_namestring(idx);
+	/* NameString 4 chars only */
+	acpigen_emit_simple_namestring(data);
+	/* Field Flag */
+	acpigen_emit_byte(flags);
+
+	for (i = 0; i < count; i++) {
+		switch (l[i].type) {
+		case NAME_STRING:
+			acpigen_write_field_name(l[i].name, l[i].bits);
+			current_bit_pos += l[i].bits;
+			break;
+		case OFFSET:
+			acpigen_write_field_offset(l[i].bits, current_bit_pos);
+			current_bit_pos = l[i].bits;
+			break;
+		default:
+			printk(BIOS_ERR, "%s: Invalid field type 0x%X\n"
+				, __func__, l[i].type);
+			break;
+		}
+	}
+	acpigen_pop_len();
+}
+
 void acpigen_write_empty_PCT(void)
 {
 /*
@@ -580,14 +634,12 @@ void acpigen_write_empty_PTC(void)
 	})
 */
 	acpi_addr_t addr = {
-		.space_id   = ACPI_ADDRESS_SPACE_FIXED,
-		.bit_width  = 0,
-		.bit_offset = 0,
-		{
-			.resv       = 0
-		},
-		.addrl      = 0,
-		.addrh      = 0,
+		.space_id    = ACPI_ADDRESS_SPACE_FIXED,
+		.bit_width   = 0,
+		.bit_offset  = 0,
+		.access_size = 0,
+		.addrl       = 0,
+		.addrh       = 0,
 	};
 
 	acpigen_write_name("_PTC");
@@ -845,7 +897,7 @@ static void acpigen_write_register(const acpi_addr_t *addr)
 	acpigen_emit_byte(addr->space_id);	/* Address Space ID */
 	acpigen_emit_byte(addr->bit_width);	/* Register Bit Width */
 	acpigen_emit_byte(addr->bit_offset);	/* Register Bit Offset */
-	acpigen_emit_byte(addr->resv);		/* Register Access Size */
+	acpigen_emit_byte(addr->access_size);	/* Register Access Size */
 	acpigen_emit_dword(addr->addrl);	/* Register Address Low */
 	acpigen_emit_dword(addr->addrh);	/* Register Address High */
 }
@@ -1059,7 +1111,7 @@ void acpigen_write_uuid(const char *uuid)
 void acpigen_write_power_res(const char *name, uint8_t level, uint16_t order,
 			     const char *dev_states[], size_t dev_states_count)
 {
-	int i;
+	size_t i;
 	for (i = 0; i < dev_states_count; i++) {
 		acpigen_write_name(dev_states[i]);
 		acpigen_write_package(1);

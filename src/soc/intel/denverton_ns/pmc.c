@@ -16,6 +16,7 @@
 
 #include <arch/acpi.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
@@ -37,7 +38,7 @@ static void pch_power_options(struct device *dev) { /* TODO */ }
 
 static void pch_set_acpi_mode(void)
 {
-	if (IS_ENABLED(CONFIG_HAVE_SMI_HANDLER) && !acpi_is_wakeup_s3()) {
+	if (CONFIG(HAVE_SMI_HANDLER) && !acpi_is_wakeup_s3()) {
 		printk(BIOS_DEBUG, "Disabling ACPI via APMC:\n");
 		outb(APM_CNT_ACPI_DISABLE, APM_CNT);
 		printk(BIOS_DEBUG, "done.\n");

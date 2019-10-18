@@ -13,8 +13,8 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/acpi.h>
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
@@ -142,16 +142,16 @@ static void config_gpio_mux(void)
 	uart = dev_find_slot_pnp(SIO_PORT, NCT5104D_SP3);
 	gpio = dev_find_slot_pnp(SIO_PORT, NCT5104D_GPIO0);
 	if (uart)
-		uart->enabled = IS_ENABLED(CONFIG_APU2_PINMUX_UART_C);
+		uart->enabled = CONFIG(APU2_PINMUX_UART_C);
 	if (gpio)
-		gpio->enabled = IS_ENABLED(CONFIG_APU2_PINMUX_GPIO0);
+		gpio->enabled = CONFIG(APU2_PINMUX_GPIO0);
 
 	uart = dev_find_slot_pnp(SIO_PORT, NCT5104D_SP4);
 	gpio = dev_find_slot_pnp(SIO_PORT, NCT5104D_GPIO1);
 	if (uart)
-		uart->enabled = IS_ENABLED(CONFIG_APU2_PINMUX_UART_D);
+		uart->enabled = CONFIG(APU2_PINMUX_UART_D);
 	if (gpio)
-		gpio->enabled = IS_ENABLED(CONFIG_APU2_PINMUX_GPIO1);
+		gpio->enabled = CONFIG(APU2_PINMUX_GPIO1);
 }
 
 /**********************************************
@@ -197,22 +197,15 @@ const char *smbios_mainboard_serial_number(void)
 	struct device *dev;
 	uintptr_t bar10;
 	u32 mac_addr = 0;
-	u32 bus_no;
 	int i;
 
-	/*
-	 * In case we have PCIe module connected to mPCIe2 slot, BDF 1:0.0 may
-	 * not be a NIC, because mPCIe2 slot is routed to the very first PCIe
-	 * bridge and the first NIC is connected to the second PCIe bridge.
-	 * Read secondary bus number from the PCIe bridge where the first NIC is
-	 * connected.
-	 */
-	dev = pcidev_on_root(2, 2);
-	if ((serial[0] != 0) || !dev)
+	/* Already initialized. */
+	if (serial[0] != 0)
 		return serial;
 
-	bus_no = dev->link_list->secondary;
-	dev = dev_find_slot(bus_no, PCI_DEVFN(0, 0));
+	dev = pcidev_on_root(2, 2);
+	if (dev)
+		dev = pcidev_path_behind(dev->link_list, PCI_DEVFN(0, 0));
 	if (!dev)
 		return serial;
 
@@ -235,7 +228,7 @@ const char *smbios_mainboard_serial_number(void)
 /*
  * We will stuff the memory size into the smbios sku location.
  */
-const char *smbios_mainboard_sku(void)
+const char *smbios_system_sku(void)
 {
 	static char sku[5];
 	if (sku[0] != 0)

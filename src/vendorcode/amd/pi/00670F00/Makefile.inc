@@ -28,7 +28,7 @@
 #
 #*****************************************************************************
 
-ifeq ($(CONFIG_SOC_AMD_STONEYRIDGE_FP4)$(CONFIG_SOC_AMD_STONEYRIDGE_FT4),y)
+ifeq ($(CONFIG_SOC_AMD_MERLINFALCON)$(CONFIG_SOC_AMD_STONEYRIDGE_FP4)$(CONFIG_SOC_AMD_STONEYRIDGE_FT4),y)
 # AGESA V5 Files
 
 AGESA_ROOT = $(call strip_quotes,$(CONFIG_AGESA_BINARY_PI_VENDORCODE_PATH))
@@ -77,8 +77,8 @@ $(call src-to-obj,libagesa,$1): $(agesa_src_path)/$(notdir $1) $(obj)/config.h $
 	@printf "    CC         $$(subst $(obj)/,,$$(@))\n"
 	$(CC_libagesa) -c -MMD $(CFLAGS_libagesa) $(AGESA_CFLAGS)             \
 	               $(AGESA_INC)                                           \
-	               -include $(src)/include/rules.h                        \
 	               -include $(src)/include/kconfig.h                      \
+	               -include $(src)/include/rules.h                        \
 	               -include $(src)/commonlib/include/commonlib/compiler.h \
 	               -o $$@                                                 \
 	               $(agesa_src_path)/$(notdir $1)

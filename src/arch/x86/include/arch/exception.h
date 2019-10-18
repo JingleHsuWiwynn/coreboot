@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright 2013 Google Inc.
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -32,7 +30,7 @@
 
 #include <arch/cpu.h>
 
-#if IS_ENABLED(CONFIG_IDT_IN_EVERY_STAGE) || ENV_RAMSTAGE
+#if CONFIG(IDT_IN_EVERY_STAGE) || ENV_RAMSTAGE
 asmlinkage void exception_init(void);
 #else
 static inline void exception_init(void) { /* not implemented */ }

@@ -18,14 +18,15 @@
 #include <device/device.h>
 #include <device/pci_def.h>
 #include <amdblocks/BiosCallOuts.h>
+#include <console/console.h>
 #include <soc/southbridge.h>
 #include <soc/pci_devs.h>
 #include <stdlib.h>
-
 #include <amdblocks/agesawrapper.h>
 #include <amdblocks/dimm_spd.h>
-#include "chip.h"
 #include <amdblocks/car.h>
+
+#include "chip.h"
 
 void __weak platform_FchParams_reset(FCH_RESET_DATA_BLOCK *FchParams_reset) {}
 
@@ -59,7 +60,7 @@ AGESA_STATUS agesa_fch_initenv(uint32_t Func, uintptr_t FchData,
 		printk(BIOS_DEBUG, "Fch OEM config in INIT ENV ");
 
 		/* XHCI configuration */
-		if (IS_ENABLED(CONFIG_STONEYRIDGE_XHCI_ENABLE))
+		if (CONFIG(STONEYRIDGE_XHCI_ENABLE))
 			FchParams_env->Usb.Xhci0Enable = TRUE;
 		else
 			FchParams_env->Usb.Xhci0Enable = FALSE;

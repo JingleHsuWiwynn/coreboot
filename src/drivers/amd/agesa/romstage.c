@@ -15,6 +15,7 @@
 
 #include <arch/acpi.h>
 #include <arch/cpu.h>
+#include <arch/romstage.h>
 #include <cbmem.h>
 #include <cpu/amd/car.h>
 #include <cpu/x86/bist.h>
@@ -28,7 +29,7 @@
 #include <northbridge/amd/agesa/agesa_helper.h>
 #include <northbridge/amd/agesa/state_machine.h>
 
-#if !IS_ENABLED(CONFIG_POSTCAR_STAGE)
+#if !CONFIG(POSTCAR_STAGE)
 #error "Only POSTCAR_STAGE is supported."
 #endif
 #if HAS_LEGACY_WRAPPER
@@ -90,8 +91,6 @@ void *asmlinkage romstage_main(unsigned long bist)
 	else
 		agesa_execute_state(cb, AMD_INIT_RESUME);
 
-	/* FIXME: Detect if TSC frequency changed during raminit? */
-	timestamp_rescale_table(1, 4);
 	timestamp_add_now(TS_AFTER_INITRAM);
 
 	/* Work around AGESA setting all memory as WB on normal

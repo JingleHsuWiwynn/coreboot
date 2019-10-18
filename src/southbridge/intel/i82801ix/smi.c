@@ -20,9 +20,11 @@
 #include <device/pci.h>
 #include <console/console.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <arch/acpi.h>
 #include <cpu/x86/cache.h>
 #include <cpu/x86/smm.h>
+#include <cpu/x86/smi_deprecated.h>
 #include <string.h>
 #include <southbridge/intel/common/pmutil.h>
 #include "i82801ix.h"
@@ -170,7 +172,7 @@ void smm_init_completion(void)
 	restore_default_smm_area(default_smm_area);
 }
 
-void smm_lock(void)
+void aseg_smm_lock(void)
 {
 	/* LOCK the SMM memory window and enable normal SMM.
 	 * After running this function, only a full reset can

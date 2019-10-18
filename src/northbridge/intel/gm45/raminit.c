@@ -17,7 +17,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <arch/cpu.h>
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <device/device.h>
 #include <spd.h>
@@ -1592,7 +1593,8 @@ static void jedec_init(const timings_t *const timings,
 	int ch, r;
 	FOR_EACH_POPULATED_RANK(dimms, ch, r) {
 		/* We won't do this in dual-interleaved mode,
-		   so don't care about the offset. */
+		   so don't care about the offset.
+		   Mirrored ranks aren't taken into account here. */
 		const u32 rankaddr = raminit_get_rank_addr(ch, r);
 		printk(BIOS_DEBUG, "JEDEC init @0x%08x\n", rankaddr);
 		MCHBAR32(DCC_MCHBAR) = (MCHBAR32(DCC_MCHBAR) & ~DCC_SET_EREG_MASK) | DCC_SET_EREGx(2);
@@ -1797,7 +1799,8 @@ void raminit(sysinfo_t *const sysinfo, const int s3resume)
 
 
 	/* Perform ZQ calibration for DDR3. */
-	ddr3_calibrate_zq();
+	if (sysinfo->spd_type == DDR3)
+		ddr3_calibrate_zq();
 
 	/* Perform receive-enable calibration. */
 	raminit_receive_enable_calibration(timings, dimms);

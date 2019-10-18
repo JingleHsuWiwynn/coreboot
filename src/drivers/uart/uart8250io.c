@@ -101,7 +101,7 @@ uintptr_t uart_platform_base(int idx)
 
 void uart_init(int idx)
 {
-	if (!IS_ENABLED(CONFIG_DRIVERS_UART_8250IO_SKIP_INIT)) {
+	if (!CONFIG(DRIVERS_UART_8250IO_SKIP_INIT)) {
 		unsigned int div;
 		div = uart_baudrate_divisor(get_uart_baudrate(),
 			uart_platform_refclk(), uart_input_clock_divider());
@@ -124,7 +124,6 @@ void uart_tx_flush(int idx)
 	uart8250_tx_flush(uart_platform_base(idx));
 }
 
-#if ENV_RAMSTAGE
 void uart_fill_lb(void *data)
 {
 	struct lb_serial serial;
@@ -138,4 +137,3 @@ void uart_fill_lb(void *data)
 
 	lb_add_console(LB_TAG_CONSOLE_SERIAL8250, data);
 }
-#endif

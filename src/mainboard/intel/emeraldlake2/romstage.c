@@ -15,19 +15,16 @@
  */
 
 #include <stdint.h>
-#include <string.h>
-#include <timestamp.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <cpu/x86/lapic.h>
-#include <arch/acpi.h>
-#include <superio/smsc/sio1007/chip.h>
+#include <superio/smsc/sio1007/sio1007.h>
 #include <northbridge/intel/sandybridge/sandybridge.h>
 #include <northbridge/intel/sandybridge/raminit.h>
 #include <northbridge/intel/sandybridge/raminit_native.h>
 #include <southbridge/intel/bd82x6x/pch.h>
 #include <southbridge/intel/common/gpio.h>
-#include <halt.h>
 
 #define SIO_PORT 0x164e
 
@@ -35,18 +32,9 @@ void pch_enable_lpc(void)
 {
 	pci_devfn_t dev = PCH_LPC_DEV;
 
-	/* Set COM1/COM2 decode range */
-	pci_write_config16(dev, LPC_IO_DEC, 0x0010);
-
 	/* Enable SuperIO + PS/2 Keyboard/Mouse */
 	u16 lpc_config = CNF1_LPC_EN | CNF2_LPC_EN | KBC_LPC_EN;
 	pci_write_config16(dev, LPC_EN, lpc_config);
-
-	/* Map 256 bytes at 0x1600 to the LPC bus. */
-	pci_write_config32(dev, LPC_GEN1_DEC, 0xfc1601);
-
-	/* Map a range for the runtime_port registers to the LPC bus. */
-	pci_write_config32(dev, LPC_GEN2_DEC, 0xc0181);
 
 	/* Enable COM1 */
 	if (sio1007_enable_uart_at(SIO_PORT)) {

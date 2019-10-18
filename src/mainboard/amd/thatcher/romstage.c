@@ -14,14 +14,12 @@
  */
 
 #include <stdint.h>
-#include <string.h>
 #include <device/pci_def.h>
-#include <arch/acpi.h>
 #include <arch/io.h>
-#include <commonlib/loglevel.h>
+#include <console/console.h>
+#include <device/pci_ops.h>
 #include <northbridge/amd/agesa/state_machine.h>
 #include <southbridge/amd/agesa/hudson/hudson.h>
-
 #include <superio/smsc/lpc47n217/lpc47n217.h>
 
 #define SERIAL_DEV PNP_DEV(0x2e, LPC47N217_SP1)

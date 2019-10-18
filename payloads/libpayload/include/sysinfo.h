@@ -95,10 +95,10 @@ struct sysinfo_t {
 	struct cb_header *header;
 	struct cb_mainboard *mainboard;
 
-	void	*vboot_handoff;
-	u32	vboot_handoff_size;
+	void *vboot_workbuf;
+	uint32_t vboot_workbuf_size;
 
-#if IS_ENABLED(CONFIG_LP_ARCH_X86)
+#if CONFIG(LP_ARCH_X86)
 	int x86_rom_var_mtrr_index;
 #endif
 
@@ -127,6 +127,10 @@ struct sysinfo_t {
 	uint64_t mtc_start;
 	uint32_t mtc_size;
 	void	*chromeos_vpd;
+	int	mmc_early_wake_status;
+
+	/* Pointer to FMAP cache in CBMEM */
+	void	*fmap_cache;
 };
 
 extern struct sysinfo_t lib_sysinfo;

@@ -5,6 +5,8 @@
  *                 written by Patrick Georgi <patrick.georgi@coresystems.de>
  * Copyright (C) 2012 Google, Inc.
  * Copyright (C) 2016 Siemens AG
+ * Copyright (C) 2019 9elements Agency GmbH
+ * Copyright (C) 2019 Facebook Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,7 +30,6 @@
 #include "cbfs_image.h"
 #include "cbfs_sections.h"
 #include "elfparsing.h"
-#include "fit.h"
 #include "partitioned_file.h"
 #include <commonlib/fsp.h>
 #include <commonlib/endian.h>
@@ -84,7 +85,7 @@ static struct param {
 	bool autogen_attr;
 	bool machine_parseable;
 	bool unprocessed;
-	int fit_empty_entries;
+	bool ibb;
 	enum comp_algo compression;
 	int precompression;
 	enum vb2_hash_algorithm hash;
@@ -251,7 +252,7 @@ static int cbfs_add_integer_component(const char *name,
 
 	header = cbfs_create_file_header(CBFS_COMPONENT_RAW,
 		buffer.size, name);
-	if (cbfs_add_entry(&image, &buffer, offset, header) != 0) {
+	if (cbfs_add_entry(&image, &buffer, offset, header, 0) != 0) {
 		ERROR("Failed to add %llu into ROM image as '%s'.\n",
 					(long long unsigned)u64val, name);
 		goto done;
@@ -366,7 +367,7 @@ static int cbfs_add_master_header(void)
 
 	header = cbfs_create_file_header(CBFS_COMPONENT_CBFSHEADER,
 		buffer_size(&buffer), name);
-	if (cbfs_add_entry(&image, &buffer, 0, header) != 0) {
+	if (cbfs_add_entry(&image, &buffer, 0, header, 0) != 0) {
 		ERROR("Failed to add cbfs master header into ROM image.\n");
 		goto done;
 	}
@@ -450,6 +451,8 @@ static int cbfs_add_component(const char *filename,
 			      uint32_t headeroffset,
 			      convert_buffer_t convert)
 {
+	size_t len_align = 0;
+
 	if (!filename) {
 		ERROR("You need to specify -f/--filename.\n");
 		return 1;
@@ -541,6 +544,17 @@ static int cbfs_add_component(const char *filename,
 		}
 	}
 
+	if (param.ibb) {
+		/* Mark as Initial Boot Block */
+		struct cbfs_file_attribute *attrs = cbfs_add_file_attr(header,
+				CBFS_FILE_ATTR_TAG_IBB,
+				sizeof(struct cbfs_file_attribute));
+		if (attrs == NULL)
+			return -1;
+		/* For Intel TXT minimum align is 16 */
+		len_align = 16;
+	}
+
 	if (param.padding) {
 		const uint32_t hs = sizeof(struct cbfs_file_attribute);
 		uint32_t size = MAX(hs, param.padding);
@@ -556,7 +570,7 @@ static int cbfs_add_component(const char *filename,
 	if (IS_TOP_ALIGNED_ADDRESS(offset))
 		offset = convert_to_from_top_aligned(param.image_region,
 								-offset);
-	if (cbfs_add_entry(&image, &buffer, offset, header) != 0) {
+	if (cbfs_add_entry(&image, &buffer, offset, header, len_align) != 0) {
 		ERROR("Failed to add '%s' into ROM image.\n", filename);
 		free(header);
 		buffer_delete(&buffer);
@@ -1047,6 +1061,8 @@ static int cbfs_layout(void)
 			qualifier = "read-only, ";
 		else if (region_is_modern_cbfs((const char *)current->name))
 			qualifier = "CBFS, ";
+		else if (current->flags & FMAP_AREA_PRESERVE)
+			qualifier = "preserve, ";
 		printf(" (%ssize %u, offset %u)\n", qualifier, current->size,
 				current->offset);
 
@@ -1190,54 +1206,6 @@ static int cbfs_read(void)
 	return buffer_write_file(param.image_region, param.filename);
 }
 
-static int cbfs_update_fit(void)
-{
-	if (!param.name) {
-		ERROR("You need to specify -n/--name.\n");
-		return 1;
-	}
-
-	if (param.fit_empty_entries <= 0) {
-		ERROR("Invalid number of fit entries "
-		        "(-x/--empty-fits): %d\n", param.fit_empty_entries);
-		return 1;
-	}
-
-	struct buffer bootblock;
-	// The bootblock is part of the CBFS on x86
-	buffer_clone(&bootblock, param.image_region);
-
-	struct cbfs_image image;
-	if (cbfs_image_from_buffer(&image, param.image_region,
-							param.headeroffset))
-		return 1;
-
-	uint32_t addr = 0;
-
-	/*
-	 * Get the address of provided region for first row.
-	 */
-	if (param.ucode_region) {
-		struct buffer ucode;
-
-		if (partitioned_file_read_region(&ucode,
-				param.image_file, param.ucode_region))
-			addr = -convert_to_from_top_aligned(&ucode, 0);
-		else
-			return 1;
-	}
-
-
-	if (fit_update_table(&bootblock, &image, param.name,
-			param.fit_empty_entries, convert_to_from_top_aligned,
-						param.topswap_size, addr))
-		return 1;
-
-	// The region to be written depends on the type of image, so we write it
-	// here rather than having main() write the CBFS region back as usual.
-	return !partitioned_file_write_region(param.image_file, &bootblock);
-}
-
 static int cbfs_copy(void)
 {
 	struct cbfs_image src_image;
@@ -1320,10 +1288,14 @@ static const struct command commands[] = {
 	{"print", "H:r:vkh?", cbfs_print, true, false},
 	{"read", "r:f:vh?", cbfs_read, true, false},
 	{"remove", "H:r:n:vh?", cbfs_remove, true, true},
-	{"update-fit", "H:r:n:x:vh?j:q:", cbfs_update_fit, true, true},
 	{"write", "r:f:i:Fudvh?", cbfs_write, true, true},
 	{"expand", "r:h?", cbfs_expand, true, true},
 	{"truncate", "r:h?", cbfs_truncate, true, true},
+};
+
+enum {
+	/* begin after ASCII characters */
+	LONGOPT_IBB = 256,
 };
 
 static struct option long_options[] = {
@@ -1364,6 +1336,7 @@ static struct option long_options[] = {
 	{"gen-attribute", no_argument,       0, 'g' },
 	{"mach-parseable",no_argument,       0, 'k' },
 	{"unprocessed",   no_argument,       0, 'U' },
+	{"ibb",           no_argument,       0, LONGOPT_IBB },
 	{NULL,            0,                 0,  0  }
 };
 
@@ -1437,7 +1410,7 @@ static void usage(char *name)
 	     " add [-r image,regions] -f FILE -n NAME -t TYPE [-A hash] \\\n"
 	     "        [-c compression] [-b base-address | -a alignment] \\\n"
 	     "        [-p padding size] [-y|--xip if TYPE is FSP]       \\\n"
-	     "        [-j topswap-size] (Intel CPUs only)                   "
+	     "        [-j topswap-size] (Intel CPUs only) [--ibb]           "
 			"Add a component\n"
 	     "                                                         "
 	     "    -j valid size: 0x10000 0x20000 0x40000 0x80000 0x100000 \n"
@@ -1447,7 +1420,7 @@ static void usage(char *name)
 			"Add a payload to the ROM\n"
 	     " add-stage [-r image,regions] -f FILE -n NAME [-A hash] \\\n"
 	     "        [-c compression] [-b base] [-S section-to-ignore] \\\n"
-	     "        [-a alignment] [-y|--xip] [-P page-size]             "
+	     "        [-a alignment] [-y|--xip] [-P page-size] [--ibb]     "
 			"Add a stage to the ROM\n"
 	     " add-flat-binary [-r image,regions] -f FILE -n NAME \\\n"
 	     "        [-A hash] -l load-address -e entry-point \\\n"
@@ -1486,15 +1459,6 @@ static void usage(char *name)
 			"Truncate CBFS and print new size on stdout\n"
 	     " expand [-r fmap-region]                                     "
 			"Expand CBFS to span entire region\n"
-	     " update-fit [-r image,regions] -n MICROCODE_BLOB_NAME \\\n"
-	     "        -x EMTPY_FIT_ENTRIES \\                         \n"
-	     "        [-j topswap-size [-q ucode-region](Intel CPUs only)] "
-			"Updates the FIT table with microcode entries.\n"
-	     "                                                         "
-	     "    ucode-region is a region in the FMAP, its address is \n"
-	     "                                                         "
-	     "    inserted as the first entry in the topswap FIT.  \n"
-	     "\n"
 	     "OFFSETs:\n"
 	     "  Numbers accompanying -b, -H, and -o switches* may be provided\n"
 	     "  in two possible formats: if their value is greater than\n"
@@ -1732,15 +1696,6 @@ int main(int argc, char **argv)
 			case 'w':
 				param.show_immutable = true;
 				break;
-			case 'x':
-				param.fit_empty_entries = strtol(
-						optarg, &suffix, 0);
-				if (!*optarg || (suffix && *suffix)) {
-					ERROR("Invalid number of fit entries "
-						"'%s'.\n", optarg);
-					return 1;
-				}
-				break;
 			case 'j':
 				param.topswap_size = strtol(optarg, NULL, 0);
 				if (!is_valid_topswap())
@@ -1775,6 +1730,9 @@ int main(int argc, char **argv)
 				break;
 			case 'U':
 				param.unprocessed = true;
+				break;
+			case LONGOPT_IBB:
+				param.ibb = true;
 				break;
 			case 'h':
 			case '?':

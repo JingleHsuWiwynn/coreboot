@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <arch/pirq_routing.h>
 #include <console/console.h>
 #include <device/pci.h>
@@ -180,7 +180,7 @@ static void vx900_lpc_init(struct device *dev)
 {
 	vx900_lpc_interrupt_stuff(dev);
 	vx900_lpc_misc_stuff(dev);
-	dump_pci_device(dev);
+	dump_pci_device(PCI_BDF(dev));
 }
 
 static void vx900_lpc_read_resources(struct device *dev)
@@ -235,7 +235,7 @@ static struct device_operations vx900_lpc_ops = {
 	.set_resources = vx900_lpc_set_resources,
 	.enable_resources = pci_dev_enable_resources,
 	.init = vx900_lpc_init,
-	.scan_bus = scan_lpc_bus,
+	.scan_bus = scan_static_bus,
 };
 
 static const struct pci_driver lpc_driver __pci_driver = {
@@ -244,7 +244,7 @@ static const struct pci_driver lpc_driver __pci_driver = {
 	.device = PCI_DEVICE_ID_VIA_VX900_LPC,
 };
 
-#if IS_ENABLED(CONFIG_PIRQ_ROUTE)
+#if CONFIG(PIRQ_ROUTE)
 void pirq_assign_irqs(const u8 *pirq)
 {
 	struct device *lpc;

@@ -52,7 +52,7 @@
  * disabled.
  * @{
  */
-#if IS_ENABLED(CONFIG_DEBUG_RAM_SETUP)
+#if CONFIG(DEBUG_RAM_SETUP)
 #define printram(x, ...) printk(BIOS_DEBUG, x, ##__VA_ARGS__)
 #else
 #define printram(x, ...)
@@ -67,6 +67,6 @@ enum spd_status {
 	SPD_STATUS_INVALID_FIELD,
 };
 
-u16 ddr3_crc16(const u8 *ptr, int n_crc);
+u16 ddr_crc16(const u8 *ptr, int n_crc);
 
 #endif /* DEVICE_DRAM_COMMON_H */

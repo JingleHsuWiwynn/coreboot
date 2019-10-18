@@ -13,9 +13,8 @@
  * GNU General Public License for more details.
  */
 
-#include <string.h>
 #include <bootmode.h>
-#include <arch/io.h>
+#include <boot/coreboot_tables.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <soc/gpio.h>
@@ -24,21 +23,16 @@
 /* Compile-time settings for recovery mode. */
 #define REC_MODE_SETTING 0
 
-#ifndef __PRE_RAM__
-#include <boot/coreboot_tables.h>
-
 void fill_lb_gpios(struct lb_gpios *gpios)
 {
 	struct lb_gpio chromeos_gpios[] = {
-		{-1, ACTIVE_HIGH, 0, "write protect"},
-		{-1, ACTIVE_HIGH, REC_MODE_SETTING, "recovery"},
+		{-1, ACTIVE_HIGH, get_write_protect_state(), "write protect"},
 		{-1, ACTIVE_HIGH, 1, "lid"}, // force open
 		{-1, ACTIVE_HIGH, 0, "power"},
 		{-1, ACTIVE_HIGH, gfx_get_init_done(), "oprom"},
 	};
 	lb_add_gpios(gpios, chromeos_gpios, ARRAY_SIZE(chromeos_gpios));
 }
-#endif
 
 int get_recovery_mode_switch(void)
 {
@@ -52,7 +46,6 @@ int get_write_protect_state(void)
 
 static const struct cros_gpio cros_gpios[] = {
 	CROS_GPIO_REC_AL(CROS_GPIO_VIRTUAL, CROS_GPIO_DEVICE_NAME),
-	CROS_GPIO_DEV_AL(CROS_GPIO_VIRTUAL, CROS_GPIO_DEVICE_NAME),
 	CROS_GPIO_WP_AL(CROS_GPIO_VIRTUAL, CROS_GPIO_DEVICE_NAME),
 };
 

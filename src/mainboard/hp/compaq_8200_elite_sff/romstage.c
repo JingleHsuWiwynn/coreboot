@@ -17,8 +17,7 @@
  */
 
 #include <stdint.h>
-#include <arch/byteorder.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <superio/nuvoton/npcd378/npcd378.h>
 #include <superio/nuvoton/common/nuvoton.h>
@@ -30,16 +29,6 @@
 
 void pch_enable_lpc(void)
 {
-	/*
-	 * Enable SuperIO, TPM, Keyboard, LPT, COMA
-	 * (COMB can be equip on expansion header)
-	 */
-	pci_write_config16(PCH_LPC_DEV, LPC_EN,
-	    CNF2_LPC_EN |CNF1_LPC_EN | KBC_LPC_EN | LPT_LPC_EN |
-	    COMB_LPC_EN | COMA_LPC_EN);
-
-	/* COMA: 3F8h, COMB: 2F8h */
-	pci_write_config16(PCH_LPC_DEV, LPC_IO_DEC, 0x0010);
 }
 
 void mainboard_rcba_config(void)
@@ -69,7 +58,7 @@ void mainboard_early_init(int s3resume)
 
 void mainboard_config_superio(void)
 {
-	if (IS_ENABLED(CONFIG_CONSOLE_SERIAL))
+	if (CONFIG(CONSOLE_SERIAL))
 		nuvoton_enable_serial(SERIAL_DEV, CONFIG_TTYS0_BASE);
 }
 

@@ -13,7 +13,6 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <boardid.h>
 #include <cbfs.h>
 #include <console/console.h>
@@ -52,7 +51,7 @@ enum dram_speeds {
 
 static enum dram_speeds get_sdram_target_mhz(void)
 {
-	if (IS_ENABLED(CONFIG_BOARD_GOOGLE_BOB) && board_id() < 4)
+	if (CONFIG(BOARD_GOOGLE_BOB) && board_id() < 4)
 		return dram_800MHz;
 
 	return dram_928MHz;

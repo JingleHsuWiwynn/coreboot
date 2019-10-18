@@ -13,14 +13,11 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
-#include <assert.h>
-#include <chip.h>
-#include <cpu/x86/mtrr.h>
+#include <arch/romstage.h>
 #include <cbmem.h>
 #include <console/console.h>
 #include <fsp/util.h>
-#include <intelblocks/chip.h>
+#include <intelblocks/cfg.h>
 #include <intelblocks/cse.h>
 #include <intelblocks/pmclib.h>
 #include <memory_info.h>
@@ -29,10 +26,8 @@
 #include <soc/pci_devs.h>
 #include <soc/pm.h>
 #include <soc/romstage.h>
+#include <soc/soc_chip.h>
 #include <string.h>
-#include <timestamp.h>
-
-static struct chipset_power_state power_state;
 
 #define FSP_SMBIOS_MEMORY_INFO_GUID	\
 {	\
@@ -89,6 +84,8 @@ static void save_dimm_info(void)
 			if (src_dimm->Status != DIMM_PRESENT)
 				continue;
 
+			u8 memProfNum = memory_info_hob->MemoryProfile;
+
 			/* Populate the DIMM information */
 			dimm_info_fill(dest_dimm,
 				src_dimm->DimmCapacity,
@@ -99,7 +96,12 @@ static void save_dimm_info(void)
 				src_dimm->DimmId,
 				(const char *)src_dimm->ModulePartNum,
 				sizeof(src_dimm->ModulePartNum),
-				memory_info_hob->DataWidth);
+				src_dimm->SpdSave + SPD_SAVE_OFFSET_SERIAL,
+				memory_info_hob->DataWidth,
+				memory_info_hob->VddVoltage[memProfNum],
+				memory_info_hob->EccSupport,
+				src_dimm->MfgId,
+				src_dimm->SpdModuleType);
 			index++;
 		}
 	}
@@ -107,42 +109,19 @@ static void save_dimm_info(void)
 	printk(BIOS_DEBUG, "%d DIMMs found\n", mem_info->dimm_cnt);
 }
 
-asmlinkage void car_stage_entry(void)
+void mainboard_romstage_entry(void)
 {
 	bool s3wake;
-	struct postcar_frame pcf;
-	uintptr_t top_of_ram;
-	struct chipset_power_state *ps = &power_state;
-
-	console_init();
+	struct chipset_power_state *ps = pmc_get_power_state();
 
 	/* Program MCHBAR, DMIBAR, GDXBAR and EDRAMBAR */
 	systemagent_early_init();
 	/* initialize Heci interface */
 	heci_init(HECI1_BASE_ADDRESS);
 
-	timestamp_add_now(TS_START_ROMSTAGE);
 	s3wake = pmc_fill_power_state(ps) == ACPI_S3;
 	fsp_memory_init(s3wake);
 	pmc_set_disb();
 	if (!s3wake)
 		save_dimm_info();
-	if (postcar_frame_init(&pcf, 1 * KiB))
-		die("Unable to initialize postcar frame.\n");
-
-	/*
-	 * We need to make sure ramstage will be run cached. At this
-	 * point exact location of ramstage in cbmem is not known.
-	 * Instruct postcar to cache 16 megs under cbmem top which is
-	 * a safe bet to cover ramstage.
-	 */
-	top_of_ram = (uintptr_t) cbmem_top();
-	printk(BIOS_DEBUG, "top_of_ram = 0x%lx\n", top_of_ram);
-	top_of_ram -= 16*MiB;
-	postcar_frame_add_mtrr(&pcf, top_of_ram, 16*MiB, MTRR_TYPE_WRBACK);
-
-	/* Cache the ROM as WP just below 4GiB. */
-	postcar_frame_add_romcache(&pcf, MTRR_TYPE_WRPROT);
-
-	run_postcar_phase(&pcf);
 }

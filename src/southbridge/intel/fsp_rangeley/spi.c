@@ -14,49 +14,22 @@
  */
 
 /* This file is derived from the flashrom project. */
+
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 #include <commonlib/helpers.h>
 #include <delay.h>
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
+#include <device/device.h>
+#include <device/pci.h>
 #include <device/pci_ids.h>
 
 #include <spi_flash.h>
 #include <spi-generic.h>
 
 static int ich_status_poll(u16 bitmask, int wait_til_set);
-
-#ifdef __SMM__
-#define pci_read_config_byte(dev, reg, targ)\
-	*(targ) = pci_read_config8(dev, reg)
-#define pci_read_config_word(dev, reg, targ)\
-	*(targ) = pci_read_config16(dev, reg)
-#define pci_read_config_dword(dev, reg, targ)\
-	*(targ) = pci_read_config32(dev, reg)
-#define pci_write_config_byte(dev, reg, val)\
-	pci_write_config8(dev, reg, val)
-#define pci_write_config_word(dev, reg, val)\
-	pci_write_config16(dev, reg, val)
-#define pci_write_config_dword(dev, reg, val)\
-	pci_write_config32(dev, reg, val)
-#else /* !__SMM__ */
-#include <device/device.h>
-#include <device/pci.h>
-#define pci_read_config_byte(dev, reg, targ)\
-	*(targ) = pci_read_config8(dev, reg)
-#define pci_read_config_word(dev, reg, targ)\
-	*(targ) = pci_read_config16(dev, reg)
-#define pci_read_config_dword(dev, reg, targ)\
-	*(targ) = pci_read_config32(dev, reg)
-#define pci_write_config_byte(dev, reg, val)\
-	pci_write_config8(dev, reg, val)
-#define pci_write_config_word(dev, reg, val)\
-	pci_write_config16(dev, reg, val)
-#define pci_write_config_dword(dev, reg, val)\
-	pci_write_config32(dev, reg, val)
-#endif /* !__SMM__ */
 
 typedef struct spi_slave ich_spi_slave;
 
@@ -220,7 +193,7 @@ enum {
 	SPI_OPCODE_TYPE_WRITE_WITH_ADDRESS =	3,
 };
 
-#if IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)
+#if CONFIG(DEBUG_SPI_FLASH)
 
 static u8 readb_(const void *addr)
 {
@@ -337,6 +310,8 @@ static inline int get_ich_version(uint16_t device_id)
 	return 0;
 }
 
+#define MENU_BYTES member_size(struct ich10_spi_regs, opmenu)
+
 void spi_init(void)
 {
 	int ich_version = 0;
@@ -344,12 +319,12 @@ void spi_init(void)
 	uint32_t ids;
 	uint16_t vendor_id, device_id;
 
-#ifdef __SMM__
+#ifdef __SIMPLE_DEVICE__
 	pci_devfn_t dev = PCI_DEV(0, 31, 0);
 #else
 	struct device *dev = pcidev_on_root(31, 0);
 #endif
-	pci_read_config_dword(dev, 0, &ids);
+	ids = pci_read_config32(dev, 0);
 	vendor_id = ids;
 	device_id = (ids >> 16);
 
@@ -370,7 +345,7 @@ void spi_init(void)
 		{
 			uint8_t *spibase; /* SPI Base Address */
 			uint32_t sbase; /* SPI Base Address Register */
-			pci_read_config_dword(dev, 0x54, &sbase);
+			sbase = pci_read_config32(dev, 0x54);
 			/* Bits 31-9 are the base address, 8-4 are reserved, 3-0 are used. */
 			spibase = (uint8_t *)(sbase & 0xffffff00);
 			ich10_spi_regs *ich10_spi =
@@ -471,7 +446,7 @@ static void spi_setup_type(spi_transaction *trans)
 static int spi_setup_opcode(spi_transaction *trans)
 {
 	uint16_t optypes;
-	uint8_t opmenu[cntlr.menubytes];
+	uint8_t opmenu[MENU_BYTES];
 
 	trans->opcode = trans->out[0];
 	spi_use_out(trans, 1);
@@ -492,13 +467,12 @@ static int spi_setup_opcode(spi_transaction *trans)
 			return 0;
 
 		read_reg(cntlr.opmenu, opmenu, sizeof(opmenu));
-		for (opcode_index = 0; opcode_index < cntlr.menubytes;
-				opcode_index++) {
+		for (opcode_index = 0; opcode_index < ARRAY_SIZE(opmenu); opcode_index++) {
 			if (opmenu[opcode_index] == trans->opcode)
 				break;
 		}
 
-		if (opcode_index == cntlr.menubytes) {
+		if (opcode_index == ARRAY_SIZE(opmenu)) {
 			printk(BIOS_DEBUG, "ICH SPI: Opcode %x not found\n",
 				trans->opcode);
 			return -1;

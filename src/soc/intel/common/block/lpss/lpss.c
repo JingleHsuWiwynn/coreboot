@@ -13,7 +13,9 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_def.h>
+#include <device/pci_ops.h>
 #include <intelblocks/lpss.h>
 
 /* Clock register */
@@ -38,6 +40,11 @@
 
 /* DMA Software Reset Control */
 #define LPSS_DMA_RST_RELEASE	(1 << 2)
+
+/* Power management control and status register */
+#define PME_CTRL_STATUS	0x84
+/* Bit 1:0 Powerstate, controls D0 and D3 state */
+#define POWER_STATE_MASK	3
 
 bool lpss_is_controller_in_reset(uintptr_t base)
 {
@@ -70,11 +77,33 @@ void lpss_clk_update(uintptr_t base, uint32_t clk_m_val, uint32_t clk_n_val)
 	write32(addr, clk_sel);
 }
 
-uint32_t lpss_clk_read(uintptr_t base)
+/* Set controller power state to D0 or D3 */
+void lpss_set_power_state(const struct device *dev, enum lpss_pwr_state state)
 {
-	uint8_t *addr = (void *)base;
+#if defined(__SIMPLE_DEVICE__)
+	unsigned int devfn = dev->path.pci.devfn;
+	pci_devfn_t lpss_dev = PCI_DEV(0, PCI_SLOT(devfn), PCI_FUNC(devfn));
+#else
+	const struct device *lpss_dev = dev;
+#endif
 
-	addr += LPSS_CLOCK_CTL_REG;
+	pci_update_config8(lpss_dev, PME_CTRL_STATUS, ~POWER_STATE_MASK, state);
+}
 
-	return read32(addr);
+bool is_dev_lpss(const struct device *dev)
+{
+	static size_t size;
+	static const pci_devfn_t *lpss_devices;
+
+	if (dev->path.type != DEVICE_PATH_PCI)
+		return false;
+
+	if (!lpss_devices)
+		lpss_devices = soc_lpss_controllers_list(&size);
+
+	for (int i = 0; i < size; i++) {
+		if (lpss_devices[i] == dev->path.pci.devfn)
+			return true;
+	}
+	return false;
 }

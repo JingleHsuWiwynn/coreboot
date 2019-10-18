@@ -32,12 +32,14 @@
 #include <cpu/x86/smm.h>
 #include <cbmem.h>
 #include <string.h>
+#include "chip.h"
 #include "pch.h"
 #include "nvs.h"
 #include <southbridge/intel/common/pciehp.h>
 #include <southbridge/intel/common/acpi_pirq_gen.h>
 #include <southbridge/intel/common/pmutil.h>
 #include <southbridge/intel/common/rtc.h>
+#include <southbridge/intel/common/spi.h>
 
 #define NMI_OFF	0
 
@@ -79,7 +81,7 @@ static void pch_enable_serial_irqs(struct device *dev)
 	/* Set packet length and toggle silent mode bit for one frame. */
 	pci_write_config8(dev, SERIRQ_CNTL,
 			  (1 << 7) | (1 << 6) | ((21 - 17) << 2) | (0 << 0));
-#if !IS_ENABLED(CONFIG_SERIRQ_CONTINUOUS_MODE)
+#if !CONFIG(SERIRQ_CONTINUOUS_MODE)
 	pci_write_config8(dev, SERIRQ_CNTL,
 			  (1 << 7) | (0 << 6) | ((21 - 17) << 2) | (0 << 0));
 #endif
@@ -269,9 +271,9 @@ static void pch_power_options(struct device *dev)
 	outl(reg32, pmbase + 0x04);
 
 	/* Clear magic status bits to prevent unexpected wake */
-	reg32 = RCBA32(0x3310);
+	reg32 = RCBA32(PRSTS);
 	reg32 |= (1 << 4)|(1 << 5)|(1 << 0);
-	RCBA32(0x3310) = reg32;
+	RCBA32(PRSTS) = reg32;
 
 	reg32 = RCBA32(0x3f02);
 	reg32 &= ~0xf;
@@ -283,40 +285,40 @@ static void cpt_pm_init(struct device *dev)
 {
 	printk(BIOS_DEBUG, "CougarPoint PM init\n");
 	pci_write_config8(dev, 0xa9, 0x47);
-	RCBA32_AND_OR(0x2238, ~0UL, (1 << 6)|(1 << 0));
-	RCBA32_AND_OR(0x228c, ~0UL, (1 << 0));
-	RCBA16_AND_OR(0x1100, ~0UL, (1 << 13)|(1 << 14));
-	RCBA16_AND_OR(0x0900, ~0UL, (1 << 14));
-	RCBA32(0x2304) = 0xc0388400;
-	RCBA32_AND_OR(0x2314, ~0UL, (1 << 5)|(1 << 18));
-	RCBA32_AND_OR(0x2320, ~0UL, (1 << 15)|(1 << 1));
-	RCBA32_AND_OR(0x3314, ~0x1f, 0xf);
-	RCBA32(0x3318) = 0x050f0000;
-	RCBA32(0x3324) = 0x04000000;
-	RCBA32_AND_OR(0x3340, ~0UL, 0xfffff);
-	RCBA32_AND_OR(0x3344, ~0UL, (1 << 1));
-	RCBA32(0x3360) = 0x0001c000;
-	RCBA32(0x3368) = 0x00061100;
-	RCBA32(0x3378) = 0x7f8fdfff;
-	RCBA32(0x337c) = 0x000003fc;
-	RCBA32(0x3388) = 0x00001000;
-	RCBA32(0x3390) = 0x0001c000;
-	RCBA32(0x33a0) = 0x00000800;
-	RCBA32(0x33b0) = 0x00001000;
-	RCBA32(0x33c0) = 0x00093900;
-	RCBA32(0x33cc) = 0x24653002;
-	RCBA32(0x33d0) = 0x062108fe;
-	RCBA32_AND_OR(0x33d4, 0xf000f000, 0x00670060);
-	RCBA32(0x3a28) = 0x01010000;
-	RCBA32(0x3a2c) = 0x01010404;
-	RCBA32(0x3a80) = 0x01041041;
-	RCBA32_AND_OR(0x3a84, ~0x0000ffff, 0x00001001);
-	RCBA32_AND_OR(0x3a84, ~0UL, (1 << 24)); /* SATA 2/3 disabled */
-	RCBA32_AND_OR(0x3a88, ~0UL, (1 << 0));  /* SATA 4/5 disabled */
-	RCBA32(0x3a6c) = 0x00000001;
+	RCBA32_AND_OR(CIR30, ~0UL, (1 << 6)|(1 << 0));
+	RCBA32_AND_OR(CIR5, ~0UL, (1 << 0));
+	RCBA16_AND_OR(CIR3, ~0UL, (1 << 13)|(1 << 14));
+	RCBA16_AND_OR(CIR2, ~0UL, (1 << 14));
+	RCBA32(DMC) = 0xc0388400;
+	RCBA32_AND_OR(CIR6, ~0UL, (1 << 5)|(1 << 18));
+	RCBA32_AND_OR(CIR9, ~0UL, (1 << 15)|(1 << 1));
+	RCBA32_AND_OR(CIR7, ~0x1f, 0xf);
+	RCBA32(PM_CFG) = 0x050f0000;
+	RCBA32(CIR8) = 0x04000000;
+	RCBA32_AND_OR(CIR10, ~0UL, 0xfffff);
+	RCBA32_AND_OR(CIR11, ~0UL, (1 << 1));
+	RCBA32(CIR12) = 0x0001c000;
+	RCBA32(CIR14) = 0x00061100;
+	RCBA32(CIR15) = 0x7f8fdfff;
+	RCBA32(CIR13) = 0x000003fc;
+	RCBA32(CIR16) = 0x00001000;
+	RCBA32(CIR18) = 0x0001c000;
+	RCBA32(CIR17) = 0x00000800;
+	RCBA32(CIR23) = 0x00001000;
+	RCBA32(CIR19) = 0x00093900;
+	RCBA32(CIR20) = 0x24653002;
+	RCBA32(CIR21) = 0x062108fe;
+	RCBA32_AND_OR(CIR22, 0xf000f000, 0x00670060);
+	RCBA32(CIR24) = 0x01010000;
+	RCBA32(CIR25) = 0x01010404;
+	RCBA32(CIR27) = 0x01041041;
+	RCBA32_AND_OR(CIR28, ~0x0000ffff, 0x00001001);
+	RCBA32_AND_OR(CIR28, ~0UL, (1 << 24)); /* SATA 2/3 disabled */
+	RCBA32_AND_OR(CIR29, ~0UL, (1 << 0));  /* SATA 4/5 disabled */
+	RCBA32(CIR26) = 0x00000001;
 	RCBA32_AND_OR(0x2344, 0x00ffff00, 0xff00000c);
 	RCBA32_AND_OR(0x80c, ~(0xff << 20), 0x11 << 20);
-	RCBA32(0x33c8) = 0;
+	RCBA32(PMSYNC_CFG) = 0;
 	RCBA32_AND_OR(0x21b0, ~0UL, 0xf);
 }
 
@@ -325,41 +327,41 @@ static void ppt_pm_init(struct device *dev)
 {
 	printk(BIOS_DEBUG, "PantherPoint PM init\n");
 	pci_write_config8(dev, 0xa9, 0x47);
-	RCBA32_AND_OR(0x2238, ~0UL, (1 << 0));
-	RCBA32_AND_OR(0x228c, ~0UL, (1 << 0));
-	RCBA16_AND_OR(0x1100, ~0UL, (1 << 13)|(1 << 14));
-	RCBA16_AND_OR(0x0900, ~0UL, (1 << 14));
-	RCBA32(0x2304) = 0xc03b8400;
-	RCBA32_AND_OR(0x2314, ~0UL, (1 << 5)|(1 << 18));
-	RCBA32_AND_OR(0x2320, ~0UL, (1 << 15)|(1 << 1));
-	RCBA32_AND_OR(0x3314, ~0x1f, 0xf);
-	RCBA32(0x3318) = 0x054f0000;
-	RCBA32(0x3324) = 0x04000000;
-	RCBA32_AND_OR(0x3340, ~0UL, 0xfffff);
-	RCBA32_AND_OR(0x3344, ~0UL, (1 << 1)|(1 << 0));
-	RCBA32(0x3360) = 0x0001c000;
-	RCBA32(0x3368) = 0x00061100;
-	RCBA32(0x3378) = 0x7f8fdfff;
-	RCBA32(0x337c) = 0x000003fd;
-	RCBA32(0x3388) = 0x00001000;
-	RCBA32(0x3390) = 0x0001c000;
-	RCBA32(0x33a0) = 0x00000800;
-	RCBA32(0x33b0) = 0x00001000;
-	RCBA32(0x33c0) = 0x00093900;
-	RCBA32(0x33cc) = 0x24653002;
-	RCBA32(0x33d0) = 0x067388fe;
-	RCBA32_AND_OR(0x33d4, 0xf000f000, 0x00670060);
-	RCBA32(0x3a28) = 0x01010000;
-	RCBA32(0x3a2c) = 0x01010404;
-	RCBA32(0x3a80) = 0x01040000;
-	RCBA32_AND_OR(0x3a84, ~0x0000ffff, 0x00001001);
-	RCBA32_AND_OR(0x3a84, ~0UL, (1 << 24)); /* SATA 2/3 disabled */
-	RCBA32_AND_OR(0x3a88, ~0UL, (1 << 0));  /* SATA 4/5 disabled */
-	RCBA32(0x3a6c) = 0x00000001;
+	RCBA32_AND_OR(CIR30, ~0UL, (1 << 0));
+	RCBA32_AND_OR(CIR5, ~0UL, (1 << 0));
+	RCBA16_AND_OR(CIR3, ~0UL, (1 << 13)|(1 << 14));
+	RCBA16_AND_OR(CIR2, ~0UL, (1 << 14));
+	RCBA32(DMC) = 0xc03b8400;
+	RCBA32_AND_OR(CIR6, ~0UL, (1 << 5)|(1 << 18));
+	RCBA32_AND_OR(CIR9, ~0UL, (1 << 15)|(1 << 1));
+	RCBA32_AND_OR(CIR7, ~0x1f, 0xf);
+	RCBA32(PM_CFG) = 0x054f0000;
+	RCBA32(CIR8) = 0x04000000;
+	RCBA32_AND_OR(CIR10, ~0UL, 0xfffff);
+	RCBA32_AND_OR(CIR11, ~0UL, (1 << 1)|(1 << 0));
+	RCBA32(CIR12) = 0x0001c000;
+	RCBA32(CIR14) = 0x00061100;
+	RCBA32(CIR15) = 0x7f8fdfff;
+	RCBA32(CIR13) = 0x000003fd;
+	RCBA32(CIR16) = 0x00001000;
+	RCBA32(CIR18) = 0x0001c000;
+	RCBA32(CIR17) = 0x00000800;
+	RCBA32(CIR23) = 0x00001000;
+	RCBA32(CIR19) = 0x00093900;
+	RCBA32(CIR20) = 0x24653002;
+	RCBA32(CIR21) = 0x067388fe;
+	RCBA32_AND_OR(CIR22, 0xf000f000, 0x00670060);
+	RCBA32(CIR24) = 0x01010000;
+	RCBA32(CIR25) = 0x01010404;
+	RCBA32(CIR27) = 0x01040000;
+	RCBA32_AND_OR(CIR28, ~0x0000ffff, 0x00001001);
+	RCBA32_AND_OR(CIR28, ~0UL, (1 << 24)); /* SATA 2/3 disabled */
+	RCBA32_AND_OR(CIR29, ~0UL, (1 << 0));  /* SATA 4/5 disabled */
+	RCBA32(CIR26) = 0x00000001;
 	RCBA32_AND_OR(0x2344, 0x00ffff00, 0xff00000c);
 	RCBA32_AND_OR(0x80c, ~(0xff << 20), 0x11 << 20);
 	RCBA32_AND_OR(0x33a4, ~0UL, (1 << 0));
-	RCBA32(0x33c8) = 0;
+	RCBA32(PMSYNC_CFG) = 0;
 	RCBA32_AND_OR(0x21b0, ~0UL, 0xf);
 }
 
@@ -385,7 +387,7 @@ static void enable_clock_gating(struct device *dev)
 	u32 reg32;
 	u16 reg16;
 
-	RCBA32_AND_OR(0x2234, ~0UL, 0xf);
+	RCBA32_AND_OR(DMIC, ~0UL, 0xf);
 
 	reg16 = pci_read_config16(dev, GEN_PMCON_1);
 	reg16 |= (1 << 2) | (1 << 11);
@@ -418,7 +420,7 @@ static void enable_clock_gating(struct device *dev)
 
 static void pch_set_acpi_mode(void)
 {
-	if (!acpi_is_wakeup_s3() && CONFIG_HAVE_SMI_HANDLER) {
+	if (!acpi_is_wakeup_s3() && CONFIG(HAVE_SMI_HANDLER)) {
 #if ENABLE_ACPI_MODE_IN_COREBOOT
 		printk(BIOS_DEBUG, "Enabling ACPI via APMC:\n");
 		outb(APM_CNT_ACPI_ENABLE, APM_CNT); // Enable ACPI mode
@@ -436,9 +438,9 @@ static void pch_disable_smm_only_flashing(struct device *dev)
 	u8 reg8;
 
 	printk(BIOS_SPEW, "Enabling BIOS updates outside of SMM... ");
-	reg8 = pci_read_config8(dev, 0xdc);	/* BIOS_CNTL */
+	reg8 = pci_read_config8(dev, BIOS_CNTL);
 	reg8 &= ~(1 << 5);
-	pci_write_config8(dev, 0xdc, reg8);
+	pci_write_config8(dev, BIOS_CNTL, reg8);
 }
 
 static void pch_fixups(struct device *dev)
@@ -453,21 +455,9 @@ static void pch_fixups(struct device *dev)
 	/*
 	 * Enable DMI ASPM in the PCH
 	 */
-	RCBA32_AND_OR(0x2304, ~(1 << 10), 0);
-	RCBA32_OR(0x21a4, (1 << 11)|(1 << 10));
-	RCBA32_OR(0x21a8, 0x3);
-}
-
-static void pch_decode_init(struct device *dev)
-{
-	config_t *config = dev->chip_info;
-
-	printk(BIOS_DEBUG, "pch_decode_init\n");
-
-	pci_write_config32(dev, LPC_GEN1_DEC, config->gen1_dec);
-	pci_write_config32(dev, LPC_GEN2_DEC, config->gen2_dec);
-	pci_write_config32(dev, LPC_GEN3_DEC, config->gen3_dec);
-	pci_write_config32(dev, LPC_GEN4_DEC, config->gen4_dec);
+	RCBA32_AND_OR(DMC, ~(1 << 10), 0);
+	RCBA32_OR(LCAP, (1 << 11)|(1 << 10));
+	RCBA32_OR(LCTL, 0x3);
 }
 
 static void pch_spi_init(const struct device *const dev)
@@ -679,12 +669,6 @@ static void pch_lpc_read_resources(struct device *dev)
 	}
 }
 
-static void pch_lpc_enable_resources(struct device *dev)
-{
-	pch_decode_init(dev);
-	return pci_dev_enable_resources(dev);
-}
-
 static void pch_lpc_enable(struct device *dev)
 {
 	/* Enable PCH Display Port */
@@ -692,17 +676,6 @@ static void pch_lpc_enable(struct device *dev)
 	RCBA32_OR(FD2, PCH_ENABLE_DBDF);
 
 	pch_enable(dev);
-}
-
-static void set_subsystem(struct device *dev, unsigned vendor, unsigned device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
 }
 
 static void southbridge_inject_dsdt(struct device *dev)
@@ -724,7 +697,7 @@ static void southbridge_inject_dsdt(struct device *dev)
 			memcpy(gnvs->did, gfx->did, sizeof(gnvs->did));
 		}
 
-#if IS_ENABLED(CONFIG_CHROMEOS)
+#if CONFIG(CHROMEOS)
 		chromeos_init_chromeos_acpi(&(gnvs->chromeos));
 #endif
 
@@ -745,7 +718,7 @@ void acpi_fill_fadt(acpi_fadt_t *fadt)
 	u16 pmbase = pci_read_config16(dev, 0x40) & 0xfffe;
 	int c2_latency;
 
-	fadt->model = 1;
+	fadt->reserved = 0;
 
 	fadt->sci_int = 0x9;
 	fadt->smi_cmd = APM_CNT;
@@ -779,12 +752,10 @@ void acpi_fill_fadt(acpi_fadt_t *fadt)
 	fadt->p_lvl3_lat = 87;
 	fadt->flush_size = 1024;
 	fadt->flush_stride = 16;
-	fadt->duty_offset = 1;
-	if (chip->p_cnt_throttling_supported) {
-		fadt->duty_width = 3;
-	} else {
-		fadt->duty_width = 0;
-	}
+	/* P_CNT not supported */
+	fadt->duty_offset = 0;
+	fadt->duty_width = 0;
+
 	fadt->day_alrm = 0xd;
 	fadt->mon_alrm = 0x00;
 	fadt->century = 0x00;
@@ -886,51 +857,42 @@ static void southbridge_fill_ssdt(struct device *device)
 
 static void lpc_final(struct device *dev)
 {
-	u16 spi_opprefix	= SPI_OPPREFIX;
-	u16 spi_optype		= SPI_OPTYPE;
-	u32 spi_opmenu[2]	= { SPI_OPMENU_LOWER, SPI_OPMENU_UPPER };
-
-	/* Configure SPI opcode menu; devicetree may override defaults. */
-	const config_t *const config = dev->chip_info;
-	if (config && config->spi.ops[0].op) {
-		unsigned int i;
-
-		spi_opprefix	= 0;
-		spi_optype	= 0;
-		spi_opmenu[0]	= 0;
-		spi_opmenu[1]	= 0;
-		for (i = 0; i < sizeof(spi_opprefix); ++i)
-			spi_opprefix |= config->spi.opprefixes[i] << i * 8;
-		for (i = 0; i < sizeof(spi_opmenu); ++i) {
-			spi_optype |=
-				config->spi.ops[i].is_write << 2 * i |
-				config->spi.ops[i].needs_address << (2 * i + 1);
-			spi_opmenu[i / 4] |=
-				config->spi.ops[i].op << (i % 4) * 8;
-		}
-	}
-	RCBA16(0x3894) = spi_opprefix;
-	RCBA16(0x3896) = spi_optype;
-	RCBA32(0x3898) = spi_opmenu[0];
-	RCBA32(0x389c) = spi_opmenu[1];
+	spi_finalize_ops();
 
 	/* Call SMM finalize() handlers before resume */
-	if (IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)) {
-		if (IS_ENABLED(CONFIG_INTEL_CHIPSET_LOCKDOWN) ||
+	if (CONFIG(HAVE_SMI_HANDLER)) {
+		if (CONFIG(INTEL_CHIPSET_LOCKDOWN) ||
 		    acpi_is_wakeup_s3()) {
 			outb(APM_CNT_FINALIZE, APM_CNT);
 		}
 	}
 }
 
+void intel_southbridge_override_spi(
+		struct intel_swseq_spi_config *spi_config)
+{
+	struct device *dev = pcidev_on_root(0x1f, 0);
+
+	if (!dev)
+		return;
+	/* Devicetree may override defaults. */
+	const config_t *const config = dev->chip_info;
+
+	if (!config)
+		return;
+
+	if (config->spi.ops[0].op != 0)
+		memcpy(spi_config, &config->spi, sizeof(*spi_config));
+}
+
 static struct pci_operations pci_ops = {
-	.set_subsystem = set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 };
 
 static struct device_operations device_ops = {
 	.read_resources		= pch_lpc_read_resources,
 	.set_resources		= pci_dev_set_resources,
-	.enable_resources	= pch_lpc_enable_resources,
+	.enable_resources	= pci_dev_enable_resources,
 	.write_acpi_tables      = acpi_write_hpet,
 	.acpi_inject_dsdt_generator = southbridge_inject_dsdt,
 	.acpi_fill_ssdt_generator = southbridge_fill_ssdt,
@@ -938,7 +900,7 @@ static struct device_operations device_ops = {
 	.init			= lpc_init,
 	.final			= lpc_final,
 	.enable			= pch_lpc_enable,
-	.scan_bus		= scan_lpc_bus,
+	.scan_bus		= scan_static_bus,
 	.ops_pci		= &pci_ops,
 };
 

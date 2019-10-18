@@ -1,13 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2003-2004 Linux Networx
- * (Written by Eric Biederman <ebiederman@lnxi.com> for Linux Networx)
- * Copyright (C) 2003 Greg Watson <jarrah@users.sourceforge.net>
- * Copyright (C) 2004 Li-Ta Lo <ollie@lanl.gov>
- * Copyright (C) 2005-2006 Tyan
- * (Written by Yinghai Lu <yhlu@tyan.com> for Tyan)
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -145,7 +138,7 @@ u32 dev_path_encode(const struct device *dev)
 		ret |= dev->path.spi.cs;
 		break;
 	case DEVICE_PATH_USB:
-		ret |= dev->path.usb.port_type << 8 || dev->path.usb.port_id;
+		ret |= dev->path.usb.port_type << 8 | dev->path.usb.port_id;
 		break;
 	case DEVICE_PATH_NONE:
 	case DEVICE_PATH_MMIO:  /* don't care */
@@ -229,7 +222,7 @@ const char *dev_path(const struct device *dev)
 				 dev->path.usb.port_type, dev->path.usb.port_id);
 			break;
 		case DEVICE_PATH_MMIO:
-			snprintf(buffer, sizeof(buffer), "MMIO: %08x",
+			snprintf(buffer, sizeof(buffer), "MMIO: %08lx",
 				 dev->path.mmio.addr);
 			break;
 		default:
@@ -331,7 +324,7 @@ void compact_resources(struct device *dev)
  * @param index The index of the resource on the device.
  * @return The resource, if it already exists.
  */
-struct resource *probe_resource(struct device *dev, unsigned index)
+struct resource *probe_resource(const struct device *dev, unsigned index)
 {
 	struct resource *res;
 
@@ -401,7 +394,7 @@ struct resource *new_resource(struct device *dev, unsigned index)
  * @param index The index of the resource on the device.
  * return TODO.
  */
-struct resource *find_resource(struct device *dev, unsigned index)
+struct resource *find_resource(const struct device *dev, unsigned index)
 {
 	struct resource *resource;
 
@@ -628,7 +621,7 @@ void disable_children(struct bus *bus)
 
 /*
  * Returns true if the device is an enabled bridge that has at least
- * one enabled device on its secondary bus.
+ * one enabled device on its secondary bus that is not of type NONE.
  */
 bool dev_is_active_bridge(struct device *dev)
 {
@@ -643,12 +636,62 @@ bool dev_is_active_bridge(struct device *dev)
 
 	for (link = dev->link_list; link; link = link->next) {
 		for (child = link->children; child; child = child->sibling) {
+			if (child->path.type == DEVICE_PATH_NONE)
+				continue;
+
 			if (child->enabled)
 				return 1;
 		}
 	}
 
 	return 0;
+}
+
+/**
+ * Ensure the device has a minimum number of bus links.
+ *
+ * @param dev The device to add links to.
+ * @param total_links The minimum number of links to have.
+ */
+void add_more_links(struct device *dev, unsigned int total_links)
+{
+	struct bus *link, *last = NULL;
+	int link_num = -1;
+
+	for (link = dev->link_list; link; link = link->next) {
+		if (link_num < link->link_num)
+			link_num = link->link_num;
+		last = link;
+	}
+
+	if (last) {
+		int links = total_links - (link_num + 1);
+		if (links > 0) {
+			link = malloc(links * sizeof(*link));
+			if (!link)
+				die("Couldn't allocate more links!\n");
+			memset(link, 0, links * sizeof(*link));
+			last->next = link;
+		} else {
+			/* No more links to add */
+			return;
+		}
+	} else {
+		link = malloc(total_links * sizeof(*link));
+		if (!link)
+			die("Couldn't allocate more links!\n");
+		memset(link, 0, total_links * sizeof(*link));
+		dev->link_list = link;
+	}
+
+	for (link_num = link_num + 1; link_num < total_links; link_num++) {
+		link->link_num = link_num;
+		link->dev = dev;
+		link->next = link + 1;
+		last = link;
+		link = link->next;
+	}
+	last->next = NULL;
 }
 
 static void resource_tree(const struct device *root, int debug_level, int depth)
@@ -799,6 +842,20 @@ void fixed_mem_resource(struct device *dev, unsigned long index,
 		 IORESOURCE_STORED | IORESOURCE_ASSIGNED;
 
 	resource->flags |= type;
+}
+
+void fixed_io_resource(struct device *dev, unsigned long index,
+			unsigned long base, unsigned long size)
+{
+	struct resource *resource;
+
+	resource = new_resource(dev, index);
+	resource->base = (resource_t)base;
+	resource->size = (resource_t)size;
+	resource->limit = resource->base + resource->size - 1;
+	resource->flags = IORESOURCE_IO | IORESOURCE_FIXED |
+		 IORESOURCE_STORED | IORESOURCE_ASSIGNED |
+		 IORESOURCE_RESERVE;
 }
 
 void mmconf_resource_init(struct resource *resource, resource_t base,

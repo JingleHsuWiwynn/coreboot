@@ -23,10 +23,12 @@
 #include <console/console.h>
 #include <cpu/x86/mp.h>
 #include <cpu/x86/msr.h>
+#include <device/mmio.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <intelblocks/acpi.h>
-#include <intelblocks/chip.h>
+#include <intelblocks/cfg.h>
 #include <intelblocks/fast_spi.h>
 #include <intelblocks/msr.h>
 #include <intelblocks/p2sb.h>
@@ -48,6 +50,7 @@
 #include <soc/systemagent.h>
 #include <spi-generic.h>
 #include <timer.h>
+#include <soc/ramstage.h>
 
 #include "chip.h"
 
@@ -122,7 +125,7 @@ const char *soc_acpi_name(const struct device *dev)
 			case 6: return "HS07";
 			case 7: return "HS08";
 			case 8:
-				if (IS_ENABLED(CONFIG_SOC_INTEL_GLK))
+				if (CONFIG(SOC_INTEL_GLK))
 					return "HS09";
 			}
 			break;
@@ -253,7 +256,7 @@ static void pcie_update_device_tree(unsigned int devfn0, int num_funcs)
 	int i;
 	unsigned int inc = PCI_DEVFN(0, 1);
 
-	func0 = dev_find_slot(0, devfn0);
+	func0 = pcidev_path_on_root(devfn0);
 	if (func0 == NULL)
 		return;
 
@@ -269,7 +272,7 @@ static void pcie_update_device_tree(unsigned int devfn0, int num_funcs)
 	 * as that port was move to func0.
 	 */
 	for (i = 1; i < num_funcs; i++, devfn += inc) {
-		struct device *dev = dev_find_slot(0, devfn);
+		struct device *dev = pcidev_path_on_root(devfn);
 		if (dev == NULL)
 			continue;
 
@@ -291,24 +294,18 @@ static void pcie_override_devicetree_after_silicon_init(void)
 /* Configure package power limits */
 static void set_power_limits(void)
 {
-	static struct soc_intel_apollolake_config *cfg;
-	struct device *dev = SA_DEV_ROOT;
+	struct soc_intel_apollolake_config *cfg;
 	msr_t rapl_msr_reg, limit;
 	uint32_t power_unit;
 	uint32_t tdp, min_power, max_power;
 	uint32_t pl2_val;
 
-	if (IS_ENABLED(CONFIG_APL_SKIP_SET_POWER_LIMITS)) {
+	cfg = config_of_soc();
+
+	if (CONFIG(APL_SKIP_SET_POWER_LIMITS)) {
 		printk(BIOS_INFO, "Skip the RAPL settings.\n");
 		return;
 	}
-
-	if (!dev || !dev->chip_info) {
-		printk(BIOS_ERR, "BUG! Could not find SOC devicetree config\n");
-		return;
-	}
-
-	cfg = dev->chip_info;
 
 	/* Get units */
 	rapl_msr_reg = rdmsr(MSR_PKG_POWER_SKU_UNIT);
@@ -364,16 +361,10 @@ static void set_power_limits(void)
 /* Overwrites the SCI IRQ if another IRQ number is given by device tree. */
 static void set_sci_irq(void)
 {
-	static struct soc_intel_apollolake_config *cfg;
-	struct device *dev = SA_DEV_ROOT;
+	struct soc_intel_apollolake_config *cfg;
 	uint32_t scis;
 
-	if (!dev || !dev->chip_info) {
-		printk(BIOS_ERR, "BUG! Could not find SOC devicetree config\n");
-		return;
-	}
-
-	cfg = dev->chip_info;
+	cfg = config_of_soc();
 
 	/* Change only if a device tree entry exists. */
 	if (cfg->sci_irq) {
@@ -386,11 +377,15 @@ static void set_sci_irq(void)
 
 static void soc_init(void *data)
 {
-	struct global_nvs_t *gnvs;
-
 	/* Snapshot the current GPIO IRQ polarities. FSP is setting a
 	 * default policy that doesn't honor boards' requirements. */
 	itss_snapshot_irq_polarities(GPIO_IRQ_START, GPIO_IRQ_END);
+
+	/*
+	 * Clear the GPI interrupt status and enable registers. These
+	 * registers do not get reset to default state when booting from S5.
+	 */
+	gpi_clear_int_cfg();
 
 	fsp_silicon_init(romstage_handoff_is_resume());
 
@@ -409,7 +404,7 @@ static void soc_init(void *data)
 	p2sb_unhide();
 
 	/* Allocate ACPI NVS in CBMEM */
-	gnvs = cbmem_add(CBMEM_ID_ACPI_GNVS, sizeof(*gnvs));
+	cbmem_add(CBMEM_ID_ACPI_GNVS, sizeof(struct global_nvs_t));
 
 	/* Set RAPL MSR for Package power limits*/
 	set_power_limits();
@@ -525,11 +520,14 @@ static void disable_dev(struct device *dev, FSP_S_CONFIG *silconfig)
 	case PCH_DEVFN_SMBUS:
 		silconfig->SmbusEnable = 0;
 		break;
-#if !IS_ENABLED(CONFIG_SOC_INTEL_GLK)
+#if !CONFIG(SOC_INTEL_GLK)
 	case SA_DEVFN_IPU:
 		silconfig->IpuEn = 0;
 		break;
 #endif
+	case PCH_DEVFN_HDA:
+		silconfig->HdaEnable = 0;
+		break;
 	default:
 		printk(BIOS_WARNING, "PCI:%02x.%01x: Could not disable the device\n",
 			PCI_SLOT(dev->path.pci.devfn),
@@ -540,7 +538,7 @@ static void disable_dev(struct device *dev, FSP_S_CONFIG *silconfig)
 
 static void parse_devicetree(FSP_S_CONFIG *silconfig)
 {
-	struct device *dev = SA_DEV_ROOT;
+	struct device *dev = pcidev_path_on_root(SA_DEVFN_ROOT);
 
 	if (!dev) {
 		printk(BIOS_ERR, "Could not find root device\n");
@@ -556,7 +554,7 @@ static void parse_devicetree(FSP_S_CONFIG *silconfig)
 static void apl_fsp_silicon_init_params_cb(struct soc_intel_apollolake_config
 	*cfg, FSP_S_CONFIG *silconfig)
 {
-#if !IS_ENABLED(CONFIG_SOC_INTEL_GLK) /* GLK FSP does not have these
+#if !CONFIG(SOC_INTEL_GLK) /* GLK FSP does not have these
 					 fields in FspsUpd.h yet */
 	uint8_t port;
 
@@ -595,7 +593,7 @@ static void apl_fsp_silicon_init_params_cb(struct soc_intel_apollolake_config
 static void glk_fsp_silicon_init_params_cb(
 	struct soc_intel_apollolake_config *cfg, FSP_S_CONFIG *silconfig)
 {
-#if IS_ENABLED(CONFIG_SOC_INTEL_GLK)
+#if CONFIG(SOC_INTEL_GLK)
 	uint8_t port;
 
 	for (port = 0; port < APOLLOLAKE_USB2_PORT_MAX; port++) {
@@ -668,21 +666,16 @@ void __weak mainboard_devtree_update(struct device *dev)
 void platform_fsp_silicon_init_params_cb(FSPS_UPD *silupd)
 {
 	FSP_S_CONFIG *silconfig = &silupd->FspsConfig;
-	static struct soc_intel_apollolake_config *cfg;
+	struct soc_intel_apollolake_config *cfg;
+	struct device *dev;
 
 	/* Load VBT before devicetree-specific config. */
 	silconfig->GraphicsConfigPtr = (uintptr_t)vbt_get();
 
-	struct device *dev = SA_DEV_ROOT;
-
-	if (!dev || !dev->chip_info) {
-		printk(BIOS_ERR, "BUG! Could not find SOC devicetree config\n");
-		return;
-	}
+	dev = pcidev_path_on_root(SA_DEVFN_ROOT);
+	cfg = config_of(dev);
 
 	mainboard_devtree_update(dev);
-
-	cfg = dev->chip_info;
 
 	/* Parse device tree and disable unused device*/
 	parse_devicetree(silconfig);
@@ -728,10 +721,10 @@ void platform_fsp_silicon_init_params_cb(FSPS_UPD *silupd)
 	/* Disable monitor mwait since it is broken due to a hardware bug
 	 * without a fix. Specific to Apollolake.
 	 */
-	if (!IS_ENABLED(CONFIG_SOC_INTEL_GLK))
+	if (!CONFIG(SOC_INTEL_GLK))
 		silconfig->MonitorMwaitEnable = 0;
 
-	silconfig->SkipMpInit = !chip_get_fsp_mp_init();
+	silconfig->SkipMpInit = !CONFIG_USE_INTEL_FSP_MP_INIT;
 
 	/* Disable setting of EISS bit in FSP. */
 	silconfig->SpiEiss = 0;
@@ -744,19 +737,21 @@ void platform_fsp_silicon_init_params_cb(FSPS_UPD *silupd)
 	silconfig->HDAudioPwrGate = cfg->hdaudio_pwr_gate_enable;
 	/* Bios config lockdown Audio clk and power gate */
 	silconfig->BiosCfgLockDown = cfg->hdaudio_bios_config_lockdown;
-	if (IS_ENABLED(CONFIG_SOC_INTEL_GLK))
+	if (CONFIG(SOC_INTEL_GLK))
 		glk_fsp_silicon_init_params_cb(cfg, silconfig);
 	else
 		apl_fsp_silicon_init_params_cb(cfg, silconfig);
 
 	/* Enable xDCI controller if enabled in devicetree and allowed */
-	dev = dev_find_slot(0, PCH_DEVFN_XDCI);
+	dev = pcidev_path_on_root(PCH_DEVFN_XDCI);
 	if (!xdci_can_enable())
 		dev->enabled = 0;
 	silconfig->UsbOtg = dev->enabled;
 
 	/* Set VTD feature according to devicetree */
 	silconfig->VtdEnable = cfg->enable_vtd;
+
+	mainboard_silicon_init_params(silconfig);
 }
 
 struct chip_operations soc_intel_apollolake_ops = {
@@ -769,7 +764,7 @@ struct chip_operations soc_intel_apollolake_ops = {
 static void drop_privilege_all(void)
 {
 	/* Drop privilege level on all the CPUs */
-	if (mp_run_on_all_cpus(&cpu_enable_untrusted_mode, NULL, 1000) < 0)
+	if (mp_run_on_all_cpus(&cpu_enable_untrusted_mode, NULL) < 0)
 		printk(BIOS_ERR, "failed to enable untrusted mode\n");
 }
 
@@ -845,7 +840,7 @@ void platform_fsp_notify_status(enum fsp_notify_phase phase)
 		 * Override GLK xhci clock gating register(XHCLKGTEN) to
 		 * mitigate usb device suspend and resume failure.
 		 */
-		if (IS_ENABLED(CONFIG_SOC_INTEL_GLK)) {
+		if (CONFIG(SOC_INTEL_GLK)) {
 			uint32_t *cfg;
 			const struct resource *res;
 			uint32_t reg;
@@ -872,6 +867,12 @@ void platform_fsp_notify_status(enum fsp_notify_phase phase)
 static void spi_flash_init_cb(void *unused)
 {
 	fast_spi_init();
+}
+
+__weak
+void mainboard_silicon_init_params(FSP_S_CONFIG *silconfig)
+{
+	printk(BIOS_DEBUG, "WEAK: %s/%s called\n", __FILE__, __func__);
 }
 
 BOOT_STATE_INIT_ENTRY(BS_PRE_DEVICE, BS_ON_ENTRY, spi_flash_init_cb, NULL);

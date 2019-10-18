@@ -16,9 +16,9 @@
 #define __SIMPLE_DEVICE__
 
 #include "imc.h"
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <device/device.h>
-#include <delay.h>
 #include <Porting.h>
 #include <AGESA.h>
 #include <Lib/amdlib.h>
@@ -51,7 +51,6 @@ void imc_reg_init(void)
 	pci_write_config8(PCI_DEV(0, 0x18, 0x3), 0x1E4, reg8);
 }
 
-#ifndef __PRE_RAM__
 void enable_imc_thermal_zone(void)
 {
 	AMD_CONFIG_PARAMS StdHeader;
@@ -80,4 +79,3 @@ void enable_imc_thermal_zone(void)
 	WriteECmsg(MSG_SYS_TO_IMC, AccessWidth8, &FunNum, &StdHeader);
 	WaitForEcLDN9MailboxCmdAck(&StdHeader);
 }
-#endif

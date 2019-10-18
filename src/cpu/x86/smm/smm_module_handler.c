@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2013 Google LLC
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -18,7 +16,7 @@
 #include <cpu/x86/smm.h>
 #include <rmodule.h>
 
-#if IS_ENABLED(CONFIG_SPI_FLASH_SMM)
+#if CONFIG(SPI_FLASH_SMM)
 #include <spi-generic.h>
 #endif
 
@@ -161,7 +159,7 @@ asmlinkage void smm_handler_start(void *arg)
 
 	/* Allow drivers to initialize variables in SMM context. */
 	if (do_driver_init) {
-#if IS_ENABLED(CONFIG_SPI_FLASH_SMM)
+#if CONFIG(SPI_FLASH_SMM)
 		spi_init();
 #endif
 		do_driver_init = 0;
@@ -180,7 +178,7 @@ asmlinkage void smm_handler_start(void *arg)
 		       expected_canary);
 
 		// Don't die if we can't indicate an error.
-		if (IS_ENABLED(CONFIG_DEBUG_SMI))
+		if (CONFIG(DEBUG_SMI))
 			die("SMM Handler caused a stack overflow\n");
 	}
 

@@ -37,6 +37,8 @@
 #define IA32_PERF_CTL			0x199
 #define IA32_THERM_INTERRUPT		0x19b
 #define IA32_MISC_ENABLE		0x1a0
+#define  FAST_STRINGS_ENABLE_BIT	(1 << 0)
+#define  SPEED_STEP_ENABLE_BIT		(1 << 16)
 #define IA32_ENERGY_PERF_BIAS		0x1b0
 #define  ENERGY_POLICY_PERFORMANCE	0
 #define  ENERGY_POLICY_NORMAL		6
@@ -105,7 +107,7 @@ typedef struct msrinit_struct {
 	msr_t msr;
 } msrinit_t;
 
-#if IS_ENABLED(CONFIG_SOC_SETS_MSRS)
+#if CONFIG(SOC_SETS_MSRS)
 msr_t soc_msr_read(unsigned int index);
 void soc_msr_write(unsigned int index, msr_t msr);
 

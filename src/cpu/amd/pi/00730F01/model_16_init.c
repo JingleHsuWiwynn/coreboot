@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2012 Advanced Micro Devices, Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -14,18 +12,17 @@
  */
 
 #include <console/console.h>
+#include <cpu/amd/microcode.h>
 #include <cpu/x86/msr.h>
 #include <cpu/amd/msr.h>
 #include <cpu/x86/mtrr.h>
 #include <cpu/amd/mtrr.h>
 #include <device/device.h>
 #include <device/pci.h>
-#include <string.h>
 #include <cpu/x86/pae.h>
 #include <cpu/x86/lapic.h>
 #include <cpu/cpu.h>
 #include <cpu/x86/cache.h>
-#include <arch/acpi.h>
 
 static void model_16_init(struct device *dev)
 {
@@ -35,7 +32,7 @@ static void model_16_init(struct device *dev)
 	msr_t msr;
 	int num_banks;
 	int msrno;
-#if IS_ENABLED(CONFIG_LOGICAL_CPUS)
+#if CONFIG(LOGICAL_CPUS)
 	u32 siblings;
 #endif
 
@@ -76,7 +73,7 @@ static void model_16_init(struct device *dev)
 	/* Enable the local CPU APICs */
 	setup_lapic();
 
-#if IS_ENABLED(CONFIG_LOGICAL_CPUS)
+#if CONFIG(LOGICAL_CPUS)
 	siblings = cpuid_ecx(0x80000008) & 0xff;
 
 	if (siblings > 0) {
@@ -100,6 +97,8 @@ static void model_16_init(struct device *dev)
 	msr = rdmsr(HWCR_MSR);
 	msr.lo |= (1 << 0);
 	wrmsr(HWCR_MSR, msr);
+
+	update_microcode(cpuid_eax(1));
 }
 
 static struct device_operations cpu_dev_ops = {

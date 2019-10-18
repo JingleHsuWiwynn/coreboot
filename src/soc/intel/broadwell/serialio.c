@@ -13,12 +13,12 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <cbmem.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
-#include <device/pciexp.h>
 #include <device/pci_ids.h>
 #include <stdlib.h>
 #include <soc/iobp.h>
@@ -40,7 +40,7 @@ static void serialio_enable_d3hot(struct resource *res)
 
 static int serialio_uart_is_debug(struct device *dev)
 {
-#if IS_ENABLED(CONFIG_INTEL_PCH_UART_CONSOLE)
+#if CONFIG(INTEL_PCH_UART_CONSOLE)
 	switch (dev->path.pci.devfn) {
 	case PCH_DEVFN_UART0: /* UART0 */
 		return !!(CONFIG_INTEL_PCH_UART_CONSOLE_NUMBER == 0);
@@ -170,7 +170,7 @@ static void serialio_init_once(int acpi_mode)
 
 static void serialio_init(struct device *dev)
 {
-	config_t *config = dev->chip_info;
+	config_t *config = config_of(dev);
 	struct resource *bar0, *bar1;
 	int sio_index = -1;
 	u32 reg32;
@@ -277,7 +277,7 @@ static void serialio_set_resources(struct device *dev)
 {
 	pci_dev_set_resources(dev);
 
-#if IS_ENABLED(CONFIG_INTEL_PCH_UART_CONSOLE)
+#if CONFIG(INTEL_PCH_UART_CONSOLE)
 	/* Update UART base address if used for debug */
 	if (serialio_uart_is_debug(dev)) {
 		struct resource *res = find_resource(dev, PCI_BASE_ADDRESS_0);

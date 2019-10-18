@@ -19,15 +19,19 @@
 #include <stdint.h>
 #include <arch/cpu.h>
 #include <console/post_codes.h>
+
+/* console.h is supposed to provide the log levels defined in here: */
 #include <commonlib/loglevel.h>
 
-#define RAM_DEBUG (IS_ENABLED(CONFIG_DEBUG_RAM_SETUP) ? BIOS_DEBUG : BIOS_NEVER)
-#define RAM_SPEW  (IS_ENABLED(CONFIG_DEBUG_RAM_SETUP) ? BIOS_SPEW  : BIOS_NEVER)
+#define RAM_DEBUG (CONFIG(DEBUG_RAM_SETUP) ? BIOS_DEBUG : BIOS_NEVER)
+#define RAM_SPEW  (CONFIG(DEBUG_RAM_SETUP) ? BIOS_SPEW  : BIOS_NEVER)
 
 #ifndef __ROMCC__
 
+#include <console/vtxprintf.h>
+
 void post_code(u8 value);
-#if IS_ENABLED(CONFIG_CMOS_POST_EXTRA)
+#if CONFIG(CMOS_POST_EXTRA)
 void post_log_extra(u32 value);
 struct device;
 void post_log_path(const struct device *dev);
@@ -39,7 +43,9 @@ void post_log_clear(void);
 #endif
 /* this function is weak and can be overridden by a mainboard function. */
 void mainboard_post(u8 value);
-void __noreturn die(const char *msg);
+void __noreturn die(const char *fmt, ...);
+#define die_with_post_code(value, fmt, ...) \
+	do { post_code(value); die(fmt, ##__VA_ARGS__); } while (0)
 
 /*
  * This function is weak and can be overridden to provide additional
@@ -48,22 +54,22 @@ void __noreturn die(const char *msg);
 void die_notify(void);
 
 #define __CONSOLE_ENABLE__ \
-	((ENV_BOOTBLOCK && IS_ENABLED(CONFIG_BOOTBLOCK_CONSOLE)) || \
-	(ENV_POSTCAR && IS_ENABLED(CONFIG_POSTCAR_CONSOLE)) || \
+	((ENV_BOOTBLOCK && CONFIG(BOOTBLOCK_CONSOLE)) || \
+	(ENV_POSTCAR && CONFIG(POSTCAR_CONSOLE)) || \
 	ENV_VERSTAGE || ENV_ROMSTAGE || ENV_RAMSTAGE || ENV_LIBAGESA || \
-	(ENV_SMM && IS_ENABLED(CONFIG_DEBUG_SMI)))
+	(ENV_SMM && CONFIG(DEBUG_SMI)))
 
 #if __CONSOLE_ENABLE__
 asmlinkage void console_init(void);
 int console_log_level(int msg_level);
-int do_printk(int msg_level, const char *fmt, ...)
-	__attribute__((format(printf, 2, 3)));
 void do_putchar(unsigned char byte);
 
-#define printk(LEVEL, fmt, args...) \
-	do { do_printk(LEVEL, fmt, ##args); } while (0)
+#define printk(LEVEL, fmt, args...) do_printk(LEVEL, fmt, ##args)
+#define vprintk(LEVEL, fmt, args) do_vprintk(LEVEL, fmt, args)
 
-#if IS_ENABLED(CONFIG_CONSOLE_OVERRIDE_LOGLEVEL)
+enum { CONSOLE_LOG_NONE = 0, CONSOLE_LOG_FAST, CONSOLE_LOG_ALL };
+
+#if CONFIG(CONSOLE_OVERRIDE_LOGLEVEL)
 /*
  * This function should be implemented at mainboard level.
  * The returned value will _replace_ the loglevel value;
@@ -79,18 +85,19 @@ static inline int get_console_loglevel(void)
 static inline void console_init(void) {}
 static inline int console_log_level(int msg_level) { return 0; }
 static inline void printk(int LEVEL, const char *fmt, ...) {}
+static inline void vprintk(int LEVEL, const char *fmt, va_list args) {}
 static inline void do_putchar(unsigned char byte) {}
 #endif
 
-#if IS_ENABLED(CONFIG_VBOOT)
-/* FIXME: Collision of varargs with AMD headers without guard. */
-#include <console/vtxprintf.h>
-#if __CONSOLE_ENABLE__
-void do_printk_va_list(int msg_level, const char *fmt, va_list args);
+int do_printk(int msg_level, const char *fmt, ...)
+	__attribute__((format(printf, 2, 3)));
+
+int do_vprintk(int msg_level, const char *fmt, va_list args);
+
 #else
-static inline void do_printk_va_list(int l, const char *fmt, va_list args) {}
-#endif
-#endif
+
+static inline void romcc_printk(void) { }
+#define printk(...) romcc_printk()
 
 #endif /* !__ROMCC__ */
 

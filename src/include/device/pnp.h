@@ -4,9 +4,10 @@
 #include <stdint.h>
 #include <device/device.h>
 #include <device/pnp_def.h>
+#include <device/pnp_type.h>
 #include <arch/io.h>
 
-#ifndef __SIMPLE_DEVICE__
+#if !ENV_PNP_SIMPLE_DEVICE
 
 /* Primitive PNP resource manipulation */
 void pnp_write_config(struct device *dev, u8 reg, u8 value);
@@ -17,6 +18,8 @@ int pnp_read_enable(struct device *dev);
 void pnp_set_iobase(struct device *dev, u8 index, u16 iobase);
 void pnp_set_irq(struct device *dev, u8 index, u8 irq);
 void pnp_set_drq(struct device *dev, u8 index, u8 drq);
+
+#endif
 
 /* PNP device operations */
 void pnp_read_resources(struct device *dev);
@@ -108,5 +111,4 @@ static inline void pnp_write_index(u16 port, u8 reg, u8 value)
 	outb(value, port + 1);
 }
 
-#endif /* ! __SIMPLE_DEVICE__ */
 #endif /* DEVICE_PNP_H */

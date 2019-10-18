@@ -14,11 +14,9 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <device/device.h>
 #include <device/pnp.h>
 #include <superio/conf_mode.h>
-#include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <pc80/keyboard.h>

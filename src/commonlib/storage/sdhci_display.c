@@ -1,10 +1,5 @@
 /*
- * Copyright 2011, Marvell Semiconductor Inc.
- * Lei Wen <leiwen@marvell.com>
- *
- * Copyright 2017 Intel Corporation
- *
- * Secure Digital (SD) Host Controller interface specific code
+ * This file is part of the coreboot project.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -15,6 +10,8 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
+ * Secure Digital (SD) Host Controller interface specific code
  */
 
 #include <commonlib/sd_mmc_ctrlr.h>
@@ -26,7 +23,7 @@
 
 static void sdhci_display_bus_width(struct sdhci_ctrlr *sdhci_ctrlr)
 {
-	if (IS_ENABLED(CONFIG_SDHC_DEBUG)) {
+	if (CONFIG(SDHC_DEBUG)) {
 		int bits;
 		uint8_t host_ctrl;
 		uint16_t host2;
@@ -53,7 +50,7 @@ static void sdhci_display_bus_width(struct sdhci_ctrlr *sdhci_ctrlr)
 
 static void sdhci_display_clock(struct sdhci_ctrlr *sdhci_ctrlr)
 {
-	if (IS_ENABLED(CONFIG_SDHC_DEBUG)) {
+	if (CONFIG(SDHC_DEBUG)) {
 		uint16_t clk_ctrl;
 		uint32_t clock;
 		uint32_t divisor;
@@ -79,7 +76,7 @@ static void sdhci_display_clock(struct sdhci_ctrlr *sdhci_ctrlr)
 
 static void sdhci_display_voltage(struct sdhci_ctrlr *sdhci_ctrlr)
 {
-	if (IS_ENABLED(CONFIG_SDHC_DEBUG)) {
+	if (CONFIG(SDHC_DEBUG)) {
 		u8 pwr_ctrl;
 		const char *voltage;
 		const char *voltage_table[8] = {

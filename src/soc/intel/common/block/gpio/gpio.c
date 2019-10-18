@@ -13,7 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 #include <assert.h>
+#include <console/console.h>
 #include <intelblocks/gpio.h>
 #include <gpio.h>
 #include <intelblocks/itss.h>
@@ -35,7 +37,7 @@
 	PAD_CFG0_TRIG_MASK | PAD_CFG0_RXRAW1_MASK |			\
 	PAD_CFG0_RXPADSTSEL_MASK | PAD_CFG0_RESET_MASK)
 
-#if IS_ENABLED(CONFIG_SOC_INTEL_COMMON_BLOCK_GPIO_PADCFG_PADTOL)
+#if CONFIG(SOC_INTEL_COMMON_BLOCK_GPIO_PADCFG_PADTOL)
 #define PAD_DW1_MASK	(PAD_CFG1_IOSTERM_MASK |			\
 			PAD_CFG1_PULL_MASK |				\
 			PAD_CFG1_TOL_MASK |				\
@@ -59,6 +61,10 @@
 #define GPI_SMI_STS_OFFSET(comm, group) ((comm)->gpi_smi_sts_reg_0 +	\
 				((group) * sizeof(uint32_t)))
 #define GPI_SMI_EN_OFFSET(comm, group) ((comm)->gpi_smi_en_reg_0 +	\
+				((group) * sizeof(uint32_t)))
+#define GPI_IS_OFFSET(comm, group) ((comm)->gpi_int_sts_reg_0 +	\
+				((group) * sizeof(uint32_t)))
+#define GPI_IE_OFFSET(comm, group) ((comm)->gpi_int_en_reg_0 +	\
 				((group) * sizeof(uint32_t)))
 
 static inline size_t relative_pad_in_comm(const struct pad_community *comm,
@@ -190,7 +196,7 @@ static void gpio_configure_itss(const struct pad_config *cfg, uint16_t port,
 	if (ENV_SMM)
 		return;
 
-	if (!IS_ENABLED(CONFIG_SOC_INTEL_COMMON_BLOCK_GPIO_ITSS_POL_CFG))
+	if (!CONFIG(SOC_INTEL_COMMON_BLOCK_GPIO_ITSS_POL_CFG))
 		return;
 
 	int irq;
@@ -276,7 +282,7 @@ static void gpio_configure_pad(const struct pad_config *cfg)
 		/* Patch GPIO settings for SoC specifically */
 		soc_pad_conf = soc_gpio_pad_config_fixup(cfg, i, soc_pad_conf);
 
-		if (IS_ENABLED(CONFIG_DEBUG_GPIO))
+		if (CONFIG(DEBUG_GPIO))
 			printk(BIOS_DEBUG,
 			"gpio_padcfg [0x%02x, %02zd] DW%d [0x%08x : 0x%08x"
 			" : 0x%08x]\n",
@@ -411,7 +417,7 @@ uint16_t gpio_acpi_pin(gpio_t gpio_num)
 	const struct pad_community *comm;
 	size_t group, pin;
 
-	if (IS_ENABLED(CONFIG_SOC_INTEL_COMMON_BLOCK_GPIO_MULTI_ACPI_DEVICES))
+	if (CONFIG(SOC_INTEL_COMMON_BLOCK_GPIO_MULTI_ACPI_DEVICES))
 		return relative_pad_in_comm(gpio_get_community(gpio_num),
 					    gpio_num);
 
@@ -489,7 +495,7 @@ void gpi_clear_get_smi_status(struct gpi_status *sts)
 		comm++;
 	}
 
-	if (IS_ENABLED(CONFIG_DEBUG_SMI))
+	if (CONFIG(DEBUG_SMI))
 		print_gpi_status(sts);
 
 }
@@ -560,7 +566,7 @@ void gpio_route_gpe(uint8_t gpe0b, uint8_t gpe0c, uint8_t gpe0d)
 			MISCCFG_GPE0_DW1_MASK |
 			MISCCFG_GPE0_DW0_MASK);
 
-	if (IS_ENABLED(CONFIG_DEBUG_GPIO))
+	if (CONFIG(DEBUG_GPIO))
 		printk(BIOS_DEBUG, "misccfg_mask:%x misccfg_value:%x\n",
 			misccfg_mask, misccfg_value);
 	comm = soc_gpio_get_community(&gpio_communities);
@@ -579,4 +585,45 @@ uint32_t __weak soc_gpio_pad_config_fixup(const struct pad_config *cfg,
 						int dw_reg, uint32_t reg_val)
 {
 	return reg_val;
+}
+
+void gpi_clear_int_cfg(void)
+{
+	int i, group, num_groups;
+	uint32_t sts_value;
+	size_t gpio_communities;
+	const struct pad_community *comm;
+
+	comm = soc_gpio_get_community(&gpio_communities);
+	for (i = 0; i < gpio_communities; i++, comm++) {
+		num_groups = comm->num_gpi_regs;
+		for (group = 0; group < num_groups; group++) {
+			/* Clear the enable register */
+			pcr_write32(comm->port, GPI_IE_OFFSET(comm, group), 0);
+
+			/* Read and clear the set status register bits*/
+			sts_value = pcr_read32(comm->port,
+					GPI_IS_OFFSET(comm, group));
+			pcr_write32(comm->port,
+					GPI_IS_OFFSET(comm, group), sts_value);
+		}
+	}
+}
+
+/* The function performs GPIO Power Management programming. */
+void gpio_pm_configure(const uint8_t *misccfg_pm_values, size_t num)
+{
+	int i;
+	size_t gpio_communities;
+	const uint8_t misccfg_pm_mask = ~MISCCFG_ENABLE_GPIO_PM_CONFIG;
+	const struct pad_community *comm;
+
+	comm = soc_gpio_get_community(&gpio_communities);
+	if (gpio_communities != num)
+		die("Incorrect GPIO community count!\n");
+
+	/* Program GPIO_MISCCFG */
+	for (i = 0; i < num; i++, comm++)
+		pcr_rmw8(comm->port, GPIO_MISCCFG,
+				misccfg_pm_mask, misccfg_pm_values[i]);
 }

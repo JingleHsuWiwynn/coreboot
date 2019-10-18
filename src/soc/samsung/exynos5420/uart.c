@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <boot/coreboot_tables.h>
 #include <console/uart.h>
 #include <soc/clk.h>
@@ -176,7 +176,6 @@ void uart_tx_flush(int idx)
 	/* Exynos5250 implements this too. */
 }
 
-#ifndef __PRE_RAM__
 void uart_fill_lb(void *data)
 {
 	struct lb_serial serial;
@@ -190,4 +189,3 @@ void uart_fill_lb(void *data)
 
 	lb_add_console(LB_TAG_CONSOLE_SERIAL8250MEM, data);
 }
-#endif

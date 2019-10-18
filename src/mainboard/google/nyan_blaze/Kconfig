@@ -17,7 +17,6 @@ if BOARD_GOOGLE_NYAN_BLAZE
 
 config BOARD_SPECIFIC_OPTIONS
 	def_bool y
-	select ARCH_ARM
 	select COMMON_CBFS_SPI_WRAPPER
 	select EC_GOOGLE_CHROMEEC
 	select EC_GOOGLE_CHROMEEC_SPI
@@ -82,8 +81,4 @@ config DRIVER_TPM_I2C_ADDR
 	hex
 	default 0x20
 
-config GBB_HWID
-	string
-	depends on CHROMEOS
-	default "BLAZE TEST 9xxx"
 endif # BOARD_GOOGLE_NYAN_BLAZE

@@ -15,15 +15,12 @@
  */
 
 #include <types.h>
-#include <string.h>
 #include <smbios.h>
 #include <device/device.h>
 #include <device/pci_def.h>
-#include <device/pci_ops.h>
 #include <drivers/intel/gma/int15.h>
 #include <arch/acpi.h>
 #include <arch/io.h>
-#include <arch/interrupt.h>
 #include <boot/coreboot_tables.h>
 #include <southbridge/intel/lynxpoint/pch.h>
 #include <vendorcode/google/chromeos/chromeos.h>
@@ -55,7 +52,8 @@ static int mainboard_smbios_data(struct device *dev, int *handle,
 		BOARD_LIGHTSENSOR_I2C_BUS,	/* segment */
 		BOARD_LIGHTSENSOR_I2C_ADDR,	/* bus */
 		0,				/* device */
-		0);				/* function */
+		0,				/* function */
+		SMBIOS_DEVICE_TYPE_OTHER);	/* device type */
 
 	len += smbios_write_type41(
 		current, handle,
@@ -64,7 +62,8 @@ static int mainboard_smbios_data(struct device *dev, int *handle,
 		BOARD_TRACKPAD_I2C_BUS,		/* segment */
 		BOARD_TRACKPAD_I2C_ADDR,	/* bus */
 		0,				/* device */
-		0);				/* function */
+		0,				/* function */
+		SMBIOS_DEVICE_TYPE_OTHER);	/* device type */
 
 	len += smbios_write_type41(
 		current, handle,
@@ -73,7 +72,8 @@ static int mainboard_smbios_data(struct device *dev, int *handle,
 		BOARD_TOUCHSCREEN_I2C_BUS,	/* segment */
 		BOARD_TOUCHSCREEN_I2C_ADDR,	/* bus */
 		0,				/* device */
-		0);				/* function */
+		0,				/* function */
+		SMBIOS_DEVICE_TYPE_OTHER);	/* device type */
 
 	return len;
 }

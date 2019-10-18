@@ -14,27 +14,30 @@
  */
 
 #include <assert.h>
-#include <chip.h>
+#include <cpu/x86/msr.h>
 #include <console/console.h>
 #include <fsp/util.h>
 #include <intelblocks/pmclib.h>
 #include <soc/iomap.h>
+#include <soc/msr.h>
 #include <soc/pci_devs.h>
 #include <soc/romstage.h>
 #include <vendorcode/google/chromeos/chromeos.h>
+
+#include "../chip.h"
 
 static void soc_memory_init_params(FSP_M_CONFIG *m_cfg, const config_t *config)
 {
 	unsigned int i;
 	uint32_t mask = 0;
-	const struct device *dev = dev_find_slot(0, PCH_DEVFN_ISH);
+	const struct device *dev = pcidev_path_on_root(PCH_DEVFN_ISH);
 
 	/* Set IGD stolen size to 64MB. */
 	m_cfg->IgdDvmt50PreAlloc = 2;
 	m_cfg->TsegSize = CONFIG_SMM_TSEG_SIZE;
 	m_cfg->IedSize = CONFIG_IED_REGION_SIZE;
 	m_cfg->SaGv = config->SaGv;
-	if (IS_ENABLED(CONFIG_SOC_INTEL_CANNONLAKE_PCH_H))
+	if (CONFIG(SOC_INTEL_CANNONLAKE_PCH_H))
 		m_cfg->UserBd = BOARD_TYPE_DESKTOP;
 	else
 		m_cfg->UserBd = BOARD_TYPE_ULT_ULX;
@@ -47,29 +50,33 @@ static void soc_memory_init_params(FSP_M_CONFIG *m_cfg, const config_t *config)
 	m_cfg->PcieRpEnableMask = mask;
 	m_cfg->PrmrrSize = config->PrmrrSize;
 	m_cfg->EnableC6Dram = config->enable_c6dram;
+#if CONFIG(SOC_INTEL_COMETLAKE)
+	m_cfg->SerialIoUartDebugControllerNumber = CONFIG_UART_FOR_CONSOLE;
+#else
 	m_cfg->PcdSerialIoUartNumber = CONFIG_UART_FOR_CONSOLE;
-	/* Disable Vmx if Vt-d is already disabled */
-	if (config->VtdDisable)
-		m_cfg->VmxEnable = 0;
-	else
-		m_cfg->VmxEnable = config->VmxEnable;
-#if IS_ENABLED(CONFIG_SOC_INTEL_COMMON_CANNONLAKE_BASE)
-	m_cfg->SkipMpInit = !chip_get_fsp_mp_init();
+#endif
+	/*
+	 * PcdDebugInterfaceFlags
+	 * This config will allow coreboot to pass information to the FSP
+	 * regarding which debug interface is being used.
+	 * Debug Interfaces:
+	 * BIT0-RAM, BIT1-Legacy Uart BIT3-USB3, BIT4-LPSS Uart, BIT5-TraceHub
+	 * BIT2 - Not used.
+	 */
+	m_cfg->PcdDebugInterfaceFlags =
+				CONFIG(DRIVERS_UART_8250IO) ? 0x02 : 0x10;
+
+	/* Change VmxEnable UPD value according to ENABLE_VMX Kconfig */
+	m_cfg->VmxEnable = CONFIG(ENABLE_VMX);
+
+#if CONFIG(SOC_INTEL_CANNONLAKE_ALTERNATE_HEADERS)
+	m_cfg->SkipMpInit = !CONFIG_USE_INTEL_FSP_MP_INIT;
 #endif
 
-	/* Disable CPU Flex Ratio and SaGv in recovery mode */
-	if (vboot_recovery_mode_enabled()) {
-		struct chipset_power_state *ps = pmc_get_power_state();
-
-		/*
-		 * Only disable when coming from S5 (cold reset) otherwise
-		 * the flex ratio may be locked and FSP will return an error.
-		 */
-		if (ps && ps->prev_sleep_state == ACPI_S5) {
-			m_cfg->CpuRatio = 0;
-			m_cfg->SaGv = 0;
-		}
-	}
+	/* Set CpuRatio to match existing MSR value */
+	msr_t flex_ratio;
+	flex_ratio = rdmsr(MSR_FLEX_RATIO);
+	m_cfg->CpuRatio = (flex_ratio.lo >> 8) & 0xff;
 
 	/* If ISH is enabled, enable ISH elements */
 	if (!dev)
@@ -78,7 +85,7 @@ static void soc_memory_init_params(FSP_M_CONFIG *m_cfg, const config_t *config)
 		m_cfg->PchIshEnable = dev->enabled;
 
 	/* If HDA is enabled, enable HDA elements */
-	dev = dev_find_slot(0, PCH_DEVFN_HDA);
+	dev = pcidev_path_on_root(PCH_DEVFN_HDA);
 	if (!dev)
 		m_cfg->PchHdaEnable = 0;
 	else
@@ -93,11 +100,12 @@ static void soc_memory_init_params(FSP_M_CONFIG *m_cfg, const config_t *config)
 
 void platform_fsp_memory_init_params_cb(FSPM_UPD *mupd, uint32_t version)
 {
-	const struct device *dev = dev_find_slot(0, PCH_DEVFN_LPC);
-	const struct device *smbus = dev_find_slot(0, PCH_DEVFN_SMBUS);
+	const struct device *dev = pcidev_path_on_root(PCH_DEVFN_LPC);
+	const struct device *smbus = pcidev_path_on_root(PCH_DEVFN_SMBUS);
 	assert(dev != NULL);
-	const config_t *config = dev->chip_info;
+	const config_t *config = config_of(dev);
 	FSP_M_CONFIG *m_cfg = &mupd->FspmConfig;
+	FSP_M_TEST_CONFIG *tconfig = &mupd->FspmTestConfig;
 
 	soc_memory_init_params(m_cfg, config);
 
@@ -106,8 +114,13 @@ void platform_fsp_memory_init_params_cb(FSPM_UPD *mupd, uint32_t version)
 		m_cfg->SmbusEnable = 0;
 	else
 		m_cfg->SmbusEnable = smbus->enabled;
+
 	/* Set debug probe type */
-	m_cfg->PlatformDebugConsent = config->DebugConsent;
+	m_cfg->PlatformDebugConsent =
+		CONFIG_SOC_INTEL_CANNONLAKE_DEBUG_CONSENT;
+
+	/* Configure VT-d */
+	tconfig->VtdDisable = 0;
 
 	mainboard_memory_init_params(mupd);
 }

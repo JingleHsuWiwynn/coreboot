@@ -22,11 +22,11 @@
 
 #define DQS_TRAIN_DEBUG 0
 
-#include <inttypes.h>
-#include "mct_d_gcc.h"
-#include <console/console.h>
+#include <stdint.h>
 #include <northbridge/amd/amdfam10/debug.h>
 #include <northbridge/amd/amdfam10/raminit.h>
+
+#include "mct_d_gcc.h"
 
 extern const u8 Table_DQSRcvEn_Offset[];
 extern const u32 TestPattern0_D[];

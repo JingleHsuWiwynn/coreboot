@@ -14,7 +14,7 @@
  */
 
 #include <console/console.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <arch/acpi.h>
 #include <stdint.h>
 #include <device/device.h>
@@ -33,10 +33,9 @@
 #include <cpu/amd/msr.h>
 #include <cpu/amd/mtrr.h>
 #include <arch/acpigen.h>
-#include <assert.h>
 #include <northbridge/amd/pi/nb_common.h>
 #include <northbridge/amd/agesa/agesa_helper.h>
-#if IS_ENABLED(CONFIG_BINARYPI_LEGACY_WRAPPER)
+#if CONFIG(BINARYPI_LEGACY_WRAPPER)
 #include <northbridge/amd/pi/agesawrapper.h>
 #include <northbridge/amd/pi/agesawrapper_call.h>
 #endif
@@ -48,13 +47,13 @@ typedef struct dram_base_mask {
 	u32 mask; //[47:27] at [28:8] and enable at bit 0
 } dram_base_mask_t;
 
-static unsigned node_nums;
-static unsigned sblink;
+static unsigned int node_nums;
+static unsigned int sblink;
 static struct device *__f0_dev[MAX_NODE_NUMS];
 static struct device *__f1_dev[MAX_NODE_NUMS];
 static struct device *__f2_dev[MAX_NODE_NUMS];
 static struct device *__f4_dev[MAX_NODE_NUMS];
-static unsigned fx_devs = 0;
+static unsigned int fx_devs = 0;
 
 static dram_base_mask_t get_dram_base_mask(u32 nodeid)
 {
@@ -123,14 +122,14 @@ static void get_fx_devs(void)
 	printk(BIOS_DEBUG, "fx_devs = 0x%x\n", fx_devs);
 }
 
-static u32 f1_read_config32(unsigned reg)
+static u32 f1_read_config32(unsigned int reg)
 {
 	if (fx_devs == 0)
 		get_fx_devs();
 	return pci_read_config32(__f1_dev[0], reg);
 }
 
-static void f1_write_config32(unsigned reg, u32 value)
+static void f1_write_config32(unsigned int reg, u32 value)
 {
 	int i;
 	if (fx_devs == 0)
@@ -168,11 +167,11 @@ static void set_vga_enable_reg(u32 nodeid, u32 linkn)
  *  @retval 0  resource exists, but is not usable
  *  @retval 1  resource exists, but has been allocated before
  */
-static int reg_useable(unsigned reg, struct device *goal_dev, unsigned goal_nodeid,
-			unsigned goal_link)
+static int reg_useable(unsigned int reg, struct device *goal_dev,
+		unsigned int goal_nodeid, unsigned int goal_link)
 {
 	struct resource *res;
-	unsigned nodeid, link = 0;
+	unsigned int nodeid, link = 0;
 	int result;
 	res = 0;
 	for (nodeid = 0; !res && (nodeid < fx_devs); nodeid++) {
@@ -196,7 +195,8 @@ static int reg_useable(unsigned reg, struct device *goal_dev, unsigned goal_node
 	return result;
 }
 
-static struct resource *amdfam15_find_iopair(struct device *dev, unsigned nodeid, unsigned link)
+static struct resource *amdfam15_find_iopair(struct device *dev,
+		unsigned int nodeid, unsigned int link)
 {
 	struct resource *resource;
 	u32 free_reg, reg;
@@ -362,7 +362,7 @@ static void set_resource(struct device *dev, struct resource *resource, u32 node
  * but it is too difficult to deal with the resource allocation magic.
  */
 
-static void create_vga_resource(struct device *dev, unsigned nodeid)
+static void create_vga_resource(struct device *dev, unsigned int nodeid)
 {
 	struct bus *link;
 
@@ -370,7 +370,7 @@ static void create_vga_resource(struct device *dev, unsigned nodeid)
 	 * we only deal with the 'first' vga card */
 	for (link = dev->link_list; link; link = link->next) {
 		if (link->bridge_ctrl & PCI_BRIDGE_CTL_VGA) {
-			if (IS_ENABLED(CONFIG_MULTIPLE_VGA_ADAPTERS)) {
+			if (CONFIG(MULTIPLE_VGA_ADAPTERS)) {
 				extern struct device *vga_pri; // the primary vga device, defined in device.c
 				printk(BIOS_DEBUG, "VGA: vga_pri bus num = %d bus range [%d,%d]\n", vga_pri->bus->secondary,
 					link->secondary,link->subordinate);
@@ -394,7 +394,7 @@ static void create_vga_resource(struct device *dev, unsigned nodeid)
 
 static void set_resources(struct device *dev)
 {
-	unsigned nodeid;
+	unsigned int nodeid;
 	struct bus *bus;
 	struct resource *res;
 
@@ -463,11 +463,9 @@ static unsigned long agesa_write_acpi_tables(struct device *device,
 	acpi_header_t *ssdt;
 	acpi_header_t *alib;
 	acpi_header_t *ivrs;
-	acpi_hest_t *hest;
 
 	/* HEST */
 	current = ALIGN(current, 8);
-	hest = (acpi_hest_t *)current;
 	acpi_write_hest((void *)current, acpi_fill_hest);
 	acpi_add_table(rsdp, (void *)current);
 	current += ((acpi_header_t *)current)->length;
@@ -573,7 +571,7 @@ struct chip_operations northbridge_amd_pi_00630F01_ops = {
 
 static void domain_read_resources(struct device *dev)
 {
-	unsigned reg;
+	unsigned int reg;
 
 	/* Find the already assigned resource pairs */
 	get_fx_devs();
@@ -583,7 +581,7 @@ static void domain_read_resources(struct device *dev)
 		limit = f1_read_config32(reg + 0x04);
 		/* Is this register allocated? */
 		if ((base & 3) != 0) {
-			unsigned nodeid, reg_link;
+			unsigned int nodeid, reg_link;
 			struct device *reg_dev;
 			if (reg < 0xc0) { // mmio
 				nodeid = (limit & 0xf) + (base&0x30);
@@ -611,7 +609,7 @@ static void domain_read_resources(struct device *dev)
 
 static void domain_enable_resources(struct device *dev)
 {
-#if IS_ENABLED(CONFIG_BINARYPI_LEGACY_WRAPPER)
+#if CONFIG(BINARYPI_LEGACY_WRAPPER)
 	/* Must be called after PCI enumeration and resource allocation */
 	if (!acpi_is_wakeup_s3()) {
 		/* Enable MMIO on AMD CPU Address Map Controller */
@@ -625,7 +623,7 @@ static void domain_enable_resources(struct device *dev)
 
 #if CONFIG_HW_MEM_HOLE_SIZEK != 0
 struct hw_mem_hole_info {
-	unsigned hole_startk;
+	unsigned int hole_startk;
 	int node_id;
 };
 static struct hw_mem_hole_info get_hw_mem_hole_info(void)
@@ -680,7 +678,6 @@ static void domain_set_resources(struct device *dev)
 	struct bus *link;
 #if CONFIG_HW_MEM_HOLE_SIZEK != 0
 	struct hw_mem_hole_info mem_hole;
-	u32 reset_memhole = 1;
 #endif
 
 	pci_tolm = 0xffffffffUL;
@@ -711,7 +708,6 @@ static void domain_set_resources(struct device *dev)
 	// Use hole_basek as mmio_basek, and we don't need to reset hole anymore
 	if ((mem_hole.node_id !=  -1) && (mmio_basek > mem_hole.hole_startk)) {
 		mmio_basek = mem_hole.hole_startk;
-		reset_memhole = 0;
 	}
 #endif
 
@@ -742,7 +738,7 @@ static void domain_set_resources(struct device *dev)
 		/* split the region to accommodate pci memory space */
 		if ((basek < 4*1024*1024) && (limitk > mmio_basek)) {
 			if (basek <= mmio_basek) {
-				unsigned pre_sizek;
+				unsigned int pre_sizek;
 				pre_sizek = mmio_basek - basek;
 				if (pre_sizek > 0) {
 					ram_resource(dev, (idx | i), basek, pre_sizek);
@@ -790,42 +786,6 @@ static void sysconf_init(struct device *dev) // first node
 	node_nums = ((pci_read_config32(dev, 0x60)>>4) & 7) + 1; //NodeCnt[2:0]
 }
 
-static void add_more_links(struct device *dev, unsigned total_links)
-{
-	struct bus *link, *last = NULL;
-	int link_num;
-
-	for (link = dev->link_list; link; link = link->next)
-		last = link;
-
-	if (last) {
-		int links = total_links - last->link_num;
-		link_num = last->link_num;
-		if (links > 0) {
-			link = malloc(links*sizeof(*link));
-			if (!link)
-				die("Couldn't allocate more links!\n");
-			memset(link, 0, links*sizeof(*link));
-			last->next = link;
-		}
-	}
-	else {
-		link_num = -1;
-		link = malloc(total_links*sizeof(*link));
-		memset(link, 0, total_links*sizeof(*link));
-		dev->link_list = link;
-	}
-
-	for (link_num = link_num + 1; link_num < total_links; link_num++) {
-		link->link_num = link_num;
-		link->dev = dev;
-		link->next = link + 1;
-		last = link;
-		link = link->next;
-	}
-	last->next = NULL;
-}
-
 static void cpu_bus_scan(struct device *dev)
 {
 	struct bus *cpu_bus;
@@ -833,8 +793,8 @@ static void cpu_bus_scan(struct device *dev)
 	int i,j;
 	int coreid_bits;
 	int core_max = 0;
-	unsigned ApicIdCoreIdSize;
-	unsigned core_nums;
+	unsigned int ApicIdCoreIdSize;
+	unsigned int core_nums;
 	int siblings = 0;
 	unsigned int family;
 	u32 modules = 0;
@@ -876,7 +836,7 @@ static void cpu_bus_scan(struct device *dev)
 	cpu_bus = dev->link_list;
 	for (i = 0; i < node_nums; i++) {
 		struct device *cdb_dev;
-		unsigned devn;
+		unsigned int devn;
 		struct bus *pbus;
 
 		devn = DEV_CDB + i;

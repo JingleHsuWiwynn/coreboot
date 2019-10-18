@@ -17,11 +17,11 @@
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <southbridge/amd/common/amd_pci_util.h>
 #include <southbridge/amd/cimx/cimx_util.h>
-#include <arch/acpi.h>
 #include <smbios.h>
 #include <string.h>
 #include <southbridge/amd/cimx/sb800/SBPLATFORM.h>
@@ -139,16 +139,16 @@ static void config_gpio_mux(void)
 	uart = dev_find_slot_pnp(SIO_PORT, NCT5104D_SP3);
 	gpio = dev_find_slot_pnp(SIO_PORT, NCT5104D_GPIO0);
 	if (uart)
-		uart->enabled = CONFIG_APU1_PINMUX_UART_C;
+		uart->enabled = CONFIG(APU1_PINMUX_UART_C);
 	if (gpio)
-		gpio->enabled = CONFIG_APU1_PINMUX_GPIO0;
+		gpio->enabled = CONFIG(APU1_PINMUX_GPIO0);
 
 	uart = dev_find_slot_pnp(SIO_PORT, NCT5104D_SP4);
 	gpio = dev_find_slot_pnp(SIO_PORT, NCT5104D_GPIO1);
 	if (uart)
-		uart->enabled = CONFIG_APU1_PINMUX_UART_D;
+		uart->enabled = CONFIG(APU1_PINMUX_UART_D);
 	if (gpio)
-		gpio->enabled = CONFIG_APU1_PINMUX_GPIO1;
+		gpio->enabled = CONFIG(APU1_PINMUX_GPIO1);
 }
 
 static void pnp_raw_resource(struct device *dev, u8 reg, u8 val)
@@ -165,11 +165,11 @@ static void config_addon_uart(void)
 	struct device *uart;
 
 	uart = dev_find_slot_pnp(SIO_PORT, NCT5104D_SP3);
-	if (uart && uart->enabled && CONFIG_UART_C_RS485)
+	if (uart && uart->enabled && CONFIG(UART_C_RS485))
 		pnp_raw_resource(uart, 0xf2, 0x12);
 
 	uart = dev_find_slot_pnp(SIO_PORT, NCT5104D_SP4);
-	if (uart && uart->enabled && CONFIG_UART_D_RS485)
+	if (uart && uart->enabled && CONFIG(UART_D_RS485))
 		pnp_raw_resource(uart, 0xf2, 0x12);
 }
 
@@ -206,17 +206,23 @@ static void mainboard_enable(struct device *dev)
 const char *smbios_mainboard_serial_number(void)
 {
 	static char serial[10];
-	struct device *nic_dev;
+	struct device *dev;
 	uintptr_t bar18;
 	u32 mac_addr = 0;
 	int i;
 
-	nic_dev = dev_find_slot(1, PCI_DEVFN(0, 0));
-	if ((serial[0] != 0) || !nic_dev)
+	/* Already initialized. */
+	if (serial[0] != 0)
+		return serial;
+
+	dev = pcidev_on_root(4, 0);
+	if (dev)
+		dev = pcidev_path_behind(dev->link_list, PCI_DEVFN(0, 0));
+	if (!dev)
 		return serial;
 
 	/* Read in the last 3 bytes of NIC's MAC address. */
-	bar18 = pci_read_config32(nic_dev, 0x18);
+	bar18 = pci_read_config32(dev, 0x18);
 	bar18 &= 0xFFFFFC00;
 	for (i = 3; i < 6; i++) {
 		mac_addr <<= 8;
@@ -263,7 +269,7 @@ static void usb_oc_setup(void)
 /*
  * We will stuff the memory size into the smbios sku location.
  */
-const char *smbios_mainboard_sku(void)
+const char *smbios_system_sku(void)
 {
 	static char sku[5];
 	if (sku[0] != 0)

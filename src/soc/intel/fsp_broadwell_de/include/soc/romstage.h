@@ -17,14 +17,8 @@
 #ifndef _SOC_ROMSTAGE_H_
 #define _SOC_ROMSTAGE_H_
 
-#if !defined(__PRE_RAM__)
-#error "Don't include romstage.h from a ramstage compilation unit!"
-#endif
-
 #include <stdint.h>
 #include <fsp.h>
-
-void romstage_main_continue(EFI_STATUS status, void *hob_list_ptr);
 
 #define NUM_ROMSTAGE_TS 4
 

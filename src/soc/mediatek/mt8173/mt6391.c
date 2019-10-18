@@ -12,7 +12,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include <arch/io.h>
 #include <assert.h>
 #include <console/console.h>
 #include <delay.h>
@@ -21,7 +20,7 @@
 #include <soc/pmic_wrap.h>
 #include <types.h>
 
-#if IS_ENABLED(CONFIG_DEBUG_PMIC)
+#if CONFIG(DEBUG_PMIC)
 #define DEBUG_PMIC(level, x...)		printk(level, x)
 #else
 #define DEBUG_PMIC(level, x...)

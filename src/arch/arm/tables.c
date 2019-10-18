@@ -1,10 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2003 Eric Biederman
- * Copyright (C) 2005 Steve Magnani
- * Copyright (C) 2008-2009 coresystems GmbH
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -28,14 +24,14 @@ void bootmem_arch_add_ranges(void)
 {
 	DECLARE_OPTIONAL_REGION(ttb_subtables);
 
-	bootmem_add_range((uintptr_t)_ttb, _ttb_size, BM_MEM_RAMSTAGE);
-	bootmem_add_range((uintptr_t)_ttb_subtables, _ttb_subtables_size,
+	bootmem_add_range((uintptr_t)_ttb, REGION_SIZE(ttb), BM_MEM_RAMSTAGE);
+	bootmem_add_range((uintptr_t)_ttb_subtables, REGION_SIZE(ttb_subtables),
 			  BM_MEM_RAMSTAGE);
 
-	if (!IS_ENABLED(CONFIG_COMMON_CBFS_SPI_WRAPPER))
+	if (!CONFIG(COMMON_CBFS_SPI_WRAPPER))
 		return;
 	bootmem_add_range((uintptr_t)_postram_cbfs_cache,
-			  _postram_cbfs_cache_size, BM_MEM_RAMSTAGE);
+			  REGION_SIZE(postram_cbfs_cache), BM_MEM_RAMSTAGE);
 }
 
 void lb_arch_add_records(struct lb_header *header)

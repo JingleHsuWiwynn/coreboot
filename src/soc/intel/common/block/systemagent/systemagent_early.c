@@ -13,18 +13,19 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
-#include <delay.h>
+#define __SIMPLE_DEVICE__
+
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <intelblocks/systemagent.h>
 #include <soc/iomap.h>
 #include <soc/pci_devs.h>
 #include <soc/systemagent.h>
-#include "systemagent_def.h"
-#include <timer.h>
 
-#if !ENV_RAMSTAGE
+#include "systemagent_def.h"
+
 void bootblock_systemagent_early_init(void)
 {
 	uint32_t reg;
@@ -63,7 +64,6 @@ void bootblock_systemagent_early_init(void)
 	 */
 	pci_write_config32(SA_DEV_ROOT, TSEG, 0);
 }
-#endif
 
 void sa_set_pci_bar(const struct sa_mmio_descriptor *fixed_set_resources,
 		size_t count)

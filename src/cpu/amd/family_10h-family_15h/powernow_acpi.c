@@ -1,10 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2007-2008 Advanced Micro Devices, Inc.
- * Copyright (C) 2009 Rudolf Marek <r.marek@assembler.cz>
- * Copyright (C) 2015 Timothy Pearson <tpearson@raptorengineeringinc.com>, Raptor Engineering
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -16,19 +12,20 @@
  */
 
 #include <console/console.h>
-#include <stdint.h>
 #include <option.h>
 #include <cpu/x86/msr.h>
 #include <cpu/amd/msr.h>
 #include <arch/acpigen.h>
 #include <cpu/amd/powernow.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <cpu/amd/mtrr.h>
 #include <cpu/amd/amdfam10_sysconf.h>
 #include <arch/cpu.h>
 #include <northbridge/amd/amdht/AsPsDefs.h>
 #include <northbridge/amd/amdmct/mct/mct.h>
 #include <northbridge/amd/amdmct/amddefs.h>
+#include <types.h>
 
 static inline uint8_t is_fam15h(void)
 {
@@ -113,7 +110,7 @@ static void write_cstates_for_core(int coreID)
 		cstate.resource.bit_offset = 0;
 		cstate.resource.addrl = rdmsr(MSR_CSTATE_ADDRESS).lo + 1;
 		cstate.resource.addrh = 0;
-		cstate.resource.resv = 1;
+		cstate.resource.access_size = 1;
 	} else {
 		cstate.ctype = 2;
 		cstate.latency = 75;
@@ -123,7 +120,7 @@ static void write_cstates_for_core(int coreID)
 		cstate.resource.bit_offset = 0;
 		cstate.resource.addrl = rdmsr(MSR_CSTATE_ADDRESS).lo;
 		cstate.resource.addrh = 0;
-		cstate.resource.resv = 1;
+		cstate.resource.access_size = 1;
 	}
 
 	acpigen_write_CST_package(&cstate, cstate_count);
@@ -186,7 +183,7 @@ void amd_generate_powernow(u32 pcontrol_blk, u8 plen, u8 onlyBSP)
 	uint8_t enable_c_states;
 
 	enable_c_states = 0;
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	if (get_option(&nvram, "cpu_c_states") == CB_SUCCESS)
 		enable_c_states = !!nvram;
 #endif
@@ -257,8 +254,6 @@ void amd_generate_powernow(u32 pcontrol_blk, u8 plen, u8 onlyBSP)
 		boost_count = (dtemp >> 2) & 0x1;
 	else if (mctGetLogicalCPUID(0) & AMD_FAM15_ALL)
 		boost_count = (dtemp >> 2) & 0x7;
-
-	Pstate_num = 0;
 
 	/* See if the CPUID(0x80000007) returned EDX[7]==1b */
 	cpuid1 = cpuid(0x80000007);

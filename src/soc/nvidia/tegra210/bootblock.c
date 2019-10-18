@@ -18,6 +18,7 @@
 #include <arch/stages.h>
 #include <bootblock_common.h>
 #include <console/console.h>
+#include <device/mmio.h>
 #include <delay.h>
 #include <program_loading.h>
 #include <soc/addressmap.h>
@@ -25,11 +26,13 @@
 #include <soc/nvidia/tegra/apbmisc.h>
 #include <soc/pmc.h>
 #include <soc/power.h>
-#include <timestamp.h>
 
 #define BCT_OFFSET_IN_BIT	0x4c
 #define ODMDATA_OFFSET_IN_BCT	0x508
 #define TEGRA_SRAM_MAX		(TEGRA_SRAM_BASE + TEGRA_SRAM_SIZE)
+
+/* called from assembly in bootblock_asm.S */
+void tegra210_main(void);
 
 static void save_odmdata(void)
 {
@@ -155,7 +158,7 @@ static void mbist_workaround(void)
 	}
 }
 
-void main(void)
+void tegra210_main(void)
 {
 	// enable JTAG at the earliest stage
 	enable_jtag();
@@ -177,7 +180,7 @@ void main(void)
 
 	bootblock_mainboard_early_init();
 
-	if (CONFIG_BOOTBLOCK_CONSOLE) {
+	if (CONFIG(BOOTBLOCK_CONSOLE)) {
 		console_init();
 		exception_init();
 		printk(BIOS_INFO, "T210: Bootblock here\n");

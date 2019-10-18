@@ -18,10 +18,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <bootstate.h>
-#include <timer.h>
 #include <arch/cpu.h>
 
-#if IS_ENABLED(CONFIG_COOP_MULTITASKING) && !defined(__SMM__) && !defined(__PRE_RAM__)
+#if ENV_RAMSTAGE && CONFIG(COOP_MULTITASKING)
 
 struct thread {
 	int id;

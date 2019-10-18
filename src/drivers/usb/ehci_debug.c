@@ -18,6 +18,7 @@
 #include <console/console.h>
 #include <console/usb.h>
 #include <arch/io.h>
+#include <device/mmio.h>
 #include <arch/symbols.h>
 #include <arch/early_variables.h>
 #include <string.h>
@@ -34,7 +35,7 @@ struct ehci_debug_info {
 	struct dbgp_pipe ep_pipe[DBGP_MAX_ENDPOINTS];
 } __packed;
 
-#if IS_ENABLED(CONFIG_DEBUG_CONSOLE_INIT)
+#if CONFIG(DEBUG_CONSOLE_INIT)
 /* When selected, you can debug the connection of usbdebug dongle.
  * EHCI port register bits and USB packets are dumped on console,
  * assuming some other console already works.
@@ -66,7 +67,7 @@ static struct ehci_debug_info * glob_dbg_info_p CAR_GLOBAL;
 
 static inline struct ehci_debug_info *dbgp_ehci_info(void)
 {
-	if (car_get_var(glob_dbg_info_p) == NULL) {
+	if (car_get_ptr(glob_dbg_info_p) == NULL) {
 		struct ehci_debug_info *info;
 		if (ENV_BOOTBLOCK || ENV_VERSTAGE || ENV_ROMSTAGE) {
 			/* The message likely does not show if we hit this. */
@@ -76,9 +77,9 @@ static inline struct ehci_debug_info *dbgp_ehci_info(void)
 		} else {
 			info = &glob_dbg_info;
 		}
-		car_set_var(glob_dbg_info_p, info);
+		car_set_ptr(glob_dbg_info_p, info);
 	}
-	return car_get_var(glob_dbg_info_p);
+	return car_get_ptr(glob_dbg_info_p);
 }
 
 static int dbgp_wait_until_complete(struct ehci_dbg_port *ehci_debug)
@@ -216,7 +217,7 @@ static void dbgp_print_data(struct ehci_dbg_port *ehci_debug)
 	int len;
 	u32 ctrl, lo, hi;
 
-	if (!IS_ENABLED(CONFIG_DEBUG_CONSOLE_INIT) || dbgp_enabled())
+	if (!CONFIG(DEBUG_CONSOLE_INIT) || dbgp_enabled())
 		return;
 
 	ctrl = read32(&ehci_debug->control);
@@ -715,15 +716,15 @@ static void migrate_ehci_debug(int is_recovery)
 		if (dbg_info_cbmem == NULL)
 			return;
 		memcpy(dbg_info_cbmem, dbg_info, sizeof(*dbg_info));
-		car_set_var(glob_dbg_info_p, dbg_info_cbmem);
+		car_set_ptr(glob_dbg_info_p, dbg_info_cbmem);
 		return;
 	}
 
-	if (IS_ENABLED(CONFIG_USBDEBUG_IN_PRE_RAM)) {
+	if (CONFIG(USBDEBUG_IN_PRE_RAM)) {
 		/* Use state in CBMEM. */
 		dbg_info_cbmem = cbmem_find(CBMEM_ID_EHCI_DEBUG);
 		if (dbg_info_cbmem)
-			car_set_var(glob_dbg_info_p, dbg_info_cbmem);
+			car_set_ptr(glob_dbg_info_p, dbg_info_cbmem);
 	}
 
 	rv = usbdebug_hw_init(false);
@@ -758,13 +759,13 @@ void usbdebug_init(void)
 	 * CBMEM_INIT_HOOKs for postcar and ramstage as we recover state
 	 * from CBMEM.
 	 */
-	if (IS_ENABLED(CONFIG_USBDEBUG_IN_PRE_RAM)
+	if (CONFIG(USBDEBUG_IN_PRE_RAM)
 	    && (ENV_ROMSTAGE || ENV_BOOTBLOCK))
 		usbdebug_hw_init(false);
 
 	/* USB console init is done early in ramstage if it was
 	 * not done in romstage, this does not require CBMEM.
 	 */
-	if (!IS_ENABLED(CONFIG_USBDEBUG_IN_PRE_RAM) && ENV_RAMSTAGE)
+	if (!CONFIG(USBDEBUG_IN_PRE_RAM) && ENV_RAMSTAGE)
 		usbdebug_hw_init(false);
 }

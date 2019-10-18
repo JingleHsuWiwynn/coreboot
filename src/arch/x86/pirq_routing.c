@@ -1,9 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2012 Alexandru Gagniuc <mr.nuke.me@gmail.com>
- * Copyright (C) 2010 Stefan Reinauer <stepan@coreboot.org>
- *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 2 of the License, or
@@ -16,12 +13,9 @@
  */
 #include <console/console.h>
 #include <arch/pirq_routing.h>
+#include <commonlib/helpers.h>
 #include <string.h>
 #include <device/pci.h>
-
-void __weak pirq_assign_irqs(const unsigned char pirq[CONFIG_MAX_PIRQ_LINKS])
-{
-}
 
 static void check_pirq_routing_table(struct irq_routing_table *rt)
 {
@@ -145,8 +139,11 @@ static void pirq_route_irqs(unsigned long addr)
 	/* Set PCI IRQs. */
 	for (i = 0; i < num_entries; i++) {
 
+		u8 bus = pirq_tbl->slots[i].bus;
+		u8 devfn = pirq_tbl->slots[i].devfn;
+
 		printk(BIOS_DEBUG, "PIRQ Entry %d Dev/Fn: %X Slot: %d\n", i,
-			pirq_tbl->slots[i].devfn >> 3, pirq_tbl->slots[i].slot);
+			devfn >> 3, pirq_tbl->slots[i].slot);
 
 		for (intx = 0; intx < MAX_INTX_ENTRIES; intx++) {
 
@@ -177,8 +174,7 @@ static void pirq_route_irqs(unsigned long addr)
 		}
 
 		/* Bus, device, slots IRQs for {A,B,C,D}. */
-		pci_assign_irqs(pirq_tbl->slots[i].bus,
-			pirq_tbl->slots[i].devfn >> 3, irq_slot);
+		pci_assign_irqs(pcidev_path_on_bus(bus, devfn), irq_slot);
 	}
 
 	for (i = 0; i < CONFIG_MAX_PIRQ_LINKS; i++)
@@ -191,16 +187,16 @@ unsigned long copy_pirq_routing_table(unsigned long addr,
 	const struct irq_routing_table *routing_table)
 {
 	/* Align the table to be 16 byte aligned. */
-	addr = ALIGN(addr, 16);
+	addr = ALIGN_UP(addr, 16);
 
 	/* This table must be between 0xf0000 & 0x100000 */
 	printk(BIOS_INFO, "Copying Interrupt Routing Table to 0x%08lx... ",
 		addr);
 	memcpy((void *)addr, routing_table, routing_table->size);
 	printk(BIOS_INFO, "done.\n");
-	if (IS_ENABLED(CONFIG_DEBUG_PIRQ))
+	if (CONFIG(DEBUG_PIRQ))
 		verify_copy_pirq_routing_table(addr, routing_table);
-	if (IS_ENABLED(CONFIG_PIRQ_ROUTE))
+	if (CONFIG(PIRQ_ROUTE))
 		pirq_route_irqs(addr);
 
 	return addr + routing_table->size;

@@ -38,6 +38,8 @@ enum {
 	KB_EC_INFO = 0x38,
 	/* Set ACPI mode on or off */
 	KB_ACPI = 0x3a,
+	/* Board ID */
+	KB_BOARD_ID = 0x3d,
 	/* Change ACPI wake up source */
 	KB_ACPI_WAKEUP_CHANGE = 0x4a,
 	/* Manage the EC power button passthru to the host */
@@ -48,6 +50,15 @@ enum {
 	KB_SLP_EN = 0x64,
 	/* Inform the EC about BIOS boot progress */
 	KB_BIOS_PROGRESS = 0xc2,
+	/* Inform the EC that a fatal error occurred */
+	KB_ERR_CODE = 0x7b,
+};
+
+enum ec_ram_addr {
+	/* Indicate if EC uses signed firmware */
+	EC_RAM_SIGNED_FW = 0x5c,
+	/* Indicate support for S0ix */
+	EC_RAM_S0IX_SUPPORT = 0xb8,
 };
 
 enum set_acpi_mode_cmd {
@@ -56,6 +67,7 @@ enum set_acpi_mode_cmd {
 };
 
 enum bios_progress_code {
+	BIOS_PROGRESS_BEFORE_MEMORY = 0x00,
 	BIOS_PROGRESS_MEMORY_INIT = 0x01,
 	BIOS_PROGRESS_VIDEO_INIT = 0x02,
 	BIOS_PROGRESS_LOGO_DISPLAYED = 0x03,
@@ -68,12 +80,26 @@ enum ec_audio_mute {
 };
 
 enum ec_radio {
-	RADIO_WIFI = 0x02,
+	RADIO_WIFI = 0,
+	RADIO_WWAN,
+	RADIO_BT,
+};
+
+enum ec_radio_action {
+	RADIO_READ = 1,
+	RADIO_WRITE,
+	RADIO_TOGGLE,
 };
 
 enum ec_camera {
 	CAMERA_ON = 0,
 	CAMERA_OFF
+};
+
+enum ec_err_code {
+	DLED_MEMORY = 0x03,
+	DLED_PANEL = 0x10,
+	DLED_ROM = 0x19,
 };
 
 /**
@@ -259,6 +285,17 @@ int wilco_ec_get_pm(struct ec_pm_event_state *pm, bool clear);
  */
 int wilco_ec_get_lid_state(void);
 
+/**
+ * wilco_ec_get_board_id
+ *
+ * Retrieve the board ID value from the EC.
+ * @id:		Pointer to variable to store the ID read from the EC.
+ *
+ * Returns number of bytes transferred from the EC
+ * Returns -1 if the EC command failed
+ */
+int wilco_ec_get_board_id(uint8_t *id);
+
 enum ec_wake_change {
 	WAKE_OFF = 0,
 	WAKE_ON
@@ -279,5 +316,25 @@ enum ec_acpi_wake_events {
 	EC_ACPI_WAKE_LID = BIT(1),	/* Wake up by lid switch */
 	EC_ACPI_WAKE_RTC = BIT(5),	/* Wake up by RTC */
 };
+
+/**
+ * wilco_ec_signed_fw
+ *
+ * Indicate if the EC uses signed firmware.
+ *
+ * Returns 1 if EC uses signed firmware, otherwise returns 0
+ */
+int wilco_ec_signed_fw(void);
+
+/**
+ * wilco_ec_save_post_code
+ *
+ * Save this post code as the most recent progress step.  If the boot fails
+ * and calls die_notify() this post code will be used to send an error code
+ * to the EC indicating the failure.
+ *
+ * @post_code: Post code to save
+ */
+void wilco_ec_save_post_code(uint8_t post_code);
 
 #endif /* EC_GOOGLE_WILCO_COMMANDS_H */

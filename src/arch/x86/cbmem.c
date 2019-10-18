@@ -13,9 +13,8 @@
 
 #include <stdlib.h>
 #include <cbmem.h>
-#include <arch/acpi.h>
 
-#if IS_ENABLED(CONFIG_CBMEM_TOP_BACKUP)
+#if CONFIG(CBMEM_TOP_BACKUP)
 
 void *cbmem_top(void)
 {
@@ -35,13 +34,3 @@ void *cbmem_top(void)
 }
 
 #endif /* CBMEM_TOP_BACKUP */
-
-/* Something went wrong, our high memory area got wiped */
-void cbmem_fail_resume(void)
-{
-#if !defined(__PRE_RAM__) && IS_ENABLED(CONFIG_HAVE_ACPI_RESUME)
-	/* ACPI resume needs to be cleared in the fail-to-recover case, but that
-	 * condition is only handled during ramstage. */
-	acpi_fail_wakeup();
-#endif
-}

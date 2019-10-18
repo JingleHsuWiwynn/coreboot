@@ -13,10 +13,10 @@
  * GNU General Public License for more details.
  */
 
-#include <string.h>
 #include <arch/acpi.h>
 #include <arch/ioapic.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <cpu/amd/amdfam10_sysconf.h>
 
 #include "mb_sysconf.h"

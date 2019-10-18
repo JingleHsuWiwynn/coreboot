@@ -22,10 +22,12 @@
 #include <arch/acpi.h>
 #include <arch/io.h>
 #include <device/device.h>
+#include <version.h>
+
 #include "hudson.h"
 #include "smi.h"
 
-#if IS_ENABLED(CONFIG_HUDSON_LEGACY_FREE)
+#if CONFIG(HUDSON_LEGACY_FREE)
 	#define FADT_BOOT_ARCH ACPI_FADT_LEGACY_FREE
 #else
 	#define FADT_BOOT_ARCH (ACPI_FADT_LEGACY_DEVICES | ACPI_FADT_8042)
@@ -53,15 +55,15 @@ void acpi_create_fadt(acpi_fadt_t * fadt, acpi_facs_t * facs, void *dsdt)
 	memcpy(header->oem_id, OEM_ID, 6);
 	memcpy(header->oem_table_id, ACPI_TABLE_CREATOR, 8);
 	memcpy(header->asl_compiler_id, ASLC, 4);
-	header->asl_compiler_revision = 0;
+	header->asl_compiler_revision = asl_revision;
 
 	fadt->firmware_ctrl = (u32) facs;
 	fadt->dsdt = (u32) dsdt;
-	fadt->model = 0;		/* reserved, should be 0 ACPI 3.0 */
+	fadt->reserved = 0;		/* reserved, should be 0 ACPI 3.0 */
 	fadt->preferred_pm_profile = FADT_PM_PROFILE;
 	fadt->sci_int = 9;		/* HUDSON - IRQ 09 - ACPI SCI */
 
-	if (IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)) {
+	if (CONFIG(HAVE_SMI_HANDLER)) {
 		fadt->smi_cmd = ACPI_SMI_CTL_PORT;
 		fadt->acpi_enable = ACPI_SMI_CMD_ENABLE;
 		fadt->acpi_disable = ACPI_SMI_CMD_DISABLE;

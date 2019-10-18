@@ -15,7 +15,6 @@
 
 #include <arch/cache.h>
 #include <arch/exception.h>
-#include <arch/io.h>
 #include <cbmem.h>
 #include <console/console.h>
 #include <reset.h>
@@ -51,13 +50,14 @@ static void __attribute__((noinline)) romstage(void)
 	u32 dram_end_mb = sdram_max_addressable_mb();
 	u32 dram_size_mb = dram_end_mb - dram_start_mb;
 
-#if !IS_ENABLED(CONFIG_VBOOT)
+#if !CONFIG(VBOOT)
 	configure_l2_cache();
 	mmu_init();
 	/* Device memory below DRAM is uncached. */
 	mmu_config_range(0, dram_start_mb, DCACHE_OFF);
 	/* SRAM is cached. MMU code will round size up to page size. */
-	mmu_config_range((uintptr_t)_sram/MiB, DIV_ROUND_UP(_sram_size, MiB),
+	mmu_config_range((uintptr_t)_sram/MiB,
+			 DIV_ROUND_UP(REGION_SIZE(sram), MiB),
 			 DCACHE_WRITEBACK);
 	/* The space above DRAM is uncached. */
 	if (dram_end_mb < 4096)
@@ -70,7 +70,7 @@ static void __attribute__((noinline)) romstage(void)
 	mmu_config_range(dram_start_mb, dram_size_mb, DCACHE_WRITEBACK);
 	/* A window for DMA is uncached. */
 	mmu_config_range((uintptr_t)_dma_coherent/MiB,
-			 _dma_coherent_size/MiB, DCACHE_OFF);
+			 REGION_SIZE(dma_coherent)/MiB, DCACHE_OFF);
 
 	/*
 	 * A watchdog reset only resets part of the system so it ends up in
@@ -85,7 +85,7 @@ static void __attribute__((noinline)) romstage(void)
 	cbmem_initialize_empty();
 
 	/* This was already called from verstage in vboot context. */
-	if (!IS_ENABLED(CONFIG_VBOOT))
+	if (!CONFIG(VBOOT))
 		early_mainboard_init();
 
 	run_ramstage();
@@ -94,7 +94,7 @@ static void __attribute__((noinline)) romstage(void)
 /* Stub to force arm_init_caches to the top, before any stack/memory accesses */
 void main(void)
 {
-#if !IS_ENABLED(CONFIG_VBOOT)
+#if !CONFIG(VBOOT)
 	asm volatile ("bl arm_init_caches"
 		      ::: "r0","r1","r2","r3","r4","r5","ip");
 #endif

@@ -15,20 +15,13 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <console/console.h>
-#include <delay.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
-#include <string.h>
 #include <device/pci_ops.h>
 #include <commonlib/helpers.h>
 #include <cbmem.h>
-
-#include "drivers/intel/gma/i915_reg.h"
-#include "chip.h"
-#include "x4x.h"
 #include <drivers/intel/gma/intel_bios.h>
 #include <drivers/intel/gma/edid.h>
 #include <drivers/intel/gma/i915.h>
@@ -36,10 +29,15 @@
 #include <drivers/intel/gma/libgfxinit.h>
 #include <pc80/vga.h>
 #include <pc80/vga_io.h>
+#include <types.h>
 
-#if IS_ENABLED(CONFIG_SOUTHBRIDGE_INTEL_I82801JX)
+#include "chip.h"
+#include "drivers/intel/gma/i915_reg.h"
+#include "x4x.h"
+
+#if CONFIG(SOUTHBRIDGE_INTEL_I82801JX)
 #include <southbridge/intel/i82801jx/nvs.h>
-#elif IS_ENABLED(CONFIG_SOUTHBRIDGE_INTEL_I82801GX)
+#elif CONFIG(SOUTHBRIDGE_INTEL_I82801GX)
 #include <southbridge/intel/i82801gx/nvs.h>
 #endif
 
@@ -72,7 +70,7 @@ static void gma_func0_init(struct device *dev)
 
 	int vga_disable = (pci_read_config16(dev, D0F0_GGC) & 2) >> 1;
 
-	if (IS_ENABLED(CONFIG_MAINBOARD_USE_LIBGFXINIT)) {
+	if (CONFIG(MAINBOARD_USE_LIBGFXINIT)) {
 		if (vga_disable) {
 			printk(BIOS_INFO,
 			       "IGD is not decoding legacy VGA MEM and IO: skipping NATIVE graphic init\n");
@@ -95,19 +93,6 @@ static void gma_func0_disable(struct device *dev)
 	ggc = pci_read_config16(dev_host, D0F0_GGC);
 	ggc |= (1 << 1); /* VGA cycles to discrete GPU */
 	pci_write_config16(dev_host, D0F0_GGC, ggc);
-}
-
-static void gma_set_subsystem(struct device *dev, unsigned int vendor,
-			unsigned int device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				   pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				   ((device & 0xffff) << 16) | (vendor &
-								0xffff));
-	}
 }
 
 const struct i915_gpu_controller_info *
@@ -161,7 +146,7 @@ static const char *gma_acpi_name(const struct device *dev)
 }
 
 static struct pci_operations gma_pci_ops = {
-	.set_subsystem = gma_set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 };
 
 static struct device_operations gma_func0_ops = {

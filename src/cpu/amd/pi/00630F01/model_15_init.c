@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2012 Advanced Micro Devices, Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -21,12 +19,10 @@
 #include <cpu/x86/smm.h>
 #include <device/device.h>
 #include <device/pci.h>
-#include <string.h>
 #include <cpu/x86/pae.h>
 #include <cpu/x86/lapic.h>
 #include <cpu/cpu.h>
 #include <cpu/x86/cache.h>
-#include <arch/acpi.h>
 
 static void model_15_init(struct device *dev)
 {
@@ -37,7 +33,7 @@ static void model_15_init(struct device *dev)
 	int num_banks;
 	int msrno;
 	unsigned int cpu_idx;
-#if IS_ENABLED(CONFIG_LOGICAL_CPUS)
+#if CONFIG(LOGICAL_CPUS)
 	u32 siblings;
 #endif
 
@@ -79,7 +75,7 @@ static void model_15_init(struct device *dev)
 	/* Enable the local CPU APICs */
 	setup_lapic();
 
-#if IS_ENABLED(CONFIG_LOGICAL_CPUS)
+#if CONFIG(LOGICAL_CPUS)
 	siblings = cpuid_ecx(0x80000008) & 0xff;
 
 	if (siblings > 0) {
@@ -99,7 +95,7 @@ static void model_15_init(struct device *dev)
 	msr.hi &= ~(1 << (46 - 32));
 	wrmsr(NB_CFG_MSR, msr);
 
-	if (IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)) {
+	if (CONFIG(HAVE_SMI_HANDLER)) {
 		cpu_idx = cpu_info()->index;
 		printk(BIOS_INFO, "Initializing SMM for CPU %u\n", cpu_idx);
 

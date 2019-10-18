@@ -13,6 +13,13 @@ should also list people interested in supporting people who want to work
 on them - since we started building this list for Google Summer of Code,
 we'll adopt its term for those people and call them mentors.
 
+The requirements for each project aim for productive work on the project,
+but it's always possible to learn them "on the job". If you have any
+doubt if you can bring yourself up to speed in a required time frame
+(e.g. for GSoC), feel free to ask in the community or the mentors listed
+with the projects. We can then try together to figure out if you're a
+good match for a project, even when requirements might not all be met.
+
 ## Provide toolchain binaries
 Our crossgcc subproject provides a uniform compiler environment for
 working on coreboot and related projects. Sadly, building it takes hours,
@@ -22,8 +29,13 @@ Provide packages/installers of our compiler toolchain for Linux distros,
 Windows, Mac OS. For Windows, this should also include the environment
 (shell, make, ...).
 
-### Requirements
+The scripts to generate these packages should be usable on a Linux
+host, as that's what we're using for our automated build testing system
+that we could extend to provide current packages going forward. This
+might include automating some virtualization system (eg. QEMU or CrosVM) for
+non-Linux builds or Docker for different Linux distributions.
 
+### Requirements
 * coreboot knowledge: Should know how to build coreboot images and where
   the compiler comes into play in our build system.
 * other knowledge: Should know how packages or installers for their
@@ -72,6 +84,7 @@ code doesn't entirely break these architectures
   hardware is available.
 
 ### Mentors
+* Patrick Georgi <patrick@georgi.software>
 
 ## Add Kernel Address Sanitizer functionality to coreboot
 The Kernel Address Sanitizer (KASAN) is a runtime dynamic memory error detector.
@@ -110,3 +123,81 @@ combination of payload and architecture to support.
 
 ### Mentors
 * Simon Glass <sjg@chromium.org> for U-Boot payload projects
+
+## Fully support building coreboot with the Clang compiler
+Most coreboot code is written in C, and it would be useful to support
+a second compiler suite in addition to gcc. Clang is another popular
+compiler suite and the build system generally supports building coreboot
+with it, but firmware is a rather special situation and we need to
+adjust coreboot and Clang some more to get usable binaries out of that
+combination.
+
+The goal would be to get the emulation targets to boot reliably first,
+but also to support real hardware. If you don't have hardware around,
+you likely will find willing testers for devices they own and work from
+their bug reports.
+
+### Requirements
+* coreboot knowledge: Have a general concept of the build system
+* Clang knowledge: It may be necessary to apply minor modifications to Clang
+  itself, but at least there will be Clang-specific compiler options etc to
+  adapt, so some idea how compilers work and how to modify their behavior is
+  helpful.
+* hardware requirements: If you have your own hardware that is already
+  supported by coreboot that can be a good test target, but you will debug
+  other people's hardware, too.
+* debugging experience: It helps if you know how to get the most out of a bug
+  report, generate theories, build patches to test them and figure out what's
+  going on from the resulting logs.
+
+### Mentors
+* Patrick Georgi <patrick@georgi.software>
+
+## Make coreboot coverity clean
+coreboot and several other of our projects are automatically tested
+using Synopsys' free "Coverity Scan" service. While some fare pretty
+good, like [em100](https://scan.coverity.com/projects/em100) at 0 known
+defects, there are still many open issues in other projects, most notably
+[coreboot](https://scan.coverity.com/projects/coreboot) itself (which
+is also the largest codebase).
+
+Not all of the reports are actual issues, but the project benefits a
+lot if the list of unhandled reports is down to 0 because that provides
+a baseline when future changes reintroduce new issues: it's easier to
+triage and handle a list of 5 issues rather than more than 350.
+
+This project would be going through all reports and handling them
+appropriately: Figure out if reports are valid or not and mark them
+as such. For valid reports, provide patches to fix the underlying issue.
+
+### Mentors
+* Patrick Georgi <patrick@georgi.software>
+
+## Extend Ghidra to support analysis of firmware images
+[Ghidra](https://ghidra-sre.org) is a recently released cross-platform
+disassembler and decompiler that is extensible through plugins. Make it
+useful for firmware related work: Automatically parse formats (eg. by
+integrating UEFITool, cbfstool, decompressors), automatically identify
+16/32/64bit code on x86/amd64, etc.
+
+## Learn hardware behavior from I/O and memory access logs
+[SerialICE](https://www.serialice.com) is a tool to trace the behavior of
+executable code like firmware images. One result of that is a long log file
+containing the accesses to hardware resources.
+
+It would be useful to have a tool that assists a developer-analyst in deriving
+knowledge about hardware from such logs. This likely can't be entirely
+automatic, but a tool that finds patterns and can propagate them across the
+log (incrementially raising the log from plain I/O accesses to a high-level
+description of driver behavior) would be of great use.
+
+This is a research-heavy project.
+
+### Requirements
+* Driver knowledge: Somebody working on this should be familiar with
+  how hardware works (eg. MMIO based register access, index/data port
+  accesses) and how to read data sheets.
+* Machine Learning: ML techniques may be useful to find structure in traces.
+
+### Mentors
+* Ron Minnich <rminnich@google.com>

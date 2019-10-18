@@ -22,6 +22,8 @@
 #define TPM2_RC_SUCCESS    0
 #define TPM2_RC_NV_DEFINED 0x14c
 
+#define HASH_COUNT 2 /* SHA-1 and SHA-256 are supported */
+
 /* Basic TPM2 types. */
 typedef uint16_t TPM_SU;
 typedef uint16_t TPM_ALG_ID;
@@ -36,12 +38,28 @@ typedef TPM_HANDLE TPMI_SH_AUTH_SESSION;
 typedef TPM_HANDLE TPM_RH;
 
 /* Some hardcoded algorithm values. */
-#define TPM_ALG_HMAC   ((TPM_ALG_ID)0x0005)
-#define TPM_ALG_NULL   ((TPM_ALG_ID)0x0010)
-#define TPM_ALG_SHA1   ((TPM_ALG_ID)0x0004)
-#define TPM_ALG_SHA256 ((TPM_ALG_ID)0x000b)
+/* Table 7 - TPM_ALG_ID Constants */
+#define TPM_ALG_ERROR   ((TPM_ALG_ID)0x0000)
+#define TPM_ALG_HMAC    ((TPM_ALG_ID)0x0005)
+#define TPM_ALG_NULL    ((TPM_ALG_ID)0x0010)
+#define TPM_ALG_SHA1    ((TPM_ALG_ID)0x0004)
+#define TPM_ALG_SHA256  ((TPM_ALG_ID)0x000b)
+#define TPM_ALG_SHA384  ((TPM_ALG_ID)0x000C)
+#define TPM_ALG_SHA512  ((TPM_ALG_ID)0x000D)
+#define TPM_ALG_SM3_256 ((TPM_ALG_ID)0x0012)
 
-#define SHA256_DIGEST_SIZE 32
+/* Annex A Algorithm Constants */
+
+/* Table 205 - Defines for SHA1 Hash Values */
+#define SHA1_DIGEST_SIZE    20
+/* Table 206 - Defines for SHA256 Hash Values */
+#define SHA256_DIGEST_SIZE  32
+/* Table 207 - Defines for SHA384 Hash Values */
+#define SHA384_DIGEST_SIZE  48
+/* Table 208 - Defines for SHA512 Hash Values */
+#define SHA512_DIGEST_SIZE  64
+/* Table 209 - Defines for SM3_256 Hash Values */
+#define SM3_256_DIGEST_SIZE 32
 
 /* Some hardcoded hierarchies. */
 #define TPM_RH_NULL         0x40000007
@@ -78,6 +96,12 @@ struct tpm_header {
 /* TPM2 specifies vendor commands need to have this bit set. Vendor command
    space is defined by the lower 16 bits. */
 #define TPM_CC_VENDOR_BIT_MASK 0x20000000
+
+/* Table 15 - TPM_RC Constants (Actions) */
+#define RC_FMT1                (TPM_RC)(0x080)
+#define TPM_RC_HASH            (TPM_RC)(RC_FMT1 + 0x003)
+#define TPM_RC_P               (TPM_RC)(0x040)
+#define TPM_RC_N_MASK          (TPM_RC)(0xF00)
 
 /* Startup values. */
 #define TPM_SU_CLEAR 0
@@ -144,7 +168,9 @@ struct tpm2_shutdown {
 };
 
 /* Various TPM capability types to use when querying the device. */
+/* Table 21 - TPM_CAP Constants */
 typedef uint32_t TPM_CAP;
+#define TPM_CAP_PCRS             ((TPM_CAP)0x00000005)
 #define TPM_CAP_TPM_PROPERTIES   ((TPM_CAP)0x00000006)
 
 typedef TPM_HANDLE TPMI_RH_NV_AUTH;
@@ -224,9 +250,29 @@ typedef struct {
 		      sizeof(TPMI_YES_NO) - sizeof(TPM_CAP) - sizeof(uint32_t))
 #define MAX_TPM_PROPERTIES  (MAX_CAP_DATA/sizeof(TPMS_TAGGED_PROPERTY))
 
+#define IMPLEMENTATION_PCR            24
+#define PLATFORM_PCR                  24
+
+#define PCR_SELECT_MIN                (ALIGN_UP(PLATFORM_PCR, 8)/8)
+#define PCR_SELECT_MAX                (ALIGN_UP(IMPLEMENTATION_PCR, 8)/8)
+
 /* Somewhat arbitrary, leave enough room for command wrappers. */
 #define MAX_NV_BUFFER_SIZE (TPM_BUFFER_SIZE - sizeof(struct tpm_header) - 50)
 
+/* Table 81 - TPMS_PCR_SELECTION Structure */
+typedef struct {
+	TPMI_ALG_HASH   hash;
+	uint8_t         sizeofSelect;
+	uint8_t         pcrSelect[PCR_SELECT_MAX];
+} __packed TPMS_PCR_SELECTION;
+
+/* Table 98 - TPML_PCR_SELECTION Structure */
+typedef struct {
+	uint32_t           count;
+	TPMS_PCR_SELECTION pcrSelections[HASH_COUNT];
+} __packed TPML_PCR_SELECTION;
+
+/* Table 100 - TPML_TAGGED_TPM_PROPERTY Structure */
 typedef struct {
 	uint32_t              count;
 	TPMS_TAGGED_PROPERTY  tpmProperty[MAX_TPM_PROPERTIES];
@@ -234,6 +280,7 @@ typedef struct {
 
 typedef union {
 	TPML_TAGGED_TPM_PROPERTY  tpmProperties;
+	TPML_PCR_SELECTION        assignedPCR;
 } TPMU_CAPABILITIES;
 
 typedef struct {
@@ -270,12 +317,13 @@ typedef union {
 	TPM2B b;
 } TPM2B_MAX_NV_BUFFER;
 
-/*
- * This is a union, but as of now we support just one digest - sha256, so
- * there is just one element.
- */
+/* Table 66 - TPMU_HA Union */
 typedef union {
-	uint8_t  sha256[SHA256_DIGEST_SIZE];
+	uint8_t sha1[SHA1_DIGEST_SIZE];
+	uint8_t sha256[SHA256_DIGEST_SIZE];
+	uint8_t sm3_256[SM3_256_DIGEST_SIZE];
+	uint8_t sha384[SHA384_DIGEST_SIZE];
+	uint8_t sha512[SHA512_DIGEST_SIZE];
 } TPMU_HA;
 
 typedef struct {
@@ -283,9 +331,10 @@ typedef struct {
 	TPMU_HA        digest;
 } TPMT_HA;
 
+/* Table 96 -- TPML_DIGEST_VALUES Structure <I/O> */
 typedef struct {
 	uint32_t   count;
-	TPMT_HA  digests[1];  /* Limit max number of hashes to 1. */
+	TPMT_HA digests[HASH_COUNT];
 } TPML_DIGEST_VALUES;
 
 struct nv_read_response {

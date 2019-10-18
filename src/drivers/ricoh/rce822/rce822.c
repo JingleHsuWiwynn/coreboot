@@ -17,7 +17,7 @@
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include "chip.h"
 
 static void rce822_enable(struct device *dev)
@@ -70,4 +70,8 @@ static const struct pci_driver rce822 __pci_driver = {
 	.ops	 = &rce822_ops,
 	.vendor	 = PCI_VENDOR_ID_RICOH,
 	.devices = pci_device_ids,
+};
+
+struct chip_operations drivers_ricoh_rce822_ops = {
+	CHIP_NAME("RICOH RCE822")
 };

@@ -13,12 +13,12 @@
  * GNU General Public License for more details.
  */
 
+#include <arch/io.h>
 #include <device/device.h>
 #include <device/path.h>
 #include <device/smbus.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
-#include <device/pci_ops.h>
 #include <soc/smbus.h>
 #include "smbuslib.h"
 
@@ -91,8 +91,10 @@ static const unsigned short pci_device_ids[] = {
 	PCI_DEVICE_ID_INTEL_CNL_SMBUS,
 	PCI_DEVICE_ID_INTEL_SPT_LP_SMBUS,
 	PCI_DEVICE_ID_INTEL_SPT_H_SMBUS,
-	PCI_DEVICE_ID_INTEL_KBP_H_SMBUS,
+	PCI_DEVICE_ID_INTEL_LWB_SMBUS_SUPER,
+	PCI_DEVICE_ID_INTEL_KBP_H_LWB_SMBUS,
 	PCI_DEVICE_ID_INTEL_ICP_LP_SMBUS,
+	PCI_DEVICE_ID_INTEL_CMP_SMBUS,
 	0
 };
 

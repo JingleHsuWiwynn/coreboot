@@ -14,7 +14,8 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
@@ -40,7 +41,7 @@ static inline void sir_write(struct device *dev, int idx, u32 value)
 
 static void sata_init(struct device *dev)
 {
-	config_t *config = dev->chip_info;
+	config_t *config = config_of(dev);
 	u32 reg32;
 	u8 *abar;
 	u16 reg16;
@@ -270,7 +271,7 @@ static void sata_init(struct device *dev)
 static void sata_enable(struct device *dev)
 {
 	/* Get the chip configuration */
-	config_t *config = dev->chip_info;
+	config_t *config = config_of(dev);
 	u16 map = 0x0060;
 
 	map |= (config->sata_port_map ^ 0xf) << 8;

@@ -124,10 +124,9 @@ static void lpc_init(struct device *dev)
 	get_option(&on, "slow_cpu");
 	if (on) {
 		u16 pm10_bar;
-		u32 dword;
 		pm10_bar = (pci_read_config16(dev, 0x60) & 0xff00);
 		outl(((on << 1) + 0x10), (pm10_bar + 0x10));
-		dword = inl(pm10_bar + 0x10);
+		inl(pm10_bar + 0x10);
 		on = 8 - on;
 		printk(BIOS_DEBUG, "Throttling CPU %2d.%1.1d percent.\n",
 		       (on * 12) + (on >> 1), (on & 1) * 5);
@@ -297,7 +296,7 @@ static void ck804_lpc_enable_resources(struct device *dev)
 	ck804_lpc_enable_childrens_resources(dev);
 }
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 
 static void southbridge_acpi_fill_ssdt_generator(struct device *device)
 {
@@ -310,12 +309,12 @@ static struct device_operations lpc_ops = {
 	.read_resources   = ck804_lpc_read_resources,
 	.set_resources    = ck804_lpc_set_resources,
 	.enable_resources = ck804_lpc_enable_resources,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_fill_ssdt_generator = southbridge_acpi_fill_ssdt_generator,
 	.write_acpi_tables      = acpi_write_hpet,
 #endif
 	.init             = lpc_init,
-	.scan_bus         = scan_lpc_bus,
+	.scan_bus         = scan_static_bus,
 	.ops_pci          = &ck804_pci_ops,
 };
 
@@ -335,7 +334,7 @@ static struct device_operations lpc_slave_ops = {
 	.read_resources   = ck804_lpc_read_resources,
 	.set_resources    = pci_dev_set_resources,
 	.enable_resources = pci_dev_enable_resources,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.write_acpi_tables      = acpi_write_hpet,
 #endif
 	.init             = lpc_slave_init,

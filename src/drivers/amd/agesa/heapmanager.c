@@ -20,13 +20,14 @@
 #include <northbridge/amd/agesa/BiosCallOuts.h>
 
 #include <arch/acpi.h>
+#include <console/console.h>
 #include <string.h>
 
 /* BIOS_HEAP_START_ADDRESS is only for cold boots. */
 #define BIOS_HEAP_SIZE		0x30000
 #define BIOS_HEAP_START_ADDRESS	0x010000000
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_RESUME) && (HIGH_MEMORY_SCRATCH < BIOS_HEAP_SIZE)
+#if CONFIG(HAVE_ACPI_RESUME) && (HIGH_MEMORY_SCRATCH < BIOS_HEAP_SIZE)
 #error Increase HIGH_MEMORY_SCRATCH allocation
 #endif
 

@@ -267,9 +267,11 @@ int print_epbar(struct pci_dev *nb)
 	case PCI_DEVICE_ID_INTEL_CORE_6TH_GEN_M:
 	case PCI_DEVICE_ID_INTEL_CORE_6TH_GEN_WST:
 	case PCI_DEVICE_ID_INTEL_CORE_6TH_GEN_D:
+	case PCI_DEVICE_ID_INTEL_CORE_6TH_GEN_E:
 	case PCI_DEVICE_ID_INTEL_CORE_7TH_GEN_U:
 	case PCI_DEVICE_ID_INTEL_CORE_7TH_GEN_Y:
 	case PCI_DEVICE_ID_INTEL_CORE_7TH_GEN_U_Q:
+	case PCI_DEVICE_ID_INTEL_CORE_7TH_GEN_E3:
 		epbar_phys = pci_read_long(nb, 0x40) & 0xfffffffe;
 		epbar_phys |= ((uint64_t)pci_read_long(nb, 0x44)) << 32;
 		break;
@@ -392,9 +394,11 @@ int print_dmibar(struct pci_dev *nb)
 	case PCI_DEVICE_ID_INTEL_CORE_6TH_GEN_M:
 	case PCI_DEVICE_ID_INTEL_CORE_6TH_GEN_WST:
 	case PCI_DEVICE_ID_INTEL_CORE_6TH_GEN_D:
+	case PCI_DEVICE_ID_INTEL_CORE_6TH_GEN_E:
 	case PCI_DEVICE_ID_INTEL_CORE_7TH_GEN_U:
 	case PCI_DEVICE_ID_INTEL_CORE_7TH_GEN_Y:
 	case PCI_DEVICE_ID_INTEL_CORE_7TH_GEN_U_Q:
+	case PCI_DEVICE_ID_INTEL_CORE_7TH_GEN_E3:
 		dmi_registers = skylake_dmi_registers;
 		size = ARRAY_SIZE(skylake_dmi_registers);
 		dmibar_phys = pci_read_long(nb, 0x68);
@@ -501,9 +505,11 @@ int print_pciexbar(struct pci_dev *nb)
 	case PCI_DEVICE_ID_INTEL_CORE_6TH_GEN_M:
 	case PCI_DEVICE_ID_INTEL_CORE_6TH_GEN_WST:
 	case PCI_DEVICE_ID_INTEL_CORE_6TH_GEN_D:
+	case PCI_DEVICE_ID_INTEL_CORE_6TH_GEN_E:
 	case PCI_DEVICE_ID_INTEL_CORE_7TH_GEN_U:
 	case PCI_DEVICE_ID_INTEL_CORE_7TH_GEN_Y:
 	case PCI_DEVICE_ID_INTEL_CORE_7TH_GEN_U_Q:
+	case PCI_DEVICE_ID_INTEL_CORE_7TH_GEN_E3:
 		pciexbar_reg = pci_read_long(nb, 0x60);
 		pciexbar_reg |= ((uint64_t)pci_read_long(nb, 0x64)) << 32;
 		break;

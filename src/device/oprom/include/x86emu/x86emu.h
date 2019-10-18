@@ -42,8 +42,7 @@
 #define __X86EMU_X86EMU_H
 
 #include <stddef.h>
-#include <console/console.h>
-#if IS_ENABLED(CONFIG_X86EMU_DEBUG)
+#if CONFIG(X86EMU_DEBUG)
 #define DEBUG
 #endif
 
@@ -153,7 +152,7 @@ void X86EMU_setMemBase(void *base, size_t size);
 void 	X86EMU_exec(void);
 void 	X86EMU_halt_sys(void);
 
-#if IS_ENABLED(CONFIG_X86EMU_DEBUG)
+#if CONFIG(X86EMU_DEBUG)
 #define	HALT_SYS()	\
 	printf("halt_sys: in %s\n", __func__);	\
 	X86EMU_halt_sys();

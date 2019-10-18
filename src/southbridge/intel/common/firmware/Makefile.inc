@@ -31,10 +31,25 @@ ifneq ($(call strip_quotes,$(CONFIG_IFD_CHIPSET)),)
 IFDTOOL_USE_CHIPSET := -p $(CONFIG_IFD_CHIPSET)
 endif
 
+add_intel_firmware: $(call strip_quotes,$(CONFIG_IFD_BIN_PATH))
+ifeq ($(CONFIG_HAVE_ME_BIN),y)
+add_intel_firmware: $(call strip_quotes,$(CONFIG_ME_BIN_PATH))
+endif
+ifeq ($(CONFIG_HAVE_GBE_BIN),y)
+add_intel_firmware: $(call strip_quotes,$(CONFIG_GBE_BIN_PATH))
+endif
+ifeq ($(CONFIG_HAVE_EC_BIN),y)
+add_intel_firmware: $(call strip_quotes,$(CONFIG_EC_BIN_PATH))
+endif
 add_intel_firmware: $(obj)/coreboot.pre $(IFDTOOL)
 	printf "    DD         Adding Intel Firmware Descriptor\n"
 	dd if=$(IFD_BIN_PATH) \
 		of=$(obj)/coreboot.pre conv=notrunc >/dev/null 2>&1
+ifeq ($(CONFIG_VALIDATE_INTEL_DESCRIPTOR),y)
+	$(objutil)/ifdtool/ifdtool \
+		$(IFDTOOL_USE_CHIPSET) \
+		-t $(obj)/coreboot.pre
+endif
 ifeq ($(CONFIG_HAVE_ME_BIN),y)
 	printf "    IFDTOOL    me.bin -> coreboot.pre\n"
 	$(objutil)/ifdtool/ifdtool \
@@ -68,12 +83,14 @@ ifeq ($(CONFIG_HAVE_EC_BIN),y)
 		$(obj)/coreboot.pre
 	mv $(obj)/coreboot.pre.new $(obj)/coreboot.pre
 endif
+
 ifeq ($(CONFIG_LOCK_MANAGEMENT_ENGINE),y)
 	printf "    IFDTOOL    Locking Management Engine\n"
 	$(objutil)/ifdtool/ifdtool \
 		$(IFDTOOL_USE_CHIPSET) -l $(obj)/coreboot.pre
 	mv $(obj)/coreboot.pre.new $(obj)/coreboot.pre
-else
+endif
+ifeq ($(CONFIG_UNLOCK_FLASH_REGIONS),y)
 	printf "    IFDTOOL    Unlocking Management Engine\n"
 	$(objutil)/ifdtool/ifdtool \
 	$(IFDTOOL_USE_CHIPSET) -u $(obj)/coreboot.pre

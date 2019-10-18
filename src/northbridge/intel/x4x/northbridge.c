@@ -16,19 +16,18 @@
 
 #include <cbmem.h>
 #include <console/console.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <stdint.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <stdlib.h>
-#include <string.h>
 #include <cpu/cpu.h>
 #include <boot/tables.h>
 #include <arch/acpi.h>
 #include <northbridge/intel/x4x/iomap.h>
 #include <northbridge/intel/x4x/chip.h>
 #include <northbridge/intel/x4x/x4x.h>
-#include <cpu/intel/smm/gen1/smi.h>
+#include <cpu/intel/smm_reloc.h>
 
 static const int legacy_hole_base_k = 0xa0000 / 1024;
 
@@ -192,19 +191,12 @@ static struct device_operations pci_domain_ops = {
 	.acpi_name        = northbridge_acpi_name,
 };
 
-
-static void cpu_bus_init(struct device *dev)
-{
-	bsp_init_and_start_aps(dev->link_list);
-}
-
 static struct device_operations cpu_bus_ops = {
 	.read_resources   = DEVICE_NOOP,
 	.set_resources    = DEVICE_NOOP,
 	.enable_resources = DEVICE_NOOP,
-	.init             = cpu_bus_init,
+	.init             = mp_cpu_bus_init,
 };
-
 
 static void enable_dev(struct device *dev)
 {

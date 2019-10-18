@@ -16,7 +16,6 @@
  */
 
 #include <types.h>
-#include <string.h>
 #include <console/console.h>
 #include <arch/acpi.h>
 #include <arch/acpigen.h>
@@ -26,11 +25,9 @@
 
 unsigned long acpi_fill_mcfg(unsigned long current)
 {
-	struct device *dev;
 	u32 pciexbar = 0;
 	u32 length = 0;
 
-	dev = pcidev_on_root(0, 0);
 	if (!decode_pciebar(&pciexbar, &length))
 		return current;
 

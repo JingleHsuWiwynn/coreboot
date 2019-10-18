@@ -13,20 +13,22 @@
  * GNU General Public License for more details.
  */
 
-#include <chip.h>
 #include <bootmode.h>
 #include <bootstate.h>
 #include <device/pci.h>
 #include <fsp/api.h>
 #include <arch/acpi.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci_ids.h>
 #include <fsp/util.h>
-#include <intelblocks/chip.h>
+#include <intelblocks/cfg.h>
 #include <intelblocks/itss.h>
+#include <intelblocks/lpc_lib.h>
+#include <intelblocks/mp_init.h>
 #include <intelblocks/xdci.h>
+#include <intelblocks/p2sb.h>
 #include <intelpch/lockdown.h>
 #include <romstage_handoff.h>
 #include <soc/acpi.h>
@@ -39,6 +41,8 @@
 #include <soc/ramstage.h>
 #include <soc/systemagent.h>
 #include <string.h>
+
+#include "chip.h"
 
 struct pcie_entry {
 	unsigned int devfn;
@@ -99,7 +103,7 @@ static void pcie_update_device_tree(const struct pcie_entry *pcie_rp_group,
 
 	for (group = 0; group < pci_groups; group++) {
 		devfn0 = pcie_rp_group[group].devfn;
-		func0 = dev_find_slot(0, devfn0);
+		func0 = pcidev_path_on_root(devfn0);
 		if (func0 == NULL)
 			continue;
 
@@ -116,7 +120,7 @@ static void pcie_update_device_tree(const struct pcie_entry *pcie_rp_group,
 		 */
 		for (i = 1; i < pcie_rp_group[group].func_count;
 				i++, devfn += inc) {
-			struct device *dev = dev_find_slot(0, devfn);
+			struct device *dev = pcidev_path_on_root(devfn);
 			if (dev == NULL || !dev->enabled)
 				continue;
 
@@ -172,6 +176,13 @@ void soc_init_pre_device(void *chip_info)
 	/* Perform silicon specific init. */
 	fsp_silicon_init(romstage_handoff_is_resume());
 
+	/*
+	 * Keep the P2SB device visible so it and the other devices are
+	 * visible in coreboot for driver support and PCI resource allocation.
+	 * There is no UPD setting for this.
+	 */
+	p2sb_unhide();
+
 	/* Restore GPIO IRQ polarities back to previous settings. */
 	itss_restore_irq_polarities(GPIO_IRQ_START, GPIO_IRQ_END);
 
@@ -193,7 +204,7 @@ static struct device_operations pci_domain_ops = {
 	.read_resources   = &pci_domain_read_resources,
 	.set_resources    = &pci_domain_set_resources,
 	.scan_bus         = &pci_domain_scan_bus,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.write_acpi_tables	= &northbridge_write_acpi_tables,
 	.acpi_name		= &soc_acpi_name,
 #endif
@@ -204,7 +215,7 @@ static struct device_operations cpu_bus_ops = {
 	.set_resources    = DEVICE_NOOP,
 	.enable_resources = DEVICE_NOOP,
 	.init             = DEVICE_NOOP,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_fill_ssdt_generator = generate_cpu_entries,
 #endif
 };
@@ -229,16 +240,12 @@ void platform_fsp_silicon_init_params_cb(FSPS_UPD *supd)
 {
 	FSP_S_CONFIG *params = &supd->FspsConfig;
 	FSP_S_TEST_CONFIG *tconfig = &supd->FspsTestConfig;
-	static struct soc_intel_skylake_config *config;
+	struct soc_intel_skylake_config *config;
+	struct device *dev;
 	uintptr_t vbt_data = (uintptr_t)vbt_get();
 	int i;
 
-	struct device *dev = SA_DEV_ROOT;
-	if (!dev || !dev->chip_info) {
-		printk(BIOS_ERR, "BUG! Could not find SOC devicetree config\n");
-		return;
-	}
-	config = dev->chip_info;
+	config = config_of_soc();
 
 	mainboard_silicon_init_params(params);
 	/* Set PsysPmax if it is available from DT */
@@ -284,6 +291,10 @@ void platform_fsp_silicon_init_params_cb(FSPS_UPD *supd)
 	       sizeof(params->SataPortsEnable));
 	memcpy(params->SataPortsDevSlp, config->SataPortsDevSlp,
 	       sizeof(params->SataPortsDevSlp));
+	memcpy(params->SataPortsHotPlug, config->SataPortsHotPlug,
+	       sizeof(params->SataPortsHotPlug));
+	memcpy(params->SataPortsSpinUp, config->SataPortsSpinUp,
+	       sizeof(params->SataPortsSpinUp));
 	memcpy(params->PcieRpClkReqSupport, config->PcieRpClkReqSupport,
 	       sizeof(params->PcieRpClkReqSupport));
 	memcpy(params->PcieRpClkReqNumber, config->PcieRpClkReqNumber,
@@ -312,6 +323,9 @@ void platform_fsp_silicon_init_params_cb(FSPS_UPD *supd)
 	/* disable Legacy PME */
 	memset(params->PcieRpPmSci, 0, sizeof(params->PcieRpPmSci));
 
+	/* Legacy 8254 timer support */
+	params->Early8254ClockGatingEnable = !CONFIG_USE_LEGACY_8254_TIMER;
+
 	memcpy(params->SerialIoDevMode, config->SerialIoDevMode,
 	       sizeof(params->SerialIoDevMode));
 
@@ -322,7 +336,7 @@ void platform_fsp_silicon_init_params_cb(FSPS_UPD *supd)
 	params->LogoPtr = config->LogoPtr;
 	params->LogoSize = config->LogoSize;
 
-	params->CpuConfig.Bits.VmxEnable = IS_ENABLED(CONFIG_ENABLE_VMX);
+	params->CpuConfig.Bits.VmxEnable = CONFIG(ENABLE_VMX);
 
 	params->PchPmWoWlanEnable = config->PchPmWoWlanEnable;
 	params->PchPmWoWlanDeepSxEnable = config->PchPmWoWlanDeepSxEnable;
@@ -351,13 +365,11 @@ void platform_fsp_silicon_init_params_cb(FSPS_UPD *supd)
 	}
 
 	/* If ISH is enabled, enable ISH elements */
-	dev = dev_find_slot(0, PCH_DEVFN_ISH);
-	if (dev)
-		params->PchIshEnable = dev->enabled;
-	else
-		params->PchIshEnable = 0;
+	dev = pcidev_path_on_root(PCH_DEVFN_ISH);
+	params->PchIshEnable = dev ? dev->enabled : 0;
 
 	params->PchHdaEnable = config->EnableAzalia;
+	params->PchHdaVcType = config->PchHdaVcType;
 	params->PchHdaIoBufferOwnership = config->IoBufferOwnership;
 	params->PchHdaDspEnable = config->DspEnable;
 	params->Device4Enable = config->Device4Enable;
@@ -370,6 +382,7 @@ void platform_fsp_silicon_init_params_cb(FSPS_UPD *supd)
 	tconfig->PchLockDownGlobalSmi = config->LockDownConfigGlobalSmi;
 	tconfig->PchLockDownRtcLock = config->LockDownConfigRtcLock;
 	tconfig->PowerLimit4 = config->PowerLimit4;
+	tconfig->SataTestMode = config->SataTestMode;
 	/*
 	 * To disable HECI, the Psf needs to be left unlocked
 	 * by FSP till end of post sequence. Based on the devicetree
@@ -418,10 +431,10 @@ void platform_fsp_silicon_init_params_cb(FSPS_UPD *supd)
 	/* Indicate whether platform supports Voltage Margining */
 	params->PchPmSlpS0VmEnable = config->PchPmSlpS0VmEnable;
 
-	params->PchSirqEnable = config->SerialIrqConfigSirqEnable;
-	params->PchSirqMode = config->SerialIrqConfigSirqMode;
+	params->PchSirqEnable = config->serirq_mode != SERIRQ_OFF;
+	params->PchSirqMode = config->serirq_mode == SERIRQ_CONTINUOUS;
 
-	params->CpuConfig.Bits.SkipMpInit = !chip_get_fsp_mp_init();
+	params->CpuConfig.Bits.SkipMpInit = !CONFIG_USE_INTEL_FSP_MP_INIT;
 
 	for (i = 0; i < ARRAY_SIZE(config->i2c_voltage); i++)
 		params->SerialIoI2cVoltage[i] = config->i2c_voltage[i];
@@ -430,14 +443,22 @@ void platform_fsp_silicon_init_params_cb(FSPS_UPD *supd)
 		fill_vr_domain_config(params, i, &config->domain_vr_config[i]);
 
 	/* Show SPI controller if enabled in devicetree.cb */
-	dev = dev_find_slot(0, PCH_DEVFN_SPI);
-	params->ShowSpiController = dev->enabled;
+	dev = pcidev_path_on_root(PCH_DEVFN_SPI);
+	params->ShowSpiController = dev ? dev->enabled : 0;
 
 	/* Enable xDCI controller if enabled in devicetree and allowed */
-	dev = dev_find_slot(0, PCH_DEVFN_USBOTG);
-	if (!xdci_can_enable())
-		dev->enabled = 0;
-	params->XdciEnable = dev->enabled;
+	dev = pcidev_path_on_root(PCH_DEVFN_USBOTG);
+	if (dev) {
+		if (!xdci_can_enable())
+			dev->enabled = 0;
+		params->XdciEnable = dev->enabled;
+	} else {
+		params->XdciEnable = 0;
+	}
+
+	/* Enable or disable Gaussian Mixture Model in devicetree */
+	dev = pcidev_path_on_root(SA_DEVFN_GMM);
+	params->GmmEnable = dev ? dev->enabled : 0;
 
 	/*
 	 * Send VR specific mailbox commands:
@@ -483,9 +504,9 @@ void platform_fsp_silicon_init_params_cb(FSPS_UPD *supd)
 		tconfig->VtdDisable = 0;
 
 		params->PchIoApicBdfValid = 1;
-		params->PchIoApicBusNumber = 250;
-		params->PchIoApicDeviceNumber = 31;
-		params->PchIoApicFunctionNumber = 0;
+		params->PchIoApicBusNumber = V_P2SB_IBDF_BUS;
+		params->PchIoApicDeviceNumber = V_P2SB_IBDF_DEV;
+		params->PchIoApicFunctionNumber = V_P2SB_IBDF_FUN;
 	}
 
 	soc_irq_settings(params);

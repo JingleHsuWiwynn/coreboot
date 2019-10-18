@@ -13,9 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <console/console.h>
-#include <delay.h>
 #include <device/i2c_simple.h>
 #include <stdint.h>
 #include <string.h>
@@ -23,7 +21,7 @@
 #include "ec.h"
 #include "ec_commands.h"
 
-#if IS_ENABLED(CONFIG_EC_GOOGLE_CHROMEEC_I2C_PROTO3)
+#if CONFIG(EC_GOOGLE_CHROMEEC_I2C_PROTO3)
 
 #define PROTO3_FRAMING_BYTES sizeof(uint32_t)
 /* Just use the LPC host packet size to size the buffer. */
@@ -254,10 +252,8 @@ int google_chromeec_command(struct chromeec_command *cec_command)
 
 #endif /* CONFIG_EC_GOOGLE_CHROMEEC_I2C_PROTO3 */
 
-#ifndef __PRE_RAM__
 u8 google_chromeec_get_event(void)
 {
 	printk(BIOS_ERR, "%s: Not supported.\n", __func__);
 	return 0;
 }
-#endif

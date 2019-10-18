@@ -20,10 +20,9 @@
 #include <device/path.h>
 #include <gpio.h>
 #include <stdint.h>
-#include <string.h>
 #include "chip.h"
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 
 #define MAX98357A_ACPI_NAME	"MAXM"
 #define MAX98357A_ACPI_HID	"MX98357A"
@@ -37,9 +36,14 @@ static void max98357a_fill_ssdt(struct device *dev)
 	if (!dev->enabled || !config)
 		return;
 
+	const char *scope = acpi_device_scope(dev);
+	const char *name = acpi_device_name(dev);
+	if (!scope || !name)
+		return;
+
 	/* Device */
-	acpigen_write_scope(acpi_device_scope(dev));
-	acpigen_write_device(acpi_device_name(dev));
+	acpigen_write_scope(scope);
+	acpigen_write_device(name);
 	acpigen_write_name_string("_HID", MAX98357A_ACPI_HID);
 	acpigen_write_name_integer("_UID", 0);
 	acpigen_write_name_string("_DDN", dev->chip_ops->name);
@@ -76,7 +80,7 @@ static struct device_operations max98357a_ops = {
 	.read_resources		  = DEVICE_NOOP,
 	.set_resources		  = DEVICE_NOOP,
 	.enable_resources	  = DEVICE_NOOP,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_name                = max98357a_acpi_name,
 	.acpi_fill_ssdt_generator = max98357a_fill_ssdt,
 #endif

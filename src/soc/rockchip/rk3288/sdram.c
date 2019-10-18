@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <console/console.h>
 #include <delay.h>
 #include <soc/addressmap.h>
@@ -21,7 +21,6 @@
 #include <soc/grf.h>
 #include <soc/soc.h>
 #include <soc/pmu.h>
-#include <string.h>
 #include <types.h>
 
 struct rk3288_ddr_pctl_regs {
@@ -752,10 +751,8 @@ static void move_to_config_state(struct rk3288_ddr_publ_regs *ddr_publ_regs,
 			while ((read32(&ddr_publ_regs->pgsr) & PGSR_DLDONE)
 				!= PGSR_DLDONE)
 				;
-			/* if at low power state,need wakeup first,
-			 * and then enter the config
-			 * so here no break.
-			 */
+			/* if at low power state, need wakeup first, then enter the config */
+			/* fall through */
 		case ACCESS:
 		case INIT_MEM:
 			write32(&ddr_pctl_regs->sctl, CFG_STATE);
@@ -909,6 +906,7 @@ static void move_to_access_state(u32 chnum)
 			while ((read32(&ddr_pctl_regs->stat) & PCTL_STAT_MSK)
 				!= CONF)
 				;
+			/* fall through - enter config next to get to access state */
 		case CONF:
 			write32(&ddr_pctl_regs->sctl, GO_STATE);
 			while ((read32(&ddr_pctl_regs->stat) & PCTL_STAT_MSK)

@@ -79,10 +79,7 @@ static void bdk_dram_clear_mem(bdk_node_t node)
             write to the cache line isn't good enough because partial LMC
             writes may be enabled */
          ddr_print("N%d: Rewriting DRAM: start 0 length 0x%llx\n", node, skip);
-         volatile uint64_t *ptr = bdk_phys_to_ptr(bdk_numa_get_address(node, 8));
-         /* The above pointer got address 8 to avoid NULL pointer checking
-            in bdk_phys_to_ptr(). Correct it here */
-         ptr--;
+         volatile uint64_t *ptr = bdk_phys_to_ptr(bdk_numa_get_address(node, 0));
          uint64_t *end = bdk_phys_to_ptr(bdk_numa_get_address(node, skip));
          while (ptr < end)
          {
@@ -149,9 +146,9 @@ static void bdk_dram_disable_ecc_reporting(bdk_node_t node)
 static int bdk_libdram_tune_node(int node)
 {
     int errs, tot_errs;
-    int do_dllro_hw = IS_ENABLED(CONFIG_CAVIUM_BDK_DDR_TUNE_HW_OFFSETS);
-    int do_dllwo = IS_ENABLED(CONFIG_CAVIUM_BDK_DDR_TUNE_WRITE_OFFSETS);
-    int do_eccdll = IS_ENABLED(CONFIG_CAVIUM_BDK_DDR_TUNE_ECC_ENABLE);
+    int do_dllro_hw = CONFIG(CAVIUM_BDK_DDR_TUNE_HW_OFFSETS);
+    int do_dllwo = CONFIG(CAVIUM_BDK_DDR_TUNE_WRITE_OFFSETS);
+    int do_eccdll = CONFIG(CAVIUM_BDK_DDR_TUNE_ECC_ENABLE);
     BDK_CSR_INIT(lmc_config, node, BDK_LMCX_CONFIG(0)); // FIXME: probe LMC0
     do_eccdll = (lmc_config.s.ecc_ena != 0); // change to ON if ECC enabled
 

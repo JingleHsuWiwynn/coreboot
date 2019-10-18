@@ -16,22 +16,21 @@
 
 #include <types.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <cpu/x86/cache.h>
 #include <device/pci_def.h>
 #include <cpu/x86/smm.h>
-#include <elog.h>
-#include <halt.h>
-#include "pch.h"
-
-#include "nvs.h"
-
+#include <cpu/intel/em64t101_save_state.h>
 #include <northbridge/intel/sandybridge/sandybridge.h>
 #include <southbridge/intel/bd82x6x/me.h>
 #include <southbridge/intel/common/gpio.h>
 #include <cpu/intel/model_206ax/model_206ax.h>
 #include <southbridge/intel/common/pmutil.h>
 #include <southbridge/intel/common/finalize.h>
+
+#include "pch.h"
+#include "nvs.h"
 
 static global_nvs_t *gnvs;
 global_nvs_t *smm_get_gnvs(void)

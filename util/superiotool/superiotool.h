@@ -127,9 +127,15 @@ and print its vendor, name, ID, revision, and config port.\n"
 
 #define EOT		-1		/* End Of Table */
 #define NOLDN		-2		/* NO LDN needed */
-#define NANA		-3		/* Not Available */
+#define NANA		-3		/* Not Available:
+					   Used for registers having externally controlled
+					   values that can change during runtime like
+					   GPIO input value registers. */
 #define RSVD		-4		/* Reserved */
-#define MISC		-5		/* Needs special comment in output */
+#define MISC		-5		/* Needs special comment in output:
+					   Used for registers depending on external pin straps
+					   configuring static, but board-specific settings like
+					   SIO base address or AMD/Intel power seqencing type. */
 #define MAXLDN		0x14		/* Biggest LDN */
 #define LDNSIZE		(MAXLDN + 3)	/* Biggest LDN + 0 + NOLDN + EOT */
 #define MAXNUMIDX	170		/* Maximum number of indices */
@@ -184,6 +190,10 @@ void print_vendor_chips(const char *vendor,
 void probe_idregs_ali(uint16_t port);
 void print_ali_chips(void);
 
+/* aspeed.c */
+void probe_idregs_aspeed(uint16_t port);
+void print_aspeed_chips(void);
+
 /* amd.c */
 void probe_idregs_amd(uint16_t port);
 void print_amd_chips(void);
@@ -237,6 +247,7 @@ static const struct {
 	int ports[MAXNUMPORTS]; /* Signed, as we need EOT. */
 } superio_ports_table[] = {
 	{probe_idregs_ali,	{0x3f0, 0x370, EOT}},
+        {probe_idregs_aspeed,   {0x2e, 0x4e, EOT}},
 	{probe_idregs_exar,	{0x2e, 0x4e, EOT}},
 	{probe_idregs_fintek,	{0x2e, 0x4e, EOT}},
 	{probe_idregs_fintek_alternative,	{0x2e, 0x4e, EOT}},
@@ -272,6 +283,7 @@ static const struct {
 #ifdef PCI_SUPPORT
 	{print_via_chips},
 	{print_amd_chips},
+	{print_aspeed_chips},
 #endif
 	{print_serverengines_chips},
 	{print_infineon_chips},

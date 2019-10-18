@@ -15,12 +15,9 @@
  */
 
 #include <stddef.h>
-#include <arch/io.h>
 #include <arch/cbfs.h>
 #include <console/console.h>
 #include <cpu/x86/mtrr.h>
-#include <romstage_handoff.h>
-#include <timestamp.h>
 #include <soc/gpio.h>
 #include <soc/iomap.h>
 #include <soc/lpc.h>

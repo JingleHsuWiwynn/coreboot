@@ -13,10 +13,8 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
-#include <delay.h>
+#include <device/mmio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <stddef.h>
 #include <soc/addressmap.h>
 #include <soc/clock.h>

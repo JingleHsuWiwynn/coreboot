@@ -14,14 +14,15 @@
  */
 
 #include <AGESA.h>
+#include <console/console.h>
 #include <spd_bin.h>
 #include <northbridge/amd/agesa/BiosCallOuts.h>
 #include <FchPlatform.h>
-#include <cbfs.h>
+#include <stdlib.h>
+
 #include "gpio_ftns.h"
 #include "imc.h"
 #include "hudson.h"
-#include <stdlib.h>
 
 static AGESA_STATUS Fch_Oem_config(UINT32 Func, UINTN FchData, VOID *ConfigPtr);
 static AGESA_STATUS board_ReadSpd_from_cbfs(UINT32 Func, UINTN Data, VOID *ConfigPtr);
@@ -69,10 +70,10 @@ static AGESA_STATUS Fch_Oem_config(UINT32 Func, UINTN FchData, VOID *ConfigPtr)
 		FCH_RESET_DATA_BLOCK *FchParams =  (FCH_RESET_DATA_BLOCK *) FchData;
 		printk(BIOS_DEBUG, "Fch OEM config in INIT RESET ");
 		//FchParams_reset->EcChannel0 = TRUE; /* logical devicd 3 */
-		FchParams->LegacyFree = CONFIG_HUDSON_LEGACY_FREE;
+		FchParams->LegacyFree = CONFIG(HUDSON_LEGACY_FREE);
 		FchParams->FchReset.SataEnable = hudson_sata_enable();
 		FchParams->FchReset.IdeEnable = hudson_ide_enable();
-		FchParams->FchReset.Xhci0Enable = IS_ENABLED(CONFIG_HUDSON_XHCI_ENABLE);
+		FchParams->FchReset.Xhci0Enable = CONFIG(HUDSON_XHCI_ENABLE);
 		FchParams->FchReset.Xhci1Enable = FALSE;
 	} else if (StdHeader->Func == AMD_INIT_ENV) {
 		FCH_DATA_BLOCK *FchParams = (FCH_DATA_BLOCK *)FchData;
@@ -85,13 +86,13 @@ static AGESA_STATUS Fch_Oem_config(UINT32 Func, UINTN FchData, VOID *ConfigPtr)
 		oem_fan_control(FchParams);
 
 		/* XHCI configuration */
-		FchParams->Usb.Xhci0Enable = IS_ENABLED(CONFIG_HUDSON_XHCI_ENABLE);
+		FchParams->Usb.Xhci0Enable = CONFIG(HUDSON_XHCI_ENABLE);
 		FchParams->Usb.Xhci1Enable = FALSE;
 
 		/* EHCI configuration */
-		FchParams->Usb.Ehci3Enable = !IS_ENABLED(CONFIG_HUDSON_XHCI_ENABLE);
+		FchParams->Usb.Ehci3Enable = !CONFIG(HUDSON_XHCI_ENABLE);
 
-		if (IS_ENABLED(CONFIG_BOARD_PCENGINES_APU2)) {
+		if (CONFIG(BOARD_PCENGINES_APU2)) {
 			// Disable EHCI 0 (port 0 to 3)
 			FchParams->Usb.Ehci1Enable = FALSE;
 		} else {
@@ -129,9 +130,11 @@ static AGESA_STATUS Fch_Oem_config(UINT32 Func, UINTN FchData, VOID *ConfigPtr)
 
 static AGESA_STATUS board_ReadSpd_from_cbfs(UINT32 Func, UINTN Data, VOID *ConfigPtr)
 {
-	AGESA_STATUS Status = AGESA_UNSUPPORTED;
-#ifdef __PRE_RAM__
 	AGESA_READ_SPD_PARAMS	*info = ConfigPtr;
+
+	if (!ENV_ROMSTAGE)
+		return AGESA_UNSUPPORTED;
+
 	u8 index = get_spd_offset();
 
 	if (info->MemChannelId > 0)
@@ -145,7 +148,5 @@ static AGESA_STATUS board_ReadSpd_from_cbfs(UINT32 Func, UINTN Data, VOID *Confi
 	if (read_ddr3_spd_from_cbfs((u8*)info->Buffer, index) < 0)
 		die("No SPD data\n");
 
-	Status = AGESA_SUCCESS;
-#endif
-	return Status;
+	return AGESA_SUCCESS;
 }

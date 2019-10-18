@@ -7,21 +7,14 @@
 #ifndef SPI_FLASH_INTERNAL_H
 #define SPI_FLASH_INTERNAL_H
 
-/* Common parameters -- kind of high, but they should only occur when there
- * is a problem (and well your system already is broken), so err on the side
- * of caution in case we're dealing with slower SPI buses and/or processors.
- */
-#define CONF_SYS_HZ 100
-#define SPI_FLASH_PROG_TIMEOUT		(2 * CONF_SYS_HZ)
-#define SPI_FLASH_PAGE_ERASE_TIMEOUT	(5 * CONF_SYS_HZ)
-#define SPI_FLASH_SECTOR_ERASE_TIMEOUT	(10 * CONF_SYS_HZ)
-
 /* Common commands */
 #define CMD_READ_ID			0x9f
 
 #define CMD_READ_ARRAY_SLOW		0x03
 #define CMD_READ_ARRAY_FAST		0x0b
 #define CMD_READ_ARRAY_LEGACY		0xe8
+
+#define CMD_READ_FAST_DUAL_OUTPUT	0x3b
 
 #define CMD_READ_STATUS			0x05
 #define CMD_WRITE_ENABLE		0x06
@@ -33,12 +26,6 @@
 
 /* Send a single-byte command to the device and read the response */
 int spi_flash_cmd(const struct spi_slave *spi, u8 cmd, void *response, size_t len);
-
-int spi_flash_cmd_read_fast(const struct spi_flash *flash, u32 offset,
-		size_t len, void *data);
-
-int spi_flash_cmd_read_slow(const struct spi_flash *flash, u32 offset,
-		size_t len, void *data);
 
 /*
  * Send a multi-byte command to the device followed by (optional)

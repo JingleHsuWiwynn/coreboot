@@ -13,22 +13,22 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
-#include <delay.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <drivers/intel/gma/opregion.h>
 #include <reg_script.h>
 #include <stdlib.h>
-
 #include <soc/gfx.h>
 #include <soc/iosf.h>
 #include <soc/nvs.h>
 #include <soc/pci_devs.h>
 #include <soc/ramstage.h>
 #include <cbmem.h>
+#include <types.h>
 
 #include "chip.h"
 
@@ -49,7 +49,7 @@ static void gfx_lock_pcbase(struct device *dev)
 
 	gms = pci_read_config32(dev, GGC) & GGC_GSM_SIZE_MASK;
 	gms >>= 3;
-	if (gms > ARRAY_SIZE(gms_size_map))
+	if (gms >= ARRAY_SIZE(gms_size_map))
 		return;
 	gmsize = gms_size_map[gms];
 
@@ -313,20 +313,20 @@ static void set_backlight_pwm(struct device *dev, uint32_t bklt_reg, int req_hz)
 
 static void gfx_panel_setup(struct device *dev)
 {
-	struct soc_intel_baytrail_config *config = dev->chip_info;
+	struct soc_intel_baytrail_config *config = config_of(dev);
 	struct reg_script gfx_pipea_init[] = {
 		/* CONTROL */
 		REG_RES_WRITE32(PCI_BASE_ADDRESS_0, PIPEA_REG(PP_CONTROL),
 				PP_CONTROL_UNLOCK | PP_CONTROL_EDP_FORCE_VDD),
 		/* POWER ON */
 		REG_RES_WRITE32(PCI_BASE_ADDRESS_0, PIPEA_REG(PP_ON_DELAYS),
-				(config->gpu_pipea_port_select << 30 |
-				 config->gpu_pipea_power_on_delay << 16 |
-				 config->gpu_pipea_light_on_delay)),
+				((u32)config->gpu_pipea_port_select << 30 |
+				 (u32)config->gpu_pipea_power_on_delay << 16 |
+				 (u32)config->gpu_pipea_light_on_delay)),
 		/* POWER OFF */
 		REG_RES_WRITE32(PCI_BASE_ADDRESS_0, PIPEA_REG(PP_OFF_DELAYS),
-				(config->gpu_pipea_power_off_delay << 16 |
-				 config->gpu_pipea_light_off_delay)),
+				((u32)config->gpu_pipea_power_off_delay << 16 |
+				 (u32)config->gpu_pipea_light_off_delay)),
 		/* DIVISOR */
 		REG_RES_RMW32(PCI_BASE_ADDRESS_0, PIPEA_REG(PP_DIVISOR),
 			      ~0x1f, config->gpu_pipea_power_cycle_delay),
@@ -338,13 +338,13 @@ static void gfx_panel_setup(struct device *dev)
 				PP_CONTROL_UNLOCK | PP_CONTROL_EDP_FORCE_VDD),
 		/* POWER ON */
 		REG_RES_WRITE32(PCI_BASE_ADDRESS_0, PIPEB_REG(PP_ON_DELAYS),
-				(config->gpu_pipeb_port_select << 30 |
-				 config->gpu_pipeb_power_on_delay << 16 |
-				 config->gpu_pipeb_light_on_delay)),
+				((u32)config->gpu_pipeb_port_select << 30 |
+				 (u32)config->gpu_pipeb_power_on_delay << 16 |
+				 (u32)config->gpu_pipeb_light_on_delay)),
 		/* POWER OFF */
 		REG_RES_WRITE32(PCI_BASE_ADDRESS_0, PIPEB_REG(PP_OFF_DELAYS),
-				(config->gpu_pipeb_power_off_delay << 16 |
-				 config->gpu_pipeb_light_off_delay)),
+				((u32)config->gpu_pipeb_power_off_delay << 16 |
+				 (u32)config->gpu_pipeb_light_off_delay)),
 		/* DIVISOR */
 		REG_RES_RMW32(PCI_BASE_ADDRESS_0, PIPEB_REG(PP_DIVISOR),
 			      ~0x1f, config->gpu_pipeb_power_cycle_delay),

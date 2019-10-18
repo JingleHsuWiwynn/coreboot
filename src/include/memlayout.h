@@ -19,6 +19,7 @@
 #define __MEMLAYOUT_H
 
 #include <arch/memlayout.h>
+#include <vb2_constants.h>
 
 /* Macros that the architecture can override. */
 #ifndef ARCH_POINTER_ALIGN_SIZE
@@ -27,20 +28,6 @@
 
 #ifndef ARCH_CACHELINE_ALIGN_SIZE
 #define ARCH_CACHELINE_ALIGN_SIZE 64
-#endif
-
-/* Default to data as well as bss. */
-#ifndef ARCH_STAGE_HAS_DATA_SECTION
-#define ARCH_STAGE_HAS_DATA_SECTION 1
-#endif
-
-#ifndef ARCH_STAGE_HAS_BSS_SECTION
-#define ARCH_STAGE_HAS_BSS_SECTION 1
-#endif
-
-/* Default is that currently ramstage, smm, and rmodules have a heap. */
-#ifndef ARCH_STAGE_HAS_HEAP_SECTION
-#define ARCH_STAGE_HAS_HEAP_SECTION (ENV_RAMSTAGE || ENV_SMM || ENV_RMODULE)
 #endif
 
 #define STR(x) #x
@@ -86,7 +73,7 @@
 	ALIAS_REGION(cbfs_cache, preram_cbfs_cache) \
 	ALIAS_REGION(cbfs_cache, postram_cbfs_cache)
 
-#if defined(__PRE_RAM__)
+#if ENV_ROMSTAGE_OR_BEFORE
 	#define PRERAM_CBFS_CACHE(addr, size) \
 		REGION(preram_cbfs_cache, addr, size, 4) \
 		ALIAS_REGION(preram_cbfs_cache, cbfs_cache)
@@ -157,12 +144,17 @@
 		REGION(ramstage, addr, sz, 1)
 #endif
 
-/* Careful: required work buffer size depends on RW properties such as key size
- * and algorithm -- what works for you might stop working after an update. Do
- * NOT lower the asserted minimum without consulting vboot devs (rspangler)! */
-#define VBOOT2_WORK(addr, size) \
-	REGION(vboot2_work, addr, size, 16) \
-	_ = ASSERT(size >= 12K, "vboot2 work buffer must be at least 12K!");
+/* VBOOT2_WORK must always use VB2_FIRMWARE_WORKBUF_RECOMMENDED_SIZE for its
+ * size argument.  The constant is imported via vb2_workbuf_size.h.  */
+#define VBOOT2_WORK(addr, sz) \
+	REGION(vboot2_work, addr, sz, 16) \
+	_ = ASSERT(sz == VB2_FIRMWARE_WORKBUF_RECOMMENDED_SIZE, \
+		STR(vboot2 work buffer size must be equivalent to \
+			VB2_FIRMWARE_WORKBUF_RECOMMENDED_SIZE! (sz)));
+
+#define VBOOT2_TPM_LOG(addr, size) \
+	REGION(vboot2_tpm_log, addr, size, 16) \
+	_ = ASSERT(size >= 2K, "vboot2 tpm log buffer must be at least 2K!");
 
 #if ENV_VERSTAGE
 	#define VERSTAGE(addr, sz) \
@@ -173,7 +165,7 @@
 		INCLUDE "verstage/lib/program.ld"
 
 	#define OVERLAP_VERSTAGE_ROMSTAGE(addr, size) \
-		_ = ASSERT(IS_ENABLED(CONFIG_VBOOT_RETURN_FROM_VERSTAGE) == 1, \
+		_ = ASSERT(CONFIG(VBOOT_RETURN_FROM_VERSTAGE) == 1, \
 			"Must set RETURN_FROM_VERSTAGE to overlap romstage."); \
 		VERSTAGE(addr, size)
 #else

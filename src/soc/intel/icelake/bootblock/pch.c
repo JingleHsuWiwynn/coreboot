@@ -13,8 +13,9 @@
  * GNU General Public License for more details.
  */
 
-#include <console/console.h>
+#include <device/mmio.h>
 #include <device/device.h>
+#include <device/pci_ops.h>
 #include <intelblocks/fast_spi.h>
 #include <intelblocks/gspi.h>
 #include <intelblocks/lpc_lib.h>
@@ -25,8 +26,8 @@
 #include <intelblocks/smbus.h>
 #include <intelblocks/tco.h>
 #include <soc/bootblock.h>
+#include <soc/espi.h>
 #include <soc/iomap.h>
-#include <soc/lpc.h>
 #include <soc/p2sb.h>
 #include <soc/pch.h>
 #include <soc/pci_devs.h>
@@ -137,15 +138,15 @@ void pch_early_iorange_init(void)
 		LPC_IOE_EC_62_66 | LPC_IOE_LGE_200;
 
 	/* IO Decode Range */
-	if (IS_ENABLED(CONFIG_DRIVERS_UART_8250IO))
+	if (CONFIG(DRIVERS_UART_8250IO))
 		lpc_io_setup_comm_a_b();
 
 	/* IO Decode Enable */
 	if (pch_check_decode_enable() == 0) {
 		io_enables = lpc_enable_fixed_io_ranges(io_enables);
 		/*
-		 * Set up LPC IO Enables PCR[DMI] + 2774h [15:0] to the same
-		 * value program in LPC PCI offset 82h.
+		 * Set up ESPI IO Enables PCR[DMI] + 2774h [15:0] to the same
+		 * value program in ESPI PCI offset 82h.
 		 */
 		pcr_write16(PID_DMI, PCR_DMI_LPCIOE, io_enables);
 	}

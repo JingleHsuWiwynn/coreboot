@@ -195,8 +195,6 @@ enum {
 #define DEFAULT_EPBAR		0xfed19000
 #define DEFAULT_HECIBAR		((u8 *)0xfed1a000)
 
-				/* 4 KB per PCIe device */
-#define DEFAULT_PCIEXBAR	CONFIG_MMCONF_BASE_ADDRESS
 
 #define IOMMU_BASE1 0xfed90000
 #define IOMMU_BASE2 0xfed91000
@@ -437,7 +435,6 @@ u32 decode_tseg_size(u8 esmramc);
 void init_iommu(void);
 
 /* romstage mainboard hookups */
-void mb_setup_lpc(void);
 void mb_setup_superio(void); /* optional */
 void get_mb_spd_addrmap(u8 spd_addrmap[4]);
 void mb_pre_raminit_setup(sysinfo_t *); /* optional */
@@ -451,12 +448,10 @@ int get_blc_values(const struct blc_pwm_t **entries);
 u16 get_blc_pwm_freq_value(const char *edid_ascii_string);
 
 
-#if ENV_RAMSTAGE && !defined(__SIMPLE_DEVICE__)
 #include <device/device.h>
 
 struct acpi_rsdp;
 unsigned long northbridge_write_acpi_tables(struct device *device, unsigned long start, struct acpi_rsdp *rsdp);
-#endif
 
 #endif /* !__ACPI__ */
 #endif /* __NORTHBRIDGE_INTEL_GM45_GM45_H__ */

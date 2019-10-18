@@ -14,10 +14,8 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <device/device.h>
 #include <device/pnp.h>
-#include <string.h>
 #include <stdlib.h>
 #include "pc87392.h"
 

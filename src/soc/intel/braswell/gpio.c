@@ -15,6 +15,8 @@
  */
 
 #include <console/console.h>
+#include <arch/io.h>
+#include <device/mmio.h>
 #include <device/pci.h>
 #include <soc/gpio.h>
 #include <soc/pm.h>
@@ -174,7 +176,7 @@ static void setup_gpio_route(const struct soc_gpio_map *sw_gpios,
 	route_reg, alt_gpio_smi, gpe0a_en);
 #endif
 	/* Save as an smm param */
-	southcluster_smm_save_param(SMM_SAVE_PARAM_GPIO_ROUTE, route_reg);
+	smm_southcluster_save_param(SMM_SAVE_PARAM_GPIO_ROUTE, route_reg);
 }
 
 

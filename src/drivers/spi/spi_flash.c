@@ -10,15 +10,15 @@
 #include <arch/early_variables.h>
 #include <assert.h>
 #include <boot_device.h>
+#include <console/console.h>
 #include <cpu/x86/smm.h>
-#include <delay.h>
 #include <stdlib.h>
 #include <string.h>
 #include <spi-generic.h>
 #include <spi_flash.h>
+#include <timer.h>
 
 #include "spi_flash_internal.h"
-#include <timer.h>
 
 static void spi_flash_addr(u32 addr, u8 *cmd)
 {
@@ -31,7 +31,7 @@ static void spi_flash_addr(u32 addr, u8 *cmd)
 static int do_spi_flash_cmd(const struct spi_slave *spi, const void *dout,
 			    size_t bytes_out, void *din, size_t bytes_in)
 {
-	int ret = 1;
+	int ret;
 	/*
 	 * SPI flash requires command-response kind of behavior. Thus, two
 	 * separate SPI vectors are required -- first to transmit dout and other
@@ -49,11 +49,39 @@ static int do_spi_flash_cmd(const struct spi_slave *spi, const void *dout,
 	if (!bytes_in)
 		count = 1;
 
-	if (spi_claim_bus(spi))
+	ret = spi_claim_bus(spi);
+	if (ret)
 		return ret;
 
-	if (spi_xfer_vector(spi, vectors, count) == 0)
-		ret = 0;
+	ret = spi_xfer_vector(spi, vectors, count);
+
+	spi_release_bus(spi);
+	return ret;
+}
+
+static int do_dual_read_cmd(const struct spi_slave *spi, const void *dout,
+			    size_t bytes_out, void *din, size_t bytes_in)
+{
+	int ret;
+
+	/*
+	 * spi_xfer_vector() will automatically fall back to .xfer() if
+	 * .xfer_vector() is unimplemented. So using vector API here is more
+	 * flexible, even though a controller that implements .xfer_vector()
+	 * and (the non-vector based) .xfer_dual() but not .xfer() would be
+	 * pretty odd.
+	 */
+	struct spi_op vector = { .dout = dout, .bytesout = bytes_out,
+				 .din = NULL, .bytesin = 0 };
+
+	ret = spi_claim_bus(spi);
+	if (ret)
+		return ret;
+
+	ret = spi_xfer_vector(spi, &vector, 1);
+
+	if (!ret)
+		ret = spi->ctrlr->xfer_dual(spi, NULL, 0, din, bytes_in);
 
 	spi_release_bus(spi);
 	return ret;
@@ -68,23 +96,12 @@ int spi_flash_cmd(const struct spi_slave *spi, u8 cmd, void *response, size_t le
 	return ret;
 }
 
-static int spi_flash_cmd_read(const struct spi_slave *spi, const u8 *cmd,
-			      size_t cmd_len, void *data, size_t data_len)
-{
-	int ret = do_spi_flash_cmd(spi, cmd, cmd_len, data, data_len);
-	if (ret) {
-		printk(BIOS_WARNING, "SF: Failed to send read command (%zu bytes): %d\n",
-				data_len, ret);
-	}
-
-	return ret;
-}
-
 /* TODO: This code is quite possibly broken and overflowing stacks. Fix ASAP! */
 #pragma GCC diagnostic push
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic ignored "-Wstack-usage="
 #endif
+#pragma GCC diagnostic ignored "-Wvla"
 int spi_flash_cmd_write(const struct spi_slave *spi, const u8 *cmd,
 			size_t cmd_len, const void *data, size_t data_len)
 {
@@ -103,62 +120,49 @@ int spi_flash_cmd_write(const struct spi_slave *spi, const u8 *cmd,
 }
 #pragma GCC diagnostic pop
 
-static int spi_flash_cmd_read_array(const struct spi_slave *spi, u8 *cmd,
-				    size_t cmd_len, u32 offset,
-				    size_t len, void *data)
-{
-	spi_flash_addr(offset, cmd);
-	return spi_flash_cmd_read(spi, cmd, cmd_len, data, len);
-}
-
 /* Perform the read operation honoring spi controller fifo size, reissuing
  * the read command until the full request completed. */
-static int spi_flash_cmd_read_array_wrapped(const struct spi_slave *spi,
-				u8 *cmd, size_t cmd_len, u32 offset,
-				size_t len, void *buf)
+static int spi_flash_read_chunked(const struct spi_flash *flash, u32 offset,
+				  size_t len, void *buf)
 {
-	int ret;
-	size_t xfer_len;
+	u8 cmd[5];
+	int ret, cmd_len;
+	int (*do_cmd)(const struct spi_slave *spi, const void *din,
+		      size_t in_bytes, void *out, size_t out_bytes);
+
+	if (CONFIG(SPI_FLASH_NO_FAST_READ)) {
+		cmd_len = 4;
+		cmd[0] = CMD_READ_ARRAY_SLOW;
+		do_cmd = do_spi_flash_cmd;
+	} else if (flash->flags.dual_spi && flash->spi.ctrlr->xfer_dual) {
+		cmd_len = 5;
+		cmd[0] = CMD_READ_FAST_DUAL_OUTPUT;
+		cmd[4] = 0;
+		do_cmd = do_dual_read_cmd;
+	} else {
+		cmd_len = 5;
+		cmd[0] = CMD_READ_ARRAY_FAST;
+		cmd[4] = 0;
+		do_cmd = do_spi_flash_cmd;
+	}
+
 	uint8_t *data = buf;
-
 	while (len) {
-		xfer_len = spi_crop_chunk(spi, cmd_len, len);
-
-		/* Perform the read. */
-		ret = spi_flash_cmd_read_array(spi, cmd, cmd_len,
-						offset, xfer_len, data);
-
-		if (ret)
+		size_t xfer_len = spi_crop_chunk(&flash->spi, cmd_len, len);
+		spi_flash_addr(offset, cmd);
+		ret = do_cmd(&flash->spi, cmd, cmd_len, data, xfer_len);
+		if (ret) {
+			printk(BIOS_WARNING,
+			       "SF: Failed to send read command %#.2x(%#x, %#zx): %d\n",
+			       cmd[0], offset, xfer_len, ret);
 			return ret;
-
+		}
 		offset += xfer_len;
 		data += xfer_len;
 		len -= xfer_len;
 	}
 
 	return 0;
-}
-
-int spi_flash_cmd_read_fast(const struct spi_flash *flash, u32 offset,
-			size_t len, void *data)
-{
-	u8 cmd[5];
-
-	cmd[0] = CMD_READ_ARRAY_FAST;
-	cmd[4] = 0x00;
-
-	return spi_flash_cmd_read_array_wrapped(&flash->spi, cmd, sizeof(cmd),
-					offset, len, data);
-}
-
-int spi_flash_cmd_read_slow(const struct spi_flash *flash, u32 offset,
-			size_t len, void *data)
-{
-	u8 cmd[4];
-
-	cmd[0] = CMD_READ_ARRAY_SLOW;
-	return spi_flash_cmd_read_array_wrapped(&flash->spi, cmd, sizeof(cmd),
-					offset, len, data);
 }
 
 int spi_flash_cmd_poll_bit(const struct spi_flash *flash, unsigned long timeout,
@@ -174,7 +178,7 @@ int spi_flash_cmd_poll_bit(const struct spi_flash *flash, unsigned long timeout,
 	mono_time_add_msecs(&end, timeout);
 
 	do {
-		ret = spi_flash_cmd_read(spi, &cmd, 1, &status, 1);
+		ret = do_spi_flash_cmd(spi, &cmd, 1, &status, 1);
 		if (ret)
 			return -1;
 		if ((status & poll_bit) == 0)
@@ -196,7 +200,7 @@ int spi_flash_cmd_wait_ready(const struct spi_flash *flash,
 int spi_flash_cmd_erase(const struct spi_flash *flash, u32 offset, size_t len)
 {
 	u32 start, end, erase_size;
-	int ret;
+	int ret = -1;
 	u8 cmd[4];
 
 	erase_size = flash->sector_size;
@@ -217,7 +221,7 @@ int spi_flash_cmd_erase(const struct spi_flash *flash, u32 offset, size_t len)
 		spi_flash_addr(offset, cmd);
 		offset += erase_size;
 
-#if IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)
+#if CONFIG(DEBUG_SPI_FLASH)
 		printk(BIOS_SPEW, "SF: erase %2x %2x %2x %2x (%x)\n", cmd[0], cmd[1],
 		      cmd[2], cmd[3], offset);
 #endif
@@ -229,7 +233,8 @@ int spi_flash_cmd_erase(const struct spi_flash *flash, u32 offset, size_t len)
 		if (ret)
 			goto out;
 
-		ret = spi_flash_cmd_wait_ready(flash, SPI_FLASH_PAGE_ERASE_TIMEOUT);
+		ret = spi_flash_cmd_wait_ready(flash,
+				SPI_FLASH_PAGE_ERASE_TIMEOUT_MS);
 		if (ret)
 			goto out;
 	}
@@ -276,39 +281,39 @@ static struct {
 		      struct spi_flash *flash);
 } flashes[] = {
 	/* Keep it sorted by define name */
-#if IS_ENABLED(CONFIG_SPI_FLASH_AMIC)
-	{ 0, 0x37, spi_flash_probe_amic, },
+#if CONFIG(SPI_FLASH_AMIC)
+	{ 0, VENDOR_ID_AMIC, spi_flash_probe_amic, },
 #endif
-#if IS_ENABLED(CONFIG_SPI_FLASH_ATMEL)
-	{ 0, 0x1f, spi_flash_probe_atmel, },
+#if CONFIG(SPI_FLASH_ATMEL)
+	{ 0, VENDOR_ID_ATMEL, spi_flash_probe_atmel, },
 #endif
-#if IS_ENABLED(CONFIG_SPI_FLASH_EON)
-	{ 0, 0x1c, spi_flash_probe_eon, },
+#if CONFIG(SPI_FLASH_EON)
+	{ 0, VENDOR_ID_EON, spi_flash_probe_eon, },
 #endif
-#if IS_ENABLED(CONFIG_SPI_FLASH_GIGADEVICE)
-	{ 0, 0xc8, spi_flash_probe_gigadevice, },
+#if CONFIG(SPI_FLASH_GIGADEVICE)
+	{ 0, VENDOR_ID_GIGADEVICE, spi_flash_probe_gigadevice, },
 #endif
-#if IS_ENABLED(CONFIG_SPI_FLASH_MACRONIX)
-	{ 0, 0xc2, spi_flash_probe_macronix, },
+#if CONFIG(SPI_FLASH_MACRONIX)
+	{ 0, VENDOR_ID_MACRONIX, spi_flash_probe_macronix, },
 #endif
-#if IS_ENABLED(CONFIG_SPI_FLASH_SPANSION)
-	{ 0, 0x01, spi_flash_probe_spansion, },
+#if CONFIG(SPI_FLASH_SPANSION)
+	{ 0, VENDOR_ID_SPANSION, spi_flash_probe_spansion, },
 #endif
-#if IS_ENABLED(CONFIG_SPI_FLASH_SST)
-	{ 0, 0xbf, spi_flash_probe_sst, },
+#if CONFIG(SPI_FLASH_SST)
+	{ 0, VENDOR_ID_SST, spi_flash_probe_sst, },
 #endif
-#if IS_ENABLED(CONFIG_SPI_FLASH_STMICRO)
-	{ 0, 0x20, spi_flash_probe_stmicro, },
+#if CONFIG(SPI_FLASH_STMICRO)
+	{ 0, VENDOR_ID_STMICRO, spi_flash_probe_stmicro, },
 #endif
-#if IS_ENABLED(CONFIG_SPI_FLASH_WINBOND)
-	{ 0, 0xef, spi_flash_probe_winbond, },
+#if CONFIG(SPI_FLASH_WINBOND)
+	{ 0, VENDOR_ID_WINBOND, spi_flash_probe_winbond, },
 #endif
 	/* Keep it sorted by best detection */
-#if IS_ENABLED(CONFIG_SPI_FLASH_STMICRO)
-	{ 0, 0xff, spi_flash_probe_stmicro, },
+#if CONFIG(SPI_FLASH_STMICRO)
+	{ 0, VENDOR_ID_STMICRO_FF, spi_flash_probe_stmicro, },
 #endif
-#if IS_ENABLED(CONFIG_SPI_FLASH_ADESTO)
-	{ 0, 0x1f, spi_flash_probe_adesto, },
+#if CONFIG(SPI_FLASH_ADESTO)
+	{ 0, VENDOR_ID_ADESTO, spi_flash_probe_adesto, },
 #endif
 };
 #define IDCODE_LEN (IDCODE_CONT_LEN + IDCODE_PART_LEN)
@@ -324,7 +329,7 @@ int spi_flash_generic_probe(const struct spi_slave *spi,
 	if (ret)
 		return -1;
 
-	if (IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)) {
+	if (CONFIG(DEBUG_SPI_FLASH)) {
 		printk(BIOS_SPEW, "SF: Got idcode: ");
 		for (i = 0; i < sizeof(idcode); i++)
 			printk(BIOS_SPEW, "%02x ", idcode[i]);
@@ -339,7 +344,7 @@ int spi_flash_generic_probe(const struct spi_slave *spi,
 	printk(BIOS_INFO, "Manufacturer: %02x\n", *idp);
 
 	/* search the table for matches in shift and id */
-	for (i = 0; i < ARRAY_SIZE(flashes); ++i)
+	for (i = 0; i < (int)ARRAY_SIZE(flashes); ++i)
 		if (flashes[i].shift == shift && flashes[i].idcode == *idp) {
 			/* we have a match, call probe */
 			if (flashes[i].probe(spi, idp, flash) == 0) {
@@ -377,8 +382,12 @@ int spi_flash_probe(unsigned int bus, unsigned int cs, struct spi_flash *flash)
 		return -1;
 	}
 
-	printk(BIOS_INFO, "SF: Detected %s with sector size 0x%x, total 0x%x\n",
-			flash->name, flash->sector_size, flash->size);
+	const char *mode_string = "";
+	if (flash->flags.dual_spi && spi.ctrlr->xfer_dual)
+		mode_string = " (Dual SPI mode)";
+	printk(BIOS_INFO,
+	       "SF: Detected %s with sector size 0x%x, total 0x%x%s\n",
+		flash->name, flash->sector_size, flash->size, mode_string);
 	if (bus == CONFIG_BOOT_DEVICE_SPI_FLASH_BUS
 			&& flash->size != CONFIG_ROM_SIZE) {
 		printk(BIOS_ERR, "SF size 0x%x does not correspond to"
@@ -391,7 +400,10 @@ int spi_flash_probe(unsigned int bus, unsigned int cs, struct spi_flash *flash)
 int spi_flash_read(const struct spi_flash *flash, u32 offset, size_t len,
 		void *buf)
 {
-	return flash->ops->read(flash, offset, len, buf);
+	if (flash->ops->read)
+		return flash->ops->read(flash, offset, len, buf);
+
+	return spi_flash_read_chunked(flash, offset, len, buf);
 }
 
 int spi_flash_write(const struct spi_flash *flash, u32 offset, size_t len,
@@ -511,7 +523,7 @@ int spi_flash_volatile_group_begin(const struct spi_flash *flash)
 	uint32_t count;
 	int ret = 0;
 
-	if (!IS_ENABLED(CONFIG_SPI_FLASH_HAS_VOLATILE_GROUP))
+	if (!CONFIG(SPI_FLASH_HAS_VOLATILE_GROUP))
 		return ret;
 
 	count = car_get_var(volatile_group_count);
@@ -528,7 +540,7 @@ int spi_flash_volatile_group_end(const struct spi_flash *flash)
 	uint32_t count;
 	int ret = 0;
 
-	if (!IS_ENABLED(CONFIG_SPI_FLASH_HAS_VOLATILE_GROUP))
+	if (!CONFIG(SPI_FLASH_HAS_VOLATILE_GROUP))
 		return ret;
 
 	count = car_get_var(volatile_group_count);
@@ -547,7 +559,7 @@ void lb_spi_flash(struct lb_header *header)
 	struct lb_spi_flash *flash;
 	const struct spi_flash *spi_flash_dev;
 
-	if (!IS_ENABLED(CONFIG_BOOT_DEVICE_SPI_FLASH))
+	if (!CONFIG(BOOT_DEVICE_SPI_FLASH))
 		return;
 
 	flash = (struct lb_spi_flash *)lb_new_record(header);

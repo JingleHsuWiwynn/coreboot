@@ -26,10 +26,10 @@
 #include <console/console.h>
 #include <arch/smp/mpspec.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/pci.h>
-#include <string.h>
 #include <stdint.h>
-#if IS_ENABLED(CONFIG_LOGICAL_CPUS)
+#if CONFIG(LOGICAL_CPUS)
 #include <cpu/amd/multicore.h>
 #endif
 #include <cpu/amd/amdfam10_sysconf.h>

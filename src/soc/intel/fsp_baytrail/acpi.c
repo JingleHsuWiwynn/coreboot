@@ -37,10 +37,12 @@
 #include <soc/pmc.h>
 #include <soc/irq.h>
 #include <soc/iosf.h>
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <soc/msr.h>
 #include <soc/pattrs.h>
 #include <cbmem.h>
+#include <version.h>
 
 #include "chip.h"
 
@@ -87,7 +89,7 @@ void acpi_init_gnvs(global_nvs_t *gnvs)
 	/* Top of Low Memory (start of resource allocation) */
 	gnvs->tolm = nc_read_top_of_low_memory();
 
-#if IS_ENABLED(CONFIG_CONSOLE_CBMEM)
+#if CONFIG(CONSOLE_CBMEM)
 	/* Update the mem console pointer. */
 	gnvs->cbmc = (u32)cbmem_find(CBMEM_ID_CONSOLE);
 #endif
@@ -173,9 +175,9 @@ typedef struct soc_intel_fsp_baytrail_config config_t;
 void acpi_fill_in_fadt(acpi_fadt_t * fadt, acpi_facs_t * facs, void *dsdt)
 {
 	acpi_header_t *header = &(fadt->header);
-	struct device *lpcdev = pcidev_path_on_root(FADT_SOC_LPC_DEVFN);
+	struct device *lpcdev = pcidev_path_on_root(PCH_DEVFN_LPC);
 	u16 pmbase = pci_read_config16(lpcdev, ABASE) & 0xfff0;
-	config_t *config = lpcdev->chip_info;
+	config_t *config = config_of(lpcdev);
 
 	memset((void *) fadt, 0, sizeof(acpi_fadt_t));
 
@@ -191,13 +193,13 @@ void acpi_fill_in_fadt(acpi_fadt_t * fadt, acpi_facs_t * facs, void *dsdt)
 	memcpy(header->oem_id, OEM_ID, 6);
 	memcpy(header->oem_table_id, ACPI_TABLE_CREATOR, 8);
 	memcpy(header->asl_compiler_id, ASLC, 4);
-	header->asl_compiler_revision = 1;
+	header->asl_compiler_revision = asl_revision;
 
 	/* ACPI Pointers */
 	fadt->firmware_ctrl = (unsigned long) facs;
 	fadt->dsdt = (unsigned long) dsdt;
 
-	fadt->model = 0;		/* reserved, should be 0 ACPI 3.0 */
+	fadt->reserved = 0;		/* reserved, should be 0 ACPI 3.0 */
 	fadt->preferred_pm_profile = config->fadt_pm_profile; /* unknown is default */
 
 	/* System Management */

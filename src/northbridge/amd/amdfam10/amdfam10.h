@@ -17,8 +17,7 @@
 #ifndef AMDFAM10_H
 #define AMDFAM10_H
 
-#include <inttypes.h>
-#include <arch/io.h>
+#include <stdint.h>
 #include <device/device.h>
 #include "early_ht.h"
 
@@ -923,12 +922,10 @@ that are corresponding to 0x01, 0x02, 0x03, 0x05, 0x06, 0x07
 
 #include "nums.h"
 
-#ifdef __PRE_RAM__
 #if NODE_NUMS == 64
 	 #define NODE_PCI(x, fn) ((x < 32)?(PCI_DEV(CONFIG_CBB,(CONFIG_CDB+x),fn)):(PCI_DEV((CONFIG_CBB-1),(CONFIG_CDB+x-32),fn)))
 #else
 	 #define NODE_PCI(x, fn) PCI_DEV(CONFIG_CBB,(CONFIG_CDB+x),fn)
-#endif
 #endif
 
 /* Include wrapper for MCT (works for DDR2 or DDR3) */
@@ -990,17 +987,8 @@ struct sys_info {
 	struct DCTStatStruc DCTstatA[NODE_NUMS];
 } __packed;
 
-
-/*
-#ifdef __PRE_RAM__
-extern struct sys_info sysinfo_car;
-#endif
-*/
-#ifndef __PRE_RAM__
 struct device *get_node_pci(u32 nodeid, u32 fn);
-#endif
 
-#ifdef __PRE_RAM__
 void showallroutes(int level, pci_devfn_t dev);
 
 void setup_resource_map_offset(const u32 *register_values, u32 max, u32
@@ -1024,18 +1012,14 @@ u32 get_sblk(void);
 u8 get_sbbusn(u8 sblk);
 void set_bios_reset(void);
 
-#endif
-
 #include "northbridge/amd/amdht/porting.h"
 BOOL AMD_CB_ManualBUIDSwapList(u8 Node, u8 Link, const u8 **List);
 
 struct acpi_rsdp;
 
-#ifndef __SIMPLE_DEVICE__
 unsigned long northbridge_write_acpi_tables(struct device *device,
 					    unsigned long start,
 					    struct acpi_rsdp *rsdp);
 void northbridge_acpi_write_vars(struct device *device);
-#endif
 
 #endif /* AMDFAM10_H */

@@ -28,7 +28,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <boot/coreboot_tables.h>
 #include <console/uart.h>
 #include <delay.h>
@@ -54,7 +54,7 @@ static const uart_params_t uart_board_param = {
 	.blsp_uart = BLSP1_UART1,
 	.dbg_uart_gpio = {
 		{
-#if IS_ENABLED(CONFIG_IPQ_QFN_PART)
+#if CONFIG(IPQ_QFN_PART)
 			.gpio = 60,
 			.func = 2,
 #else	/* bga */
@@ -66,7 +66,7 @@ static const uart_params_t uart_board_param = {
 			.enable = GPIO_ENABLE
 		},
 		{
-#if IS_ENABLED(CONFIG_IPQ_QFN_PART)
+#if CONFIG(IPQ_QFN_PART)
 			.gpio = 61,
 			.func = 2,
 #else	/* bga */
@@ -283,7 +283,6 @@ uint8_t uart_rx_byte(int idx)
 	return byte;
 }
 
-#ifndef __PRE_RAM__
 /* TODO: Implement function */
 void uart_fill_lb(void *data)
 {
@@ -293,8 +292,9 @@ void uart_fill_lb(void *data)
 	serial.baseaddr = (uint32_t)UART1_DM_BASE;
 	serial.baud = get_uart_baudrate();
 	serial.regwidth = 1;
-
+	serial.input_hertz = uart_platform_refclk();
+	serial.uart_pci_addr = CONFIG_UART_PCI_ADDR;
 	lb_add_serial(&serial, data);
+
 	lb_add_console(LB_TAG_CONSOLE_SERIAL8250MEM, data);
 }
-#endif

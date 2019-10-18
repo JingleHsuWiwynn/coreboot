@@ -24,7 +24,7 @@
 
 #include <arch/smp/mpspec.h>
 #include <device/pci.h>
-#include <string.h>
+#include <device/pci_ops.h>
 #include <stdint.h>
 #include <cpu/amd/amdfam10_sysconf.h>
 

@@ -15,31 +15,27 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <arch/romstage.h>
 #include <assert.h>
 #include <cbmem.h>
-#include "chip.h"
+#include <console/console.h>
+#include <cpu/x86/mtrr.h>
+#include <cpu/x86/smm.h>
 #include <device/pci.h>
-#include <fsp/memmap.h>
-#include <intelblocks/smm.h>
 #include <soc/systemagent.h>
 #include <soc/pci_devs.h>
 
+#include "chip.h"
+
 void *cbmem_top(void)
 {
-	const struct device *dev;
 	const config_t *config;
 	void *tolum = (void *)sa_get_tseg_base();
 
-	if (!IS_ENABLED(CONFIG_SOC_INTEL_GLK))
+	if (!CONFIG(SOC_INTEL_GLK))
 		return tolum;
 
-	dev = dev_find_slot(0, PCH_DEVFN_LPC);
-	assert(dev != NULL);
-	config = dev->chip_info;
-
-	if (!config)
-		die("Failed to get chip_info\n");
+	config = config_of_soc();
 
 	/* FSP allocates 2x PRMRR Size Memory for alignment */
 	if (config->sgx_enable)
@@ -48,34 +44,27 @@ void *cbmem_top(void)
 	return tolum;
 }
 
-int smm_subregion(int sub, void **start, size_t *size)
+void smm_region(uintptr_t *start, size_t *size)
 {
-	uintptr_t sub_base;
-	size_t sub_size;
-	void *smm_base;
-	const size_t cache_size = CONFIG_SMM_RESERVED_SIZE;
+	*start = sa_get_tseg_base();
+	*size = sa_get_tseg_size();
+}
 
-	smm_region_info(&smm_base, &sub_size);
-	sub_base = (uintptr_t)smm_base;
+void fill_postcar_frame(struct postcar_frame *pcf)
+{
+	uintptr_t top_of_ram;
 
-	assert(sub_size > CONFIG_SMM_RESERVED_SIZE);
+	/*
+	 * We need to make sure ramstage will be run cached. At this point exact
+	 * location of ramstage in cbmem is not known. Instruct postcar to cache
+	 * 16 megs under cbmem top which is a safe bet to cover ramstage.
+	 */
+	top_of_ram = (uintptr_t) cbmem_top();
+	/* cbmem_top() needs to be at least 16 MiB aligned */
+	assert(ALIGN_DOWN(top_of_ram, 16*MiB) == top_of_ram);
+	postcar_frame_add_mtrr(pcf, top_of_ram - 16*MiB, 16*MiB,
+		MTRR_TYPE_WRBACK);
 
-	switch (sub) {
-	case SMM_SUBREGION_HANDLER:
-		/* Handler starts at the base of TSEG. */
-		sub_size -= cache_size;
-		break;
-	case SMM_SUBREGION_CACHE:
-		/* External cache is in the middle of TSEG. */
-		sub_base += sub_size - cache_size;
-		sub_size = cache_size;
-		break;
-	default:
-		return -1;
-	}
-
-	*start = (void *)sub_base;
-	*size = sub_size;
-
-	return 0;
+	/* Cache the TSEG region */
+	postcar_enable_tseg_cache(pcf);
 }

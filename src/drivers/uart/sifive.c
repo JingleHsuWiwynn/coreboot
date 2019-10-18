@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <boot/coreboot_tables.h>
 #include <console/uart.h>
 #include <types.h>
@@ -113,9 +113,7 @@ unsigned int uart_input_clock_divider(void)
 	return 1;
 }
 
-#ifndef __PRE_RAM__
 void uart_fill_lb(void *data)
 {
 	/* TODO */
 }
-#endif

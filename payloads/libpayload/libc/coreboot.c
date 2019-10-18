@@ -42,6 +42,12 @@
 /* === Parsing code === */
 /* This is the generic parsing code. */
 
+void *get_cbmem_ptr(unsigned char *ptr)
+{
+	struct cb_cbmem_tab *const cbmem = (struct cb_cbmem_tab *)ptr;
+	return phys_to_virt(cbmem->cbmem_tab);
+}
+
 static void cb_parse_memory(void *ptr, struct sysinfo_t *info)
 {
 	struct cb_memory *mem = ptr;
@@ -56,7 +62,7 @@ static void cb_parse_memory(void *ptr, struct sysinfo_t *info)
 	for (i = 0; i < count; i++) {
 		struct cb_memory_range *range = MEM_RANGE_PTR(mem, i);
 
-#if IS_ENABLED(CONFIG_LP_MEMMAP_RAM_ONLY)
+#if CONFIG(LP_MEMMAP_RAM_ONLY)
 		if (range->type != CB_MEM_RAM)
 			continue;
 #endif
@@ -78,12 +84,12 @@ static void cb_parse_serial(void *ptr, struct sysinfo_t *info)
 	info->serial = ((struct cb_serial *)ptr);
 }
 
-static void cb_parse_vboot_handoff(unsigned char *ptr, struct sysinfo_t *info)
+static void cb_parse_vboot_workbuf(unsigned char *ptr, struct sysinfo_t *info)
 {
-	struct lb_range *vbho = (struct lb_range *)ptr;
+	struct lb_range *vbwb = (struct lb_range *)ptr;
 
-	info->vboot_handoff = (void *)(uintptr_t)vbho->range_start;
-	info->vboot_handoff_size = vbho->range_size;
+	info->vboot_workbuf = (void *)(uintptr_t)vbwb->range_start;
+	info->vboot_workbuf_size = vbwb->range_size;
 }
 
 static void cb_parse_vbnv(unsigned char *ptr, struct sysinfo_t *info)
@@ -92,6 +98,13 @@ static void cb_parse_vbnv(unsigned char *ptr, struct sysinfo_t *info)
 
 	info->vbnv_start = vbnv->range_start;
 	info->vbnv_size = vbnv->range_size;
+}
+
+static void cb_parse_mmc_info(unsigned char *ptr, struct sysinfo_t *info)
+{
+	struct cb_mmc_info *mmc_info = (struct cb_mmc_info *)ptr;
+
+	info->mmc_early_wake_status = mmc_info->early_cmd1_status;
 }
 
 static void cb_parse_gpios(unsigned char *ptr, struct sysinfo_t *info)
@@ -121,20 +134,17 @@ static void cb_parse_mac_addresses(unsigned char *ptr,
 
 static void cb_parse_tstamp(unsigned char *ptr, struct sysinfo_t *info)
 {
-	struct cb_cbmem_tab *const cbmem = (struct cb_cbmem_tab *)ptr;
-	info->tstamp_table = phys_to_virt(cbmem->cbmem_tab);
+	info->tstamp_table = get_cbmem_ptr(ptr);
 }
 
 static void cb_parse_cbmem_cons(unsigned char *ptr, struct sysinfo_t *info)
 {
-	struct cb_cbmem_tab *const cbmem = (struct cb_cbmem_tab *)ptr;
-	info->cbmem_cons = phys_to_virt(cbmem->cbmem_tab);
+	info->cbmem_cons = get_cbmem_ptr(ptr);
 }
 
 static void cb_parse_acpi_gnvs(unsigned char *ptr, struct sysinfo_t *info)
 {
-	struct cb_cbmem_tab *const cbmem = (struct cb_cbmem_tab *)ptr;
-	info->acpi_gnvs = phys_to_virt(cbmem->cbmem_tab);
+	info->acpi_gnvs = get_cbmem_ptr(ptr);
 }
 
 static void cb_parse_board_id(unsigned char *ptr, struct sysinfo_t *info)
@@ -155,7 +165,7 @@ static void cb_parse_sku_id(unsigned char *ptr, struct sysinfo_t *info)
 	info->sku_id = sku_id->id_code;
 }
 
-#if IS_ENABLED(CONFIG_LP_NVRAM)
+#if CONFIG(LP_NVRAM)
 static void cb_parse_optiontable(void *ptr, struct sysinfo_t *info)
 {
 	/* ptr points to a coreboot table entry and is already virtual */
@@ -171,7 +181,7 @@ static void cb_parse_checksum(void *ptr, struct sysinfo_t *info)
 }
 #endif
 
-#if IS_ENABLED(CONFIG_LP_COREBOOT_VIDEO_CONSOLE)
+#if CONFIG(LP_COREBOOT_VIDEO_CONSOLE)
 static void cb_parse_framebuffer(void *ptr, struct sysinfo_t *info)
 {
 	/* ptr points to a coreboot table entry and is already virtual */
@@ -186,8 +196,7 @@ static void cb_parse_string(unsigned char *ptr, char **info)
 
 static void cb_parse_wifi_calibration(void *ptr, struct sysinfo_t *info)
 {
-	struct cb_cbmem_tab *const cbmem = (struct cb_cbmem_tab *)ptr;
-	info->wifi_calibration = phys_to_virt(cbmem->cbmem_tab);
+	info->wifi_calibration = get_cbmem_ptr(ptr);
 }
 
 static void cb_parse_ramoops(void *ptr, struct sysinfo_t *info)
@@ -228,11 +237,15 @@ static void cb_parse_boot_media_params(unsigned char *ptr,
 
 static void cb_parse_vpd(void *ptr, struct sysinfo_t *info)
 {
-	struct cb_cbmem_tab *const cbmem = (struct cb_cbmem_tab *)ptr;
-	info->chromeos_vpd = phys_to_virt(cbmem->cbmem_tab);
+	info->chromeos_vpd = get_cbmem_ptr(ptr);
 }
 
-#if IS_ENABLED(CONFIG_LP_TIMER_RDTSC)
+static void cb_parse_fmap_cache(void *ptr, struct sysinfo_t *info)
+{
+	info->fmap_cache = get_cbmem_ptr(ptr);
+}
+
+#if CONFIG(LP_TIMER_RDTSC)
 static void cb_parse_tsc_info(void *ptr, struct sysinfo_t *info)
 {
 	const struct cb_tsc_info *tsc_info = ptr;
@@ -328,7 +341,7 @@ int cb_parse_header(void *addr, int len, struct sysinfo_t *info)
 		case CB_TAG_ASSEMBLER:
 			cb_parse_string(ptr, &info->assembler);
 			break;
-#if IS_ENABLED(CONFIG_LP_NVRAM)
+#if CONFIG(LP_NVRAM)
 		case CB_TAG_CMOS_OPTION_TABLE:
 			cb_parse_optiontable(ptr, info);
 			break;
@@ -336,7 +349,7 @@ int cb_parse_header(void *addr, int len, struct sysinfo_t *info)
 			cb_parse_checksum(ptr, info);
 			break;
 #endif
-#if IS_ENABLED(CONFIG_LP_COREBOOT_VIDEO_CONSOLE)
+#if CONFIG(LP_COREBOOT_VIDEO_CONSOLE)
 		// FIXME we should warn on serial if coreboot set up a
 		// framebuffer buf the payload does not know about it.
 		case CB_TAG_FRAMEBUFFER:
@@ -352,8 +365,8 @@ int cb_parse_header(void *addr, int len, struct sysinfo_t *info)
 		case CB_TAG_VBNV:
 			cb_parse_vbnv(ptr, info);
 			break;
-		case CB_TAG_VBOOT_HANDOFF:
-			cb_parse_vboot_handoff(ptr, info);
+		case CB_TAG_VBOOT_WORKBUF:
+			cb_parse_vboot_workbuf(ptr, info);
 			break;
 		case CB_TAG_MAC_ADDRS:
 			cb_parse_mac_addresses(ptr, info);
@@ -388,19 +401,25 @@ int cb_parse_header(void *addr, int len, struct sysinfo_t *info)
 		case CB_TAG_SPI_FLASH:
 			cb_parse_spi_flash(ptr, info);
 			break;
+		case CB_TAG_MMC_INFO:
+			cb_parse_mmc_info(ptr, info);
+			break;
 		case CB_TAG_MTC:
 			cb_parse_mtc(ptr, info);
 			break;
 		case CB_TAG_BOOT_MEDIA_PARAMS:
 			cb_parse_boot_media_params(ptr, info);
 			break;
-#if IS_ENABLED(CONFIG_LP_TIMER_RDTSC)
+#if CONFIG(LP_TIMER_RDTSC)
 		case CB_TAG_TSC_INFO:
 			cb_parse_tsc_info(ptr, info);
 			break;
 #endif
 		case CB_TAG_VPD:
 			cb_parse_vpd(ptr, info);
+			break;
+		case CB_TAG_FMAP:
+			cb_parse_fmap_cache(ptr, info);
 			break;
 		default:
 			cb_parse_arch_specific(rec, info);

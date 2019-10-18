@@ -17,12 +17,10 @@
 #define __SIMPLE_DEVICE__
 
 #include <stdint.h>
-#include <device/pci_ids.h>
 #include <arch/io.h>
 #include "SbPlatform.h"
 #include "sb_cimx.h"
 #include <console/console.h>
-#include <commonlib/loglevel.h>
 #include "smbus.h"
 
 
@@ -40,8 +38,8 @@ void sb_poweron_init(void)
 	//Enable/Disable PCI Bridge Device 14 Function 4.
 	outb(0xEA, 0xCD6);
 	data = inb(0xCD7);
-	data &= !BIT0;
-	if (!CONFIG_PCIB_ENABLE) {
+	data &= ~BIT0;
+	if (!CONFIG(PCIB_ENABLE)) {
 		data |= BIT0;
 	}
 	outb(data, 0xCD7);

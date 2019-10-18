@@ -52,8 +52,6 @@ typedef struct {
 
 #define DEFAULT_HECIBAR		((u8 *)0xfed17000)
 
-				/* 4 KB per PCIe device */
-#define DEFAULT_PCIEXBAR	CONFIG_MMCONF_BASE_ADDRESS
 
 #define IOMMU_BASE1 0xfed90000
 #define IOMMU_BASE2 0xfed91000
@@ -69,8 +67,6 @@ typedef struct {
 #define D0F0_MCHBAR_HI 0x4c
 #define D0F0_GGC 0x52
 #define D0F0_DEVEN 0x54
-/* Note: Intel's datasheet is broken. Assume the following values are correct */
-#define  DEVEN_PEG60	(1 << 13)
 #define  DEVEN_IGD	(1 << 3)
 #define  DEVEN_PEG10	(1 << 1)
 #define  DEVEN_HOST	(1 << 0)
@@ -124,11 +120,7 @@ typedef struct {
 #define IVB_STEP_K0	(BASE_REV_IVB + 5)
 #define IVB_STEP_D0	(BASE_REV_IVB + 6)
 
-/* Intel Enhanced Debug region must be 4MB */
-#define IED_SIZE	0x400000
-
 /* Northbridge BARs */
-#define DEFAULT_PCIEXBAR	CONFIG_MMCONF_BASE_ADDRESS	/* 4 KB per PCIe device */
 #ifndef __ACPI__
 #define DEFAULT_MCHBAR		((u8 *)0xfed10000)	/* 16 KB */
 #define DEFAULT_DMIBAR		((u8 *)0xfed18000)	/* 4 KB */
@@ -159,10 +151,6 @@ typedef struct {
 
 #define SKPAD		0xdc	/* Scratchpad Data */
 
-/* Device 0:1.0 PCI configuration space (PCI Express) */
-
-#define BCTRL1		0x3e	/* 16bit */
-
 
 /* Device 0:2.0 PCI configuration space (Graphics Device) */
 
@@ -187,9 +175,6 @@ typedef struct {
 #define MCHBAR32_OR(x, or) (MCHBAR32(x) = MCHBAR32(x) | (or))
 #define MCHBAR32_AND_OR(x, and, or) \
 	(MCHBAR32(x) = (MCHBAR32(x) & (and)) | (or))
-
-#define BIOS_RESET_CPL	0x5da8	/* 8bit */
-
 /*
  * EPBAR - Egress Port Root Complex Register Block
  */
@@ -271,6 +256,8 @@ void intel_nehalem_finalize_smm(void);
 int bridge_silicon_revision(void);
 void nehalem_early_initialization(int chipset_type);
 void nehalem_late_initialization(void);
+void mainboard_pre_raminit(void);
+void mainboard_get_spd_map(u8 *spd_addrmap);
 
 #endif /* !__SMM__ */
 

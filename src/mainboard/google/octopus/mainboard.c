@@ -16,12 +16,14 @@
 #include <arch/acpi.h>
 #include <baseboard/variants.h>
 #include <boardid.h>
+#include <bootstate.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci_def.h>
 #include <device/pci_ops.h>
 #include <ec/google/chromeec/ec.h>
 #include <ec/ec.h>
+#include <intelblocks/xhci.h>
 #include <nhlt.h>
 #include <smbios.h>
 #include <soc/cpu.h>
@@ -118,7 +120,7 @@ struct chip_operations mainboard_ops = {
 #define SKU_UNKNOWN		0xFFFFFFFF
 #define SKU_MAX			255
 
-static uint32_t get_board_sku(void)
+uint32_t get_board_sku(void)
 {
 	static uint32_t sku_id = SKU_UNKNOWN;
 
@@ -131,7 +133,7 @@ static uint32_t get_board_sku(void)
 	return sku_id;
 }
 
-const char *smbios_mainboard_sku(void)
+const char *smbios_system_sku(void)
 {
 	static char sku_str[7]; /* sku{0..255} */
 	uint32_t sku_id = get_board_sku();
@@ -199,3 +201,16 @@ const char *smbios_mainboard_manufacturer(void)
 
 	return manuf;
 }
+
+bool __weak variant_ext_usb_status(unsigned int port_type, unsigned int port_id)
+{
+	/* All externally visible USB ports are present */
+	return true;
+}
+
+static void disable_unused_devices(void *unused)
+{
+	usb_xhci_disable_unused(variant_ext_usb_status);
+}
+
+BOOT_STATE_INIT_ENTRY(BS_DEV_INIT, BS_ON_EXIT, disable_unused_devices, NULL);

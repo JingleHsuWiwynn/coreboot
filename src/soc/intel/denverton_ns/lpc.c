@@ -19,6 +19,8 @@
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <arch/ioapic.h>
 #include <arch/acpi.h>
 #include <cpu/x86/smm.h>
@@ -88,7 +90,7 @@ static void pch_pirq_init(struct device *dev)
 {
 	struct device *irq_dev;
 	/* Get the chip configuration */
-	config_t *config = dev->chip_info;
+	config_t *config = config_of(dev);
 
 	/* Initialize PIRQ Routings */
 	write8((void *)PCH_PCR_ADDRESS(PID_ITSS, PCR_ITSS_PIRQA_ROUT),
@@ -208,7 +210,7 @@ static void pch_enable_serial_irqs(struct device *dev)
 	/* Set packet length and toggle silent mode bit for one frame. */
 	pci_write_config8(dev, SERIRQ_CNTL,
 			  (1 << 7) | (1 << 6) | ((21 - 17) << 2) | (0 << 0));
-#if !IS_ENABLED(CONFIG_SERIRQ_CONTINUOUS_MODE)
+#if !CONFIG(SERIRQ_CONTINUOUS_MODE)
 	pci_write_config8(dev, SERIRQ_CNTL,
 			  (1 << 7) | (0 << 6) | ((21 - 17) << 2) | (0 << 0));
 #endif
@@ -308,14 +310,14 @@ void southcluster_enable_dev(struct device *dev)
 static struct device_operations device_ops = {
 	.read_resources = lpc_read_resources,
 	.set_resources = pci_dev_set_resources,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_inject_dsdt_generator = southcluster_inject_dsdt,
 	.write_acpi_tables = southcluster_write_acpi_tables,
 #endif
 	.enable_resources = lpc_enable_resources,
 	.init = lpc_init,
 	.enable = southcluster_enable_dev,
-	.scan_bus = scan_lpc_bus,
+	.scan_bus = scan_static_bus,
 	.ops_pci = &soc_pci_ops,
 };
 

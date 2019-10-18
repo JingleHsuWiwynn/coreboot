@@ -13,19 +13,17 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
-#include <assert.h>
+#include <device/mmio.h>
 #include <console/console.h>
 #include <delay.h>
 #include <device/device.h>
 #include <edid.h>
-#include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include <soc/addressmap.h>
 #include <soc/display.h>
 #include <soc/edp.h>
 #include <timer.h>
+#include <types.h>
 
 #define edp_debug(x...) do {if (0) printk(BIOS_DEBUG, x); } while (0)
 

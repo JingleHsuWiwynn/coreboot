@@ -368,7 +368,6 @@ enum ddr2_signals {
 	CTRL3,
 };
 
-#ifndef __BOOTBLOCK__
 void x4x_early_init(void);
 void x4x_late_init(int s3resume);
 u32 decode_igd_memory_size(u32 gms);
@@ -378,8 +377,8 @@ u8 decode_pciebar(u32 *const base, u32 *const len);
 void sdram_initialize(int boot_path, const u8 *spd_map);
 void do_raminit(struct sysinfo *, int fast_boot);
 void rcven(struct sysinfo *s);
-u32 fsb2mhz(u32 speed);
-u32 ddr2mhz(u32 speed);
+u32 fsb_to_mhz(u32 speed);
+u32 ddr_to_mhz(u32 speed);
 u32 test_address(int channel, int rank);
 void dqsset(u8 ch, u8 lane, const struct dll_setting *setting);
 void dqset(u8 ch, u8 lane, const struct dll_setting *setting);
@@ -411,10 +410,9 @@ extern const u32 ddr3_c2_tab[2][3][6][2];
 extern const u8 ddr3_c2_x264[3][6];
 extern const u16 ddr3_c2_x23c[3][6];
 
+#include <device/device.h>
 struct acpi_rsdp;
-#ifndef __SIMPLE_DEVICE__
 unsigned long northbridge_write_acpi_tables(struct device *device,
 		unsigned long start, struct acpi_rsdp *rsdp);
-#endif /* __SIMPLE_DEVICE__ */
-#endif
+
 #endif /* __NORTHBRIDGE_INTEL_X4X_H__ */

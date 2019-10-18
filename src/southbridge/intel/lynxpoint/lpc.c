@@ -30,12 +30,14 @@
 #include <cpu/x86/smm.h>
 #include <cbmem.h>
 #include <string.h>
+#include "chip.h"
 #include "nvs.h"
 #include "pch.h"
 #include <arch/acpigen.h>
 #include <drivers/intel/gma/i915.h>
 #include <southbridge/intel/common/acpi_pirq_gen.h>
 #include <southbridge/intel/common/rtc.h>
+#include <southbridge/intel/common/spi.h>
 
 #define NMI_OFF	0
 
@@ -82,7 +84,7 @@ static void pch_enable_serial_irqs(struct device *dev)
 	/* Set packet length and toggle silent mode bit for one frame. */
 	pci_write_config8(dev, SERIRQ_CNTL,
 			  (1 << 7) | (1 << 6) | ((21 - 17) << 2) | (0 << 0));
-#if !IS_ENABLED(CONFIG_SERIRQ_CONTINUOUS_MODE)
+#if !CONFIG(SERIRQ_CONTINUOUS_MODE)
 	pci_write_config8(dev, SERIRQ_CNTL,
 			  (1 << 7) | (0 << 6) | ((21 - 17) << 2) | (0 << 0));
 #endif
@@ -490,8 +492,7 @@ static void enable_lp_clock_gating(struct device *dev)
 
 static void pch_set_acpi_mode(void)
 {
-#if IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)
-	if (!acpi_is_wakeup_s3()) {
+	if (CONFIG(HAVE_SMI_HANDLER) && !acpi_is_wakeup_s3()) {
 #if ENABLE_ACPI_MODE_IN_COREBOOT
 		printk(BIOS_DEBUG, "Enabling ACPI via APMC:\n");
 		outb(APM_CNT_ACPI_ENABLE, APM_CNT);
@@ -502,7 +503,6 @@ static void pch_set_acpi_mode(void)
 		printk(BIOS_DEBUG, "done.\n");
 #endif
 	}
-#endif /* CONFIG_HAVE_SMI_HANDLER */
 }
 
 static void pch_disable_smm_only_flashing(struct device *dev)
@@ -510,9 +510,9 @@ static void pch_disable_smm_only_flashing(struct device *dev)
 	u8 reg8;
 
 	printk(BIOS_SPEW, "Enabling BIOS updates outside of SMM... ");
-	reg8 = pci_read_config8(dev, 0xdc);	/* BIOS_CNTL */
+	reg8 = pci_read_config8(dev, BIOS_CNTL);
 	reg8 &= ~(1 << 5);
-	pci_write_config8(dev, 0xdc, reg8);
+	pci_write_config8(dev, BIOS_CNTL, reg8);
 }
 
 static void pch_fixups(struct device *dev)
@@ -623,7 +623,7 @@ static void pch_lpc_add_mmio_resources(struct device *dev)
 #define LPC_DEFAULT_IO_RANGE_LOWER 0
 #define LPC_DEFAULT_IO_RANGE_UPPER 0x1000
 
-static inline int pch_io_range_in_default(u16 base, u16 size)
+static inline int pch_io_range_in_default(int base, int size)
 {
 	/* Does it start above the range? */
 	if (base >= LPC_DEFAULT_IO_RANGE_UPPER)
@@ -723,17 +723,6 @@ static void pch_lpc_enable(struct device *dev)
 	pch_enable(dev);
 }
 
-static void set_subsystem(struct device *dev, unsigned vendor, unsigned device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
-}
-
 static void southbridge_inject_dsdt(struct device *dev)
 {
 	global_nvs_t *gnvs;
@@ -754,7 +743,7 @@ static void southbridge_inject_dsdt(struct device *dev)
 		gnvs->mpen = 1; /* Enable Multi Processing */
 		gnvs->pcnt = dev_count_cpu();
 
-#if IS_ENABLED(CONFIG_CHROMEOS)
+#if CONFIG(CHROMEOS)
 		chromeos_init_chromeos_acpi(&(gnvs->chromeos));
 #endif
 
@@ -971,17 +960,14 @@ static unsigned long southbridge_write_acpi_tables(struct device *device,
 
 static void lpc_final(struct device *dev)
 {
-	RCBA16(0x3894) = SPI_OPPREFIX;
-	RCBA16(0x3896) = SPI_OPTYPE;
-	RCBA32(0x3898) = SPI_OPMENU_LOWER;
-	RCBA32(0x389c) = SPI_OPMENU_UPPER;
+	spi_finalize_ops();
 
-	if (acpi_is_wakeup_s3() || IS_ENABLED(CONFIG_INTEL_CHIPSET_LOCKDOWN))
+	if (acpi_is_wakeup_s3() || CONFIG(INTEL_CHIPSET_LOCKDOWN))
 		outb(APM_CNT_FINALIZE, APM_CNT);
 }
 
 static struct pci_operations pci_ops = {
-	.set_subsystem = set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 };
 
 static struct device_operations device_ops = {
@@ -995,7 +981,7 @@ static struct device_operations device_ops = {
 	.init			= lpc_init,
 	.final			= lpc_final,
 	.enable			= pch_lpc_enable,
-	.scan_bus		= scan_lpc_bus,
+	.scan_bus		= scan_static_bus,
 	.ops_pci		= &pci_ops,
 };
 

@@ -1,8 +1,6 @@
 ##
 ## This file is part of the coreboot project.
 ##
-## Copyright (C) 2010 Keith Hui <buurin@gmail.com>
-##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
 ## the Free Software Foundation; either version 2 of the License, or
@@ -16,4 +14,4 @@
 
 ramstage-y += model_65x_init.c
 
-cpu_microcode_bins += 3rdparty/blobs/cpu/intel/model_65x/microcode.bin
+cpu_microcode_bins += $(wildcard 3rdparty/intel-microcode/intel-ucode/06-05-*)

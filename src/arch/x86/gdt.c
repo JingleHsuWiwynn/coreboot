@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2008-2009 coresystems GmbH
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -16,6 +14,7 @@
 #include <types.h>
 #include <string.h>
 #include <cbmem.h>
+#include <commonlib/helpers.h>
 #include <console/console.h>
 #include <cpu/x86/gdt.h>
 
@@ -40,13 +39,13 @@ static void move_gdt(int is_recovery)
 	struct gdtarg gdtarg;
 
 	/* ramstage is already in high memory. No need to use a new gdt. */
-	if (IS_ENABLED(CONFIG_RELOCATABLE_RAMSTAGE))
+	if (CONFIG(RELOCATABLE_RAMSTAGE))
 		return;
 
 	newgdt = cbmem_find(CBMEM_ID_GDT);
 	num_gdt_bytes = (uintptr_t)&gdt_end - (uintptr_t)&gdt;
 	if (!newgdt) {
-		newgdt = cbmem_add(CBMEM_ID_GDT, ALIGN(num_gdt_bytes, 512));
+		newgdt = cbmem_add(CBMEM_ID_GDT, ALIGN_UP(num_gdt_bytes, 512));
 		if (!newgdt) {
 			printk(BIOS_ERR, "Error: Could not relocate GDT.\n");
 			return;

@@ -15,24 +15,24 @@
  * GNU General Public License for more details.
  */
 
-#include <delay.h>
 #include <types.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <cpu/x86/cache.h>
 #include <device/pci_def.h>
 #include <cpu/x86/smm.h>
+#include <cpu/intel/em64t101_save_state.h>
 #include <elog.h>
 #include <halt.h>
 #include <pc80/mc146818rtc.h>
 #include <southbridge/intel/common/finalize.h>
 #include <northbridge/intel/haswell/haswell.h>
 #include <cpu/intel/haswell/haswell.h>
+
 #include "me.h"
 #include "pch.h"
-
 #include "nvs.h"
-
 
 static u8 smm_initialized = 0;
 
@@ -134,13 +134,13 @@ static void southbridge_smi_sleep(void)
 	mainboard_smi_sleep(slp_typ);
 
 	/* USB sleep preparations */
-#if !IS_ENABLED(CONFIG_FINALIZE_USB_ROUTE_XHCI)
+#if !CONFIG(FINALIZE_USB_ROUTE_XHCI)
 	usb_ehci_sleep_prepare(PCH_EHCI1_DEV, slp_typ);
 	usb_ehci_sleep_prepare(PCH_EHCI2_DEV, slp_typ);
 #endif
 	usb_xhci_sleep_prepare(PCH_XHCI_DEV, slp_typ);
 
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 	/* Log S3, S4, and S5 entry */
 	if (slp_typ >= ACPI_S3)
 		elog_add_event_byte(ELOG_TYPE_ACPI_ENTER, slp_typ);
@@ -247,7 +247,7 @@ static em64t101_smm_state_save_area_t *smi_apmc_find_state_save(u8 cmd)
 	return NULL;
 }
 
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 static void southbridge_smi_gsmi(void)
 {
 	u32 *ret, *param;
@@ -332,7 +332,7 @@ static void southbridge_smi_apmc(void)
 	case 0xca:
 		usb_xhci_route_all();
 		break;
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 	case APM_CNT_ELOG_GSMI:
 		southbridge_smi_gsmi();
 		break;
@@ -351,7 +351,7 @@ static void southbridge_smi_pm1(void)
 	 */
 	if (pm1_sts & PWRBTN_STS) {
 		// power button pressed
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 		elog_add_event(ELOG_TYPE_POWER_BUTTON);
 #endif
 		disable_pm1_control(-1UL);

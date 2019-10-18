@@ -13,11 +13,12 @@
  * GNU General Public License for more details.
  */
 
+#include <arch/io.h>
+#include <device/mmio.h>
 #include <device/pci.h>
 #include <console/console.h>
 #include <soc/gpio.h>
 #include <soc/pmc.h>
-#include <soc/smm.h>
 
 /*
  * GPIO-to-Pad LUTs
@@ -28,13 +29,11 @@
  *   PCU iLB GPIO CFIO_SCORE Address Map
  *   PCU iLB GPIO CFIO_SSUS Address Map
  */
-#ifndef __PRE_RAM__
 static const u8 gpncore_gpio_to_pad[GPNCORE_COUNT] =
 	{ 19, 18, 17, 20, 21, 22, 24, 25,	/* [ 0: 7] */
 	  23, 16, 14, 15, 12, 26, 27,  1,	/* [ 8:15] */
 	   4,  8, 11,  0,  3,  6, 10, 13,	/* [16:23] */
 	   2,  5,  9 };				/* [24:26] */
-#endif
 
 static const u8 gpscore_gpio_to_pad[GPSCORE_COUNT] =
 	{  85,  89, 93,  96, 99, 102,  98, 101,	/* [ 0:  7] */
@@ -59,8 +58,6 @@ static const u8 gpssus_gpio_to_pad[GPSSUS_COUNT] =
 	  56, 54, 49, 55, 48, 57, 50, 58,	/* [32:39] */
 	  52, 53, 59, 40 };			/* [40:43] */
 
-
-#ifndef __PRE_RAM__
 
 /* GPIO bank descriptions */
 static const struct gpio_bank gpncore_bank = {
@@ -190,6 +187,10 @@ static void setup_gpio_route(const struct soc_gpio_map *sus,
 	uint32_t route_reg = 0;
 	int i;
 
+	/* FIXME: SCI interrupts should be routed regardlessy. */
+	if (!CONFIG(HAVE_SMI_HANDLER))
+		return;
+
 	for (i = 0; i < 8; i++) {
 		/* SMI takes precedence and wake_en implies SCI. */
 		if (sus[i].smi) {
@@ -205,9 +206,7 @@ static void setup_gpio_route(const struct soc_gpio_map *sus,
 		}
 	}
 
-#if IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)
-	southcluster_smm_save_gpio_route(route_reg);
-#endif
+	smm_southcluster_save_gpio_route(route_reg);
 }
 
 static void setup_dirqs(const u8 dirq[GPIO_MAX_DIRQS],
@@ -250,7 +249,6 @@ struct soc_gpio_config* __weak mainboard_get_gpios(void)
 	printk(BIOS_DEBUG, "Default/empty GPIO config\n");
 	return NULL;
 }
-#endif /* #ifndef __PRE_RAM__ */
 
 /** \brief returns the input / output value from an SCORE GPIO
  *

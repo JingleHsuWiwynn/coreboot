@@ -15,6 +15,7 @@
  */
 
 #include <assert.h>
+#include <console/console.h>
 #include <string.h>
 #include <stdlib.h>
 #include <boot_device.h>
@@ -26,10 +27,11 @@
 #include <timestamp.h>
 #include <fmap.h>
 #include "fmap_config.h"
+#include <security/vboot/vboot_crtm.h>
 
 #define ERROR(x...) printk(BIOS_ERR, "CBFS: " x)
 #define LOG(x...) printk(BIOS_INFO, "CBFS: " x)
-#if IS_ENABLED(CONFIG_DEBUG_CBFS)
+#if CONFIG(DEBUG_CBFS)
 #define DEBUG(x...) printk(BIOS_SPEW, "CBFS: " x)
 #else
 #define DEBUG(x...)
@@ -59,7 +61,12 @@ int cbfs_boot_locate(struct cbfsf *fh, const char *name, uint32_t *type)
 		return -1;
 	}
 
-	return cbfs_locate(fh, &rdev, name, type);
+	int ret = cbfs_locate(fh, &rdev, name, type);
+	if (!ret)
+		if (vboot_measure_cbfs_hook(fh, name))
+			return -1;
+
+	return ret;
 }
 
 void *cbfs_boot_map_with_leak(const char *name, uint32_t type, size_t *size)
@@ -79,13 +86,13 @@ void *cbfs_boot_map_with_leak(const char *name, uint32_t type, size_t *size)
 }
 
 int cbfs_locate_file_in_region(struct cbfsf *fh, const char *region_name,
-		const char *name, uint32_t *type)
+			       const char *name, uint32_t *type)
 {
 	struct region_device rdev;
 
 	if (fmap_locate_area_as_rdev(region_name, &rdev)) {
 		LOG("%s region not found while looking for %s\n",
-			region_name, name);
+		    region_name, name);
 		return -1;
 	}
 
@@ -107,7 +114,7 @@ size_t cbfs_load_and_decompress(const struct region_device *rdev, size_t offset,
 
 	case CBFS_COMPRESS_LZ4:
 		if ((ENV_BOOTBLOCK || ENV_VERSTAGE) &&
-		    !IS_ENABLED(CONFIG_COMPRESS_PRERAM_STAGES))
+			!CONFIG(COMPRESS_PRERAM_STAGES))
 			return 0;
 
 		/* Load the compressed image to the end of the available memory
@@ -127,10 +134,10 @@ size_t cbfs_load_and_decompress(const struct region_device *rdev, size_t offset,
 		/* We assume here romstage and postcar are never compressed. */
 		if (ENV_BOOTBLOCK || ENV_VERSTAGE)
 			return 0;
-		if (ENV_ROMSTAGE && IS_ENABLED(CONFIG_POSTCAR_STAGE))
+		if (ENV_ROMSTAGE && CONFIG(POSTCAR_STAGE))
 			return 0;
 		if ((ENV_ROMSTAGE || ENV_POSTCAR)
-			&& !IS_ENABLED(CONFIG_COMPRESS_RAMSTAGE))
+		    && !CONFIG(COMPRESS_RAMSTAGE))
 			return 0;
 		void *map = rdev_mmap(rdev, offset, in_size);
 		if (map == NULL)
@@ -157,9 +164,9 @@ static inline int tohex4(unsigned int c)
 
 static void tohex16(unsigned int val, char *dest)
 {
-	dest[0] = tohex4(val>>12);
-	dest[1] = tohex4((val>>8) & 0xf);
-	dest[2] = tohex4((val>>4) & 0xf);
+	dest[0] = tohex4(val >> 12);
+	dest[1] = tohex4((val >> 8) & 0xf);
+	dest[2] = tohex4((val >> 4) & 0xf);
 	dest[3] = tohex4(val & 0xf);
 }
 
@@ -167,8 +174,8 @@ void *cbfs_boot_map_optionrom(uint16_t vendor, uint16_t device)
 {
 	char name[17] = "pciXXXX,XXXX.rom";
 
-	tohex16(vendor, name+3);
-	tohex16(device, name+8);
+	tohex16(vendor, name + 3);
+	tohex16(device, name + 8);
 
 	return cbfs_boot_map_with_leak(name, CBFS_TYPE_OPTIONROM, NULL);
 }
@@ -202,8 +209,9 @@ size_t cbfs_boot_load_file(const char *name, void *buf, size_t buf_size,
 		return 0;
 
 	if (cbfsf_decompression_info(&fh, &compression_algo,
-				     &decompressed_size) < 0
-				     || decompressed_size > buf_size)
+				     &decompressed_size)
+		    < 0
+	    || decompressed_size > buf_size)
 		return 0;
 
 	return cbfs_load_and_decompress(&fh.data, 0, region_device_sz(&fh.data),
@@ -248,8 +256,8 @@ int cbfs_prog_stage_load(struct prog *pstage)
 
 	/* Hacky way to not load programs over read only media. The stages
 	 * that would hit this path initialize themselves. */
-	if (ENV_VERSTAGE && !IS_ENABLED(CONFIG_NO_XIP_EARLY_STAGES) &&
-	    IS_ENABLED(CONFIG_BOOT_DEVICE_MEMORY_MAPPED)) {
+	if (ENV_VERSTAGE && !CONFIG(NO_XIP_EARLY_STAGES) &&
+		CONFIG(BOOT_DEVICE_MEMORY_MAPPED)) {
 		void *mapping = rdev_mmap(fh, foffset, fsize);
 		rdev_munmap(fh, mapping);
 		if (mapping == load)
@@ -325,7 +333,7 @@ const struct cbfs_locator __weak cbfs_master_header_locator = {
 extern const struct cbfs_locator vboot_locator;
 
 static const struct cbfs_locator *locators[] = {
-#if IS_ENABLED(CONFIG_VBOOT)
+#if CONFIG(VBOOT)
 	/*
 	 * NOTE: Does not link in SMM, as the vboot_locator isn't compiled.
 	 * ATM there's no need for VBOOT functionality in SMM and it's not
@@ -354,7 +362,7 @@ int cbfs_boot_region_properties(struct cbfs_props *props)
 			continue;
 
 		LOG("'%s' located CBFS at [%zx:%zx)\n",
-			ops->name, props->offset, props->offset + props->size);
+		    ops->name, props->offset, props->offset + props->size);
 
 		return 0;
 	}

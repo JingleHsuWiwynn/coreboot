@@ -16,9 +16,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <cpu/x86/cache.h>
 #include <cpu/x86/smm.h>
+#include <cpu/intel/em64t100_save_state.h>
 #include <device/pci_def.h>
 #include <elog.h>
 #include <halt.h>
@@ -112,7 +114,7 @@ static void southbridge_smi_sleep(void)
 	/* Do any mainboard sleep handling */
 	mainboard_smi_sleep(slp_typ);
 
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 	/* Log S3, S4, and S5 entry */
 	if (slp_typ >= ACPI_S3)
 		elog_add_event_byte(ELOG_TYPE_ACPI_ENTER, slp_typ);
@@ -208,7 +210,7 @@ static em64t100_smm_state_save_area_t *smi_apmc_find_state_save(uint8_t cmd)
 	return NULL;
 }
 
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 static void southbridge_smi_gsmi(void)
 {
 	u32 *ret, *param;
@@ -241,7 +243,7 @@ static void finalize(void)
 	}
 	finalize_done = 1;
 
-#if IS_ENABLED(CONFIG_SPI_FLASH_SMM)
+#if CONFIG(SPI_FLASH_SMM)
 	/* Re-init SPI driver to handle locked BAR */
 	spi_init();
 #endif
@@ -346,7 +348,7 @@ static void southbridge_smi_apmc(void)
 			printk(BIOS_DEBUG, "SMI#: Setting GNVS to %p\n", gnvs);
 		}
 		break;
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 	case APM_CNT_ELOG_GSMI:
 		southbridge_smi_gsmi();
 		break;
@@ -372,7 +374,7 @@ static void southbridge_smi_pm1(void)
 	 */
 	if (pm1_sts & PWRBTN_STS) {
 		// power button pressed
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 		elog_add_event(ELOG_TYPE_POWER_BUTTON);
 #endif
 		disable_pm1_control(-1UL);

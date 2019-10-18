@@ -22,7 +22,6 @@
 #include <device/pci_ops.h>
 #include <pc80/mc146818rtc.h>
 #include <pc80/isa-dma.h>
-#include <arch/io.h>
 #include <arch/ioapic.h>
 #include "bcm5785.h"
 
@@ -116,15 +115,8 @@ static void bcm5785_lpc_enable_resources(struct device *dev)
 	bcm5785_lpc_enable_childrens_resources(dev);
 }
 
-static void lpci_set_subsystem(struct device *dev, unsigned vendor,
-			       unsigned device)
-{
-	pci_write_config32(dev, 0x40,
-		((device & 0xffff) << 16) | (vendor & 0xffff));
-}
-
 static struct pci_operations lops_pci = {
-	.set_subsystem = lpci_set_subsystem,
+	.set_subsystem = bcm5785_set_subsystem,
 };
 
 static struct device_operations lpc_ops  = {
@@ -132,7 +124,7 @@ static struct device_operations lpc_ops  = {
 	.set_resources    = pci_dev_set_resources,
 	.enable_resources = bcm5785_lpc_enable_resources,
 	.init             = lpc_init,
-	.scan_bus         = scan_lpc_bus,
+	.scan_bus         = scan_static_bus,
 //	.enable           = bcm5785_enable,
 	.ops_pci          = &lops_pci,
 };

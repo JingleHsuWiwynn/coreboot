@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright 2016 Google Inc.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2 of
@@ -61,7 +59,7 @@ _start:
 	 *   0x00: Number of variable MTRRs to clear
 	 */
 
-#if IS_ENABLED(CONFIG_SOC_SETS_MSRS)
+#if CONFIG(SOC_SETS_MSRS)
 
 	mov	%esp, %ebp
 	/* Need to align stack to 16 bytes at the call instruction. Therefore

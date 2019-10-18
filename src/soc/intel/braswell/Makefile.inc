@@ -9,12 +9,24 @@ subdirs-y += ../../../cpu/intel/microcode
 subdirs-y += ../../../cpu/intel/turbo
 subdirs-y += ../../../cpu/intel/common
 
+bootblock-y += gpio_support.c
+bootblock-y += bootblock/bootblock.c
+bootblock-y += lpc_init.c
+bootblock-y += pmutil.c
+bootblock-y += tsc_freq.c
+
 romstage-y += gpio_support.c
 romstage-y += iosf.c
-romstage-y += lpc_init.c
 romstage-y += memmap.c
 romstage-y += pmutil.c
+romstage-y += smbus.c
+romstage-y += spi.c
 romstage-y += tsc_freq.c
+
+postcar-y += memmap.c
+postcar-y += iosf.c
+postcar-y += spi.c
+postcar-y += tsc_freq.c
 
 ramstage-y += acpi.c
 ramstage-y += chip.c
@@ -23,9 +35,9 @@ ramstage-$(CONFIG_ELOG) += elog.c
 ramstage-y += emmc.c
 ramstage-y += gpio.c
 ramstage-y += gfx.c
+ramstage-y += smbus.c
 
 ramstage-y += gpio_support.c
-ramstage-y += hda.c
 ramstage-y += iosf.c
 ramstage-y += lpe.c
 ramstage-y += lpss.c
@@ -51,11 +63,12 @@ smm-y += smihandler.c
 smm-y += spi.c
 smm-y += tsc_freq.c
 
-# cpu_microcode_bins += ???
+verstage-y += pmutil.c
+verstage-y += tsc_freq.c
 
 CPPFLAGS_common += -I$(src)/soc/intel/braswell/
 CPPFLAGS_common += -I$(src)/soc/intel/braswell/include
-CPPFLAGS_common += -I$(src)/vendorcode/intel/fsp/fsp1_1/braswell
+CPPFLAGS_common += -I$(call strip_quotes,$(CONFIG_FSP_HEADER_PATH))
 
 CPPFLAGS_common += -I3rdparty/blobs/mainboard/$(MAINBOARDDIR)
 

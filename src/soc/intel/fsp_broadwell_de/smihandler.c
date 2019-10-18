@@ -15,21 +15,16 @@
  * GNU General Public License for more details.
  */
 
-#include <delay.h>
 #include <types.h>
-#include <arch/io.h>
 #include <console/console.h>
 #include <cpu/x86/cache.h>
 #include <device/pci_def.h>
 #include <cpu/x86/smm.h>
 #include <spi-generic.h>
-#include <elog.h>
-#include <halt.h>
 #include <soc/lpc.h>
 #include <soc/iomap.h>
 #include <soc/pci_devs.h>
 #include <soc/smm.h>
-
 
 /**
  * @brief Set the EOS bit

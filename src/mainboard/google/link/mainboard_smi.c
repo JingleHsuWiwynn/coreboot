@@ -14,7 +14,6 @@
  */
 
 #include <arch/acpi.h>
-#include <arch/io.h>
 #include <console/console.h>
 #include <cpu/x86/smm.h>
 #include <southbridge/intel/bd82x6x/nvs.h>
@@ -33,7 +32,7 @@ static u8 mainboard_smi_ec(void)
 {
 	u8 cmd = google_chromeec_get_event();
 
-#if IS_ENABLED(CONFIG_ELOG_GSMI)
+#if CONFIG(ELOG_GSMI)
 	/* Log this event */
 	if (cmd)
 		elog_add_event_byte(ELOG_TYPE_EC_EVENT, cmd);

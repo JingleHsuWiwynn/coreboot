@@ -1,10 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2003 Eric Biederman
- * Copyright (C) 2005 Steve Magnani
- * Copyright (C) 2008-2009 coresystems GmbH
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -23,6 +19,7 @@
 #include <arch/pirq_routing.h>
 #include <arch/smp/mpspec.h>
 #include <arch/acpi.h>
+#include <commonlib/helpers.h>
 #include <string.h>
 #include <cbmem.h>
 #include <smbios.h>
@@ -36,7 +33,7 @@ static unsigned long write_pirq_table(unsigned long rom_table_end)
 
 	/* This table must be between 0x0f0000 and 0x100000 */
 	rom_table_end = write_pirq_routing_table(rom_table_end);
-	rom_table_end = ALIGN(rom_table_end, 1024);
+	rom_table_end = ALIGN_UP(rom_table_end, 1024);
 
 	/* And add a high table version for those payloads that
 	 * want to live in the F segment
@@ -68,7 +65,7 @@ static unsigned long write_mptable(unsigned long rom_table_end)
 
 	/* The smp table must be in 0-1K, 639K-640K, or 960K-1M */
 	rom_table_end = write_smp_table(rom_table_end);
-	rom_table_end = ALIGN(rom_table_end, 1024);
+	rom_table_end = ALIGN_UP(rom_table_end, 1024);
 
 	high_table_pointer = (unsigned long)cbmem_add(CBMEM_ID_MPTABLE,
 		MAX_MP_TABLE_SIZE);
@@ -114,7 +111,7 @@ static unsigned long write_acpi_table(unsigned long rom_table_end)
 		unsigned long acpi_start = high_table_pointer;
 		unsigned long new_high_table_pointer;
 
-		rom_table_end = ALIGN(rom_table_end, 16);
+		rom_table_end = ALIGN_UP(rom_table_end, 16);
 		new_high_table_pointer = write_acpi_tables(high_table_pointer);
 		if (new_high_table_pointer > (high_table_pointer
 			+ MAX_ACPI_SIZE))
@@ -146,10 +143,10 @@ static unsigned long write_acpi_table(unsigned long rom_table_end)
 			printk(BIOS_ERR,
 				"ERROR: Didn't find RSDP in high table.\n");
 		}
-		rom_table_end = ALIGN(rom_table_end + sizeof(acpi_rsdp_t), 16);
+		rom_table_end = ALIGN_UP(rom_table_end + sizeof(acpi_rsdp_t), 16);
 	} else {
 		rom_table_end = write_acpi_tables(rom_table_end);
-		rom_table_end = ALIGN(rom_table_end, 1024);
+		rom_table_end = ALIGN_UP(rom_table_end, 1024);
 	}
 
 	return rom_table_end;
@@ -168,7 +165,7 @@ static unsigned long write_smbios_table(unsigned long rom_table_end)
 
 		new_high_table_pointer =
 			smbios_write_tables(high_table_pointer);
-		rom_table_end = ALIGN(rom_table_end, 16);
+		rom_table_end = ALIGN_UP(rom_table_end, 16);
 		memcpy((void *)rom_table_end, (void *)high_table_pointer,
 			sizeof(struct smbios_entry));
 		rom_table_end += sizeof(struct smbios_entry);
@@ -184,7 +181,7 @@ static unsigned long write_smbios_table(unsigned long rom_table_end)
 		new_rom_table_end = smbios_write_tables(rom_table_end);
 		printk(BIOS_DEBUG, "SMBIOS size %ld bytes\n", new_rom_table_end
 			- rom_table_end);
-		rom_table_end = ALIGN(new_rom_table_end, 16);
+		rom_table_end = ALIGN_UP(new_rom_table_end, 16);
 	}
 
 	return rom_table_end;
@@ -238,17 +235,17 @@ void arch_write_tables(uintptr_t coreboot_table)
 	unsigned long rom_table_end = 0xf0000;
 
 	/* This table must be between 0x0f0000 and 0x100000 */
-	if (IS_ENABLED(CONFIG_GENERATE_PIRQ_TABLE))
+	if (CONFIG(GENERATE_PIRQ_TABLE))
 		rom_table_end = write_pirq_table(rom_table_end);
 
 	/* The smp table must be in 0-1K, 639K-640K, or 960K-1M */
-	if (IS_ENABLED(CONFIG_GENERATE_MP_TABLE))
+	if (CONFIG(GENERATE_MP_TABLE))
 		rom_table_end = write_mptable(rom_table_end);
 
-	if (IS_ENABLED(CONFIG_HAVE_ACPI_TABLES))
+	if (CONFIG(HAVE_ACPI_TABLES))
 		rom_table_end = write_acpi_table(rom_table_end);
 
-	if (IS_ENABLED(CONFIG_GENERATE_SMBIOS_TABLES))
+	if (CONFIG(GENERATE_SMBIOS_TABLES))
 		rom_table_end = write_smbios_table(rom_table_end);
 
 	sz = write_coreboot_forwarding_table(forwarding_table, coreboot_table);

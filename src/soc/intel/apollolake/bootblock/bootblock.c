@@ -18,8 +18,10 @@
 #include <bootblock_common.h>
 #include <cpu/x86/pae.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <intelblocks/cpulib.h>
 #include <intelblocks/fast_spi.h>
+#include <intelblocks/lpc_lib.h>
 #include <intelblocks/p2sb.h>
 #include <intelblocks/pcr.h>
 #include <intelblocks/rtc.h>
@@ -34,10 +36,9 @@
 #include <soc/pci_devs.h>
 #include <soc/pm.h>
 #include <spi-generic.h>
-#include <timestamp.h>
 
 static const struct pad_config tpm_spi_configs[] = {
-#if IS_ENABLED(CONFIG_SOC_INTEL_GLK)
+#if CONFIG(SOC_INTEL_GLK)
 	PAD_CFG_NF(GPIO_81, NATIVE, DEEP, NF3),	/* FST_SPI_CS2_N */
 #else
 	PAD_CFG_NF(GPIO_106, NATIVE, DEEP, NF3),	/* FST_SPI_CS2_N */
@@ -68,7 +69,7 @@ asmlinkage void bootblock_c_entry(uint64_t base_timestamp)
 	enable_rtc_upper_bank();
 
 	/* Call lib/bootblock.c main */
-	bootblock_main_with_timestamp(base_timestamp, NULL, 0);
+	bootblock_main_with_basetime(base_timestamp);
 }
 
 static void enable_pmcbar(void)
@@ -94,10 +95,12 @@ void bootblock_soc_early_init(void)
 	pmc_global_reset_enable(0);
 
 	/* Prepare UART for serial console. */
-	if (IS_ENABLED(CONFIG_INTEL_LPSS_UART_FOR_CONSOLE))
+	if (CONFIG(INTEL_LPSS_UART_FOR_CONSOLE))
 		uart_bootblock_init();
+	if (CONFIG(DRIVERS_UART_8250IO))
+		lpc_io_setup_comm_a_b();
 
-	if (IS_ENABLED(CONFIG_TPM_ON_FAST_SPI))
+	if (CONFIG(TPM_ON_FAST_SPI))
 		tpm_enable();
 
 	enable_pm_timer_emulation();
@@ -115,7 +118,7 @@ void bootblock_soc_early_init(void)
 	/* Use Nx and paging to prevent the frontend from writing back dirty
 	 * cache-as-ram lines to backing store that doesn't exist when the L1I
 	 * speculatively fetches a line that is sitting in the L1D. */
-	if (IS_ENABLED(CONFIG_PAGING_IN_CACHE_AS_RAM)) {
+	if (CONFIG(PAGING_IN_CACHE_AS_RAM)) {
 		paging_set_nxe(1);
 		paging_set_default_pat();
 		paging_enable_for_car("pdpt", "pt");

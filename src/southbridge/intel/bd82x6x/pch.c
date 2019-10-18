@@ -18,14 +18,16 @@
 #include <console/console.h>
 #include <delay.h>
 #ifdef __SMM__
-#include <arch/io.h>
 #include <device/pci_def.h>
 #else /* !__SMM__ */
 #include <device/device.h>
 #include <device/pci.h>
 #endif
-#include "pch.h"
+#include <device/pci_ops.h>
 #include <string.h>
+
+#include "chip.h"
+#include "pch.h"
 
 int pch_silicon_revision(void)
 {
@@ -144,10 +146,16 @@ void pch_iobp_update(u32 address, u32 andvalue, u32 orvalue)
 }
 
 #ifndef __SMM__
-/* Set bit in Function Disble register to hide this device */
+/* Set bit in function disable register to hide this device */
 static void pch_hide_devfn(unsigned devfn)
 {
 	switch (devfn) {
+	case PCI_DEVFN(20, 0): /* xHCI */
+		if (pch_silicon_type() == PCH_TYPE_PPT) {
+			/* on CPT this bit is reserved */
+			RCBA32_OR(FD, PCH_DISABLE_XHCI);
+		}
+		break;
 	case PCI_DEVFN(22, 0): /* MEI #1 */
 		RCBA32_OR(FD2, PCH_DISABLE_MEI1);
 		break;

@@ -17,7 +17,6 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
@@ -60,8 +59,6 @@ void mcp55_enable(struct device *dev)
 	u32 reg_old, reg;
 	u8 byte;
 	unsigned deviceid, vendorid, devfn;
-	struct southbridge_nvidia_mcp55_config *conf;
-	conf = dev->chip_info;
 	int i;
 
 	if (dev->device == 0x0000) {

@@ -15,16 +15,14 @@
  */
 
 #include <arch/acpi.h>
-#include <arch/io.h>
-#include <console/console.h>
 #include <cpu/intel/haswell/haswell.h>
 #include <cpu/x86/smm.h>
 #include <northbridge/intel/haswell/haswell.h>
 #include <southbridge/intel/lynxpoint/me.h>
 #include <southbridge/intel/lynxpoint/nvs.h>
 #include <southbridge/intel/lynxpoint/pch.h>
-#include <elog.h>
 #include <superio/ite/it8772f/it8772f.h>
+
 #include "onboard.h"
 
 void mainboard_smi_sleep(u8 slp_typ)

@@ -23,6 +23,7 @@
 #include <console/uart.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <device/pci_ids.h>
 #include <soc/pci_devs.h>
 #include <console/console.h>
@@ -33,7 +34,7 @@ static void dnv_ns_uart_read_resources(struct device *dev)
 {
 	/* read resources to be visible in the log*/
 	pci_dev_read_resources(dev);
-	if (!IS_ENABLED(CONFIG_LEGACY_UART_MODE))
+	if (!CONFIG(LEGACY_UART_MODE))
 		return;
 	struct resource *res = find_resource(dev, PCI_BASE_ADDRESS_0);
 	if (res == NULL)
@@ -75,7 +76,7 @@ static void hide_hsuarts(void)
 	   last one. */
 	for (i = DENVERTON_UARTS_TO_INI - 1; i >= 0; i--) {
 		struct device *uart_dev;
-		uart_dev = dev_find_slot(0, PCI_DEVFN(HSUART_DEV, i));
+		uart_dev = pcidev_on_root(HSUART_DEV, i);
 		if (uart_dev == NULL)
 			continue;
 		pci_or_config32(uart_dev, PCI_FUNC_RDCFG_HIDE, 1);
@@ -87,6 +88,6 @@ void platform_fsp_notify_status(enum fsp_notify_phase phase)
 {
 	if (phase != END_OF_FIRMWARE)
 		return;
-	if (IS_ENABLED(CONFIG_LEGACY_UART_MODE))
+	if (CONFIG(LEGACY_UART_MODE))
 		hide_hsuarts();
 }

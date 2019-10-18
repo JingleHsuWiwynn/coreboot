@@ -15,12 +15,10 @@
 
 /* RAM driver for the SMSC KBC1100 Super I/O chip */
 
-#include <arch/io.h>
 #include <device/device.h>
 #include <device/pnp.h>
 #include <superio/conf_mode.h>
 #include <device/smbus.h>
-#include <string.h>
 #include <pc80/keyboard.h>
 #include <stdlib.h>
 #include "kbc1100.h"

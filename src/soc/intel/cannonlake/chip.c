@@ -13,23 +13,22 @@
  * GNU General Public License for more details.
  */
 
-#include <chip.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <fsp/api.h>
 #include <fsp/util.h>
 #include <intelblocks/acpi.h>
-#include <intelblocks/chip.h>
+#include <intelblocks/cfg.h>
 #include <intelblocks/itss.h>
 #include <intelblocks/xdci.h>
 #include <romstage_handoff.h>
 #include <soc/intel/common/vbt.h>
-#include <soc/itss.h>
 #include <soc/pci_devs.h>
 #include <soc/ramstage.h>
-#include <string.h>
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#include "chip.h"
+
+#if CONFIG(HAVE_ACPI_TABLES)
 const char *soc_acpi_name(const struct device *dev)
 {
 	if (dev->path.type == DEVICE_PATH_DOMAIN)
@@ -167,23 +166,34 @@ void cnl_configure_pads(const struct pad_config *cfg, size_t num_pads)
 	gpio_configure_pads(cfg, num_pads);
 }
 
+/* SoC rotine to fill GPIO PM mask and value for GPIO_MISCCFG register */
+static void soc_fill_gpio_pm_configuration(void)
+{
+	uint8_t value[TOTAL_GPIO_COMM];
+	const config_t *config = config_of_soc();
+
+	if (config->gpio_override_pm)
+		memcpy(value, config->gpio_pm, sizeof(uint8_t) *
+			TOTAL_GPIO_COMM);
+	else
+		memset(value, MISCCFG_ENABLE_GPIO_PM_CONFIG, sizeof(uint8_t) *
+			TOTAL_GPIO_COMM);
+
+	gpio_pm_configure(value, TOTAL_GPIO_COMM);
+}
+
 void soc_init_pre_device(void *chip_info)
 {
-	/* Snapshot the current GPIO IRQ polarities. FSP is setting a
-	 * default policy that doesn't honor boards' requirements. */
-	itss_snapshot_irq_polarities(GPIO_IRQ_START, GPIO_IRQ_END);
-
 	/* Perform silicon specific init. */
 	fsp_silicon_init(romstage_handoff_is_resume());
 
 	 /* Display FIRMWARE_VERSION_INFO_HOB */
 	fsp_display_fvi_version_hob();
 
-	/* Restore GPIO IRQ polarities back to previous settings. */
-	itss_restore_irq_polarities(GPIO_IRQ_START, GPIO_IRQ_END);
-
 	/* TODO(furquan): Get rid of this workaround once FSP is fixed. */
 	cnl_configure_pads(NULL, 0);
+
+	soc_fill_gpio_pm_configuration();
 }
 
 static void pci_domain_set_resources(struct device *dev)
@@ -195,7 +205,7 @@ static struct device_operations pci_domain_ops = {
 	.read_resources   = &pci_domain_read_resources,
 	.set_resources    = &pci_domain_set_resources,
 	.scan_bus         = &pci_domain_scan_bus,
-	#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+	#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_name        = &soc_acpi_name,
 	#endif
 };

@@ -1,14 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2004 SUSE LINUX AG
- * Copyright (C) 2004 Nick Barker
- * Copyright (C) 2008-2009 coresystems GmbH
- * Copyright (C) 2015 Timothy Pearson <tpearson@raptorengineeringinc.com>,
- * Raptor Engineering
- * Copyright (C) 2016 Siemens AG
- * (Written by Stefan Reinauer <stepan@coresystems.de>)
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -26,13 +18,11 @@
 #ifndef __ASM_ACPI_H
 #define __ASM_ACPI_H
 
-#define HIGH_MEMORY_SAVE	(CONFIG_RAMTOP - CONFIG_RAMBASE)
-
 /*
  * The type and enable fields are common in ACPI, but the
  * values themselves are hardware implementation defined.
  */
-#if IS_ENABLED(CONFIG_ACPI_INTEL_HARDWARE_SLEEP_VALUES)
+#if CONFIG(ACPI_INTEL_HARDWARE_SLEEP_VALUES)
  #define SLP_EN		(1 << 13)
  #define SLP_TYP_SHIFT	10
  #define SLP_TYP	(7 << SLP_TYP_SHIFT)
@@ -41,7 +31,7 @@
  #define  SLP_TYP_S3	5
  #define  SLP_TYP_S4	6
  #define  SLP_TYP_S5	7
-#elif IS_ENABLED(CONFIG_ACPI_AMD_HARDWARE_SLEEP_VALUES)
+#elif CONFIG(ACPI_AMD_HARDWARE_SLEEP_VALUES)
  #define SLP_EN		(1 << 13)
  #define SLP_TYP_SHIFT	10
  #define SLP_TYP	(7 << SLP_TYP_SHIFT)
@@ -56,11 +46,11 @@
 #define OEM_ID			"COREv4"    /* Must be exactly 6 bytes long! */
 
 #if !defined(__ASSEMBLER__) && !defined(__ACPI__) && !defined(__ROMCC__)
-#include <stdint.h>
 #include <commonlib/helpers.h>
 #include <device/device.h>
 #include <uuid.h>
 #include <cper.h>
+#include <types.h>
 
 #define RSDP_SIG		"RSD PTR "  /* RSDT pointer signature */
 #define ASLC			"CORE"      /* Must be exactly 4 bytes long! */
@@ -77,16 +67,12 @@ enum coreboot_acpi_ids {
 	COREBOOT_ACPI_ID_MAX		= 0xFFFF, /* BOOTFFFF */
 };
 
-/* Table 5-30 DESCRIPTION_HEADER Signatures for tables defined by ACPI 6.2a
- *  Additional tables mssing in 5-30:  MADT, RSDP, VFCT, NHLT
- */
 enum acpi_tables {
-	APIC, BERT, BGRT, CPEP, DSDT, ECDT, EINJ, ERST, FACP, FADT, FACS,
-	FPDT, GTDT, HEST, MSCT, MPST, NFIT, OEMX, PCCT, PMTT, PSDT, RASF,
-	RSDT, SBST, SDEV, SLIT, SRAT, SSDT, XSDT, BOOT, CSRT, DBG2, DBGP,
-	DMAR, DPPT, DRTM, ETDT, HPET, IBFT, IORT, IVRS, LPIT, MCFG, MCHI,
-	MSDM, SDEI, SLIC, SPCR, SPMI, STAO, TCPA, TPM2, WAET, WDAT, WDRT,
-	WPBT, WSMT, XENV, MADT, RSDP, VFCT, NHLT
+	/* Tables defined by ACPI and used by coreboot */
+	BERT, DBG2, DMAR, DSDT, FACS, FADT, HEST, HPET, IVRS, MADT, MCFG,
+	RSDP, RSDT, SLIT, SRAT, SSDT, TCPA, TPM2, XSDT, ECDT,
+	/* Additional proprietary tables used by coreboot */
+	VFCT, NHLT, SPMI
 };
 
 /* RSDP (Root System Description Pointer) */
@@ -94,26 +80,20 @@ typedef struct acpi_rsdp {
 	char  signature[8];	/* RSDP signature */
 	u8    checksum;		/* Checksum of the first 20 bytes */
 	char  oem_id[6];	/* OEM ID */
-	u8    revision;		/* 0 for ACPI 1.0, 2 for ACPI 2.0/3.0/4.0/6.2a */
+	u8    revision;		/* RSDP revision */
 	u32   rsdt_address;	/* Physical address of RSDT (32 bits) */
 	u32   length;		/* Total RSDP length (incl. extended part) */
 	u64   xsdt_address;	/* Physical address of XSDT (64 bits) */
 	u8    ext_checksum;	/* Checksum of the whole table */
 	u8    reserved[3];
 } __packed acpi_rsdp_t;
-/* Note: ACPI 1.0 didn't have length, xsdt_address, and ext_checksum. */
 
 /* GAS (Generic Address Structure) */
 typedef struct acpi_gen_regaddr {
 	u8  space_id;		/* Address space ID */
 	u8  bit_width;		/* Register size in bits */
 	u8  bit_offset;		/* Register bit offset */
-	union {
-		u8  resv;		/* Reserved in ACPI 2.0 - 2.0b */
-		u8  access_size;	/* Access size in
-					 * ACPI 2.0c/3.0/4.0/5.0/6.2a
-					 */
-	};
+	u8  access_size;	/* Access size since ACPI 2.0c */
 	u32 addrl;		/* Register address, low 32 bits */
 	u32 addrh;		/* Register address, high 32 bits */
 } __packed acpi_addr_t;
@@ -140,6 +120,14 @@ typedef struct acpi_gen_regaddr {
 #define ACPI_ACCESS_SIZE_WORD_ACCESS	2
 #define ACPI_ACCESS_SIZE_DWORD_ACCESS	3
 #define ACPI_ACCESS_SIZE_QWORD_ACCESS	4
+
+/* Common ACPI HIDs */
+#define ACPI_HID_FDC "PNP0700"
+#define ACPI_HID_KEYBOARD "PNP0303"
+#define ACPI_HID_MOUSE "PNP0F03"
+#define ACPI_HID_COM "PNP0501"
+#define ACPI_HID_LPT "PNP0400"
+#define ACPI_HID_PNP "PNP0C02"
 
 /* Generic ACPI header, provided by (almost) all tables */
 typedef struct acpi_table_header {
@@ -345,9 +333,9 @@ enum {
 };
 
 enum dmar_flags {
-	DMAR_INTR_REMAP			= 1,
-	DMAR_X2APIC_OPT_OUT		= 2,
-	DMA_CTRL_PLATFORM_OPT_IN_FLAG	= 3,
+	DMAR_INTR_REMAP			= 1 << 0,
+	DMAR_X2APIC_OPT_OUT		= 1 << 1,
+	DMA_CTRL_PLATFORM_OPT_IN_FLAG	= 1 << 2,
 };
 
 typedef struct dmar_entry {
@@ -375,6 +363,22 @@ typedef struct dmar_atsr_entry {
 	u8 reserved;
 	u16 segment;
 } __packed dmar_atsr_entry_t;
+
+typedef struct dmar_rhsa_entry {
+	u16 type;
+	u16 length;
+	u32 reserved;
+	u64 base_address;
+	u32 proximity_domain;
+} __packed dmar_rhsa_entry_t;
+
+typedef struct dmar_andd_entry {
+	u16 type;
+	u16 length;
+	u8 reserved[3];
+	u8 device_number;
+	u8 device_name[];
+} __packed dmar_andd_entry_t;
 
 /* DMAR (DMA Remapping Reporting Structure) */
 typedef struct acpi_dmar {
@@ -488,11 +492,7 @@ typedef struct acpi_fadt {
 	struct acpi_table_header header;
 	u32 firmware_ctrl;
 	u32 dsdt;
-	u8 model;	/* Eliminated in ACPI 2.0. Platforms should set
-			 * this field to zero but field values of one
-			 * are also allowed to maintain compatibility
-			 * with ACPI 1.0.
-			 */
+	u8 reserved;	/* Should be 0 */
 	u8 preferred_pm_profile;
 	u16 sci_int;
 	u32 smi_cmd;
@@ -582,7 +582,7 @@ typedef struct acpi_fadt {
 /* Bits 20-31: reserved ACPI 3.0 & 4.0 */
 #define ACPI_FADT_HW_REDUCED_ACPI	(1 << 20)
 #define ACPI_FADT_LOW_PWR_IDLE_S0	(1 << 21)
-/* bits 22-31: reserved ACPI 5.0/6.2a */
+/* bits 22-31: reserved since ACPI 5.0 */
 
 /* FADT Boot Architecture Flags */
 #define ACPI_FADT_LEGACY_DEVICES	(1 << 0)
@@ -596,7 +596,7 @@ typedef struct acpi_fadt {
 /* FADT ARM Boot Architecture Flags */
 #define ACPI_FADT_ARM_PSCI_COMPLIANT	(1 << 0)
 #define ACPI_FADT_ARM_PSCI_USE_HVC	(1 << 1)
-/* bits 2-16: reserved ACPI 6.2a */
+/* bits 2-16: reserved since ACPI 5.1 */
 
 /* FADT Preferred Power Management Profile */
 enum acpi_preferred_pm_profiles {
@@ -608,7 +608,7 @@ enum acpi_preferred_pm_profiles {
 	PM_SOHO_SERVER		= 5,
 	PM_APPLIANCE_PC		= 6,
 	PM_PERFORMANCE_SERVER	= 7,
-	PM_TABLET		= 8,	/* ACPI 5.0/6.2a */
+	PM_TABLET		= 8,	/* ACPI 5.0 & greater */
 };
 
 /* FACS (Firmware ACPI Control Structure) */
@@ -621,10 +621,10 @@ typedef struct acpi_facs {
 	u32 flags;				/* FACS flags */
 	u32 x_firmware_waking_vector_l;		/* X FW waking vector, low */
 	u32 x_firmware_waking_vector_h;		/* X FW waking vector, high */
-	u8 version;				/* ACPI 6.2-A: 2 */
-	u8 resv1[3];				/* ACPI 6.2-A: 0 */
+	u8 version;				/* FACS version */
+	u8 resv1[3];				/* This value is 0 */
 	u32 ospm_flags;				/* 64BIT_WAKE_F */
-	u8 resv2[24];				/* ACPI 6.2-A: 0 */
+	u8 resv2[24];				/* This value is 0 */
 } __packed acpi_facs_t;
 
 /* FACS flags */
@@ -682,7 +682,7 @@ typedef struct acpi_bert {
 	u64 error_region;
 } __packed acpi_bert_t;
 
-/* Generic Error Data Entry (ACPI spec v6.2-A, table 382) */
+/* Generic Error Data Entry */
 typedef struct acpi_hest_generic_data {
 	guid_t section_type;
 	u32 error_severity;
@@ -695,7 +695,7 @@ typedef struct acpi_hest_generic_data {
 	/* error data */
 } __packed acpi_hest_generic_data_t;
 
-/* Generic Error Data Entry (ACPI spec v6.2-A, table 382) */
+/* Generic Error Data Entry v300 */
 typedef struct acpi_hest_generic_data_v300 {
 	guid_t section_type;
 	u32 error_severity;
@@ -721,7 +721,7 @@ typedef struct acpi_hest_generic_data_v300 {
 #define ACPI_GENERROR_VALID_FRUID_TEXT		BIT(1)
 #define ACPI_GENERROR_VALID_TIMESTAMP		BIT(2)
 
-/* Generic Error Status Block (ACPI spec v6.2-A, table 381) */
+/* Generic Error Status Block */
 typedef struct acpi_generic_error_status {
 	u32 block_status;
 	u32 raw_data_offset;	/* must follow any generic entries */
@@ -759,7 +759,6 @@ typedef struct acpi_tstate {
 
 /* Port types for ACPI _UPC object */
 enum acpi_upc_type {
-	/* These types are defined in ACPI 6.2 section 9.14 */
 	UPC_TYPE_A,
 	UPC_TYPE_MINI_AB,
 	UPC_TYPE_EXPRESSCARD,
@@ -781,6 +780,43 @@ enum acpi_upc_type {
 	UPC_TYPE_HUB
 };
 
+enum acpi_ipmi_interface_type {
+	IPMI_INTERFACE_RESERVED = 0,
+	IPMI_INTERFACE_KCS,
+	IPMI_INTERFACE_SMIC,
+	IPMI_INTERFACE_BT,
+	IPMI_INTERFACE_SSIF,
+};
+
+#define ACPI_IPMI_PCI_DEVICE_FLAG	(1 << 0)
+#define ACPI_IPMI_INT_TYPE_SCI		(1 << 0)
+#define ACPI_IPMI_INT_TYPE_APIC		(1 << 1)
+
+/* ACPI IPMI 2.0 */
+struct acpi_spmi {
+	struct acpi_table_header header;
+	u8 interface_type;
+	u8 reserved;
+	u16 specification_revision;
+	u8 interrupt_type;
+	u8 gpe;
+	u8 reserved2;
+	u8 pci_device_flag;
+
+	u32 global_system_interrupt;
+	acpi_addr_t base_address;
+	union {
+		struct {
+			u8 pci_segment_group;
+			u8 pci_bus;
+			u8 pci_device;
+			u8 pci_function;
+		};
+		u8 uid[4];
+	};
+	u8 reserved3;
+} __packed;
+
 unsigned long fw_cfg_acpi_tables(unsigned long start);
 
 /* These are implemented by the target port or north/southbridge. */
@@ -791,7 +827,7 @@ unsigned long acpi_fill_ivrs_ioapic(acpi_ivrs_t *ivrs, unsigned long current);
 void acpi_create_ssdt_generator(acpi_header_t *ssdt, const char *oem_table_id);
 void acpi_write_bert(acpi_bert_t *bert, uintptr_t region, size_t length);
 void acpi_create_fadt(acpi_fadt_t *fadt, acpi_facs_t *facs, void *dsdt);
-#if IS_ENABLED(CONFIG_COMMON_FADT)
+#if CONFIG(COMMON_FADT)
 void acpi_fill_fadt(acpi_fadt_t *fadt);
 #endif
 
@@ -833,18 +869,25 @@ void acpi_create_vfct(struct device *device,
 				struct acpi_vfct *vfct_struct,
 				unsigned long current));
 
+void acpi_create_ipmi(struct device *device,
+		      struct acpi_spmi *spmi,
+		      const u16 ipmi_revision,
+		      const acpi_addr_t *addr,
+		      const enum acpi_ipmi_interface_type type,
+		      const s8 gpe_interrupt,
+		      const u32 apic_interrupt,
+		      const u32 uid);
+
 void acpi_create_ivrs(acpi_ivrs_t *ivrs,
 		      unsigned long (*acpi_fill_ivrs)(acpi_ivrs_t *ivrs_struct,
 		      unsigned long current));
 
-#if ENV_RAMSTAGE && !defined(__SIMPLE_DEVICE__)
 void acpi_create_hpet(acpi_hpet_t *hpet);
 unsigned long acpi_write_hpet(struct device *device, unsigned long start,
 			      acpi_rsdp_t *rsdp);
 
 /* cpu/intel/speedstep/acpi.c */
 void generate_cpu_entries(struct device *device);
-#endif
 
 void acpi_create_mcfg(acpi_mcfg_t *mcfg);
 
@@ -856,7 +899,7 @@ void acpi_create_dbg2(acpi_dbg2_header_t *dbg2_header,
 		      const char *device_path);
 
 unsigned long acpi_write_dbg2_pci_uart(acpi_rsdp_t *rsdp, unsigned long current,
-				       struct device *dev, uint8_t access_size);
+				const struct device *dev, uint8_t access_size);
 void acpi_create_dmar(acpi_dmar_t *dmar, enum dmar_flags flags,
 		      unsigned long (*acpi_fill_dmar)(unsigned long));
 unsigned long acpi_create_dmar_drhd(unsigned long current, u8 flags,
@@ -865,6 +908,10 @@ unsigned long acpi_create_dmar_rmrr(unsigned long current, u16 segment,
 				    u64 bar, u64 limit);
 unsigned long acpi_create_dmar_atsr(unsigned long current, u8 flags,
 				    u16 segment);
+unsigned long acpi_create_dmar_rhsa(unsigned long current, u64 base_addr,
+				    u32 proximity_domain);
+unsigned long acpi_create_dmar_andd(unsigned long current, u8 device_number,
+				    const char *device_name);
 void acpi_dmar_drhd_fixup(unsigned long base, unsigned long current);
 void acpi_dmar_rmrr_fixup(unsigned long base, unsigned long current);
 void acpi_dmar_atsr_fixup(unsigned long base, unsigned long current);
@@ -885,9 +932,7 @@ unsigned long acpi_create_hest_error_source(acpi_hest_t *hest,
 	acpi_hest_esd_t *esd, u16 type, void *data, u16 len);
 
 /* For ACPI S3 support. */
-void acpi_fail_wakeup(void);
 void acpi_resume(void *wake_vec);
-void acpi_prepare_resume_backup(void);
 void mainboard_suspend_resume(void);
 void *acpi_find_wakeup_vector(void);
 
@@ -900,8 +945,8 @@ enum {
 	ACPI_S5,
 };
 
-#if IS_ENABLED(CONFIG_ACPI_INTEL_HARDWARE_SLEEP_VALUES) \
-		|| IS_ENABLED(CONFIG_ACPI_AMD_HARDWARE_SLEEP_VALUES)
+#if CONFIG(ACPI_INTEL_HARDWARE_SLEEP_VALUES) \
+		|| CONFIG(ACPI_AMD_HARDWARE_SLEEP_VALUES)
 /* Given the provided PM1 control register return the ACPI sleep type. */
 static inline int acpi_sleep_from_pm1(uint32_t pm1_cnt)
 {
@@ -924,19 +969,12 @@ int acpi_get_gpe(int gpe);
 
 static inline int acpi_s3_resume_allowed(void)
 {
-	return IS_ENABLED(CONFIG_HAVE_ACPI_RESUME);
+	return CONFIG(HAVE_ACPI_RESUME);
 }
 
-/* Return address in reserved memory where to backup low memory
- * while platform resumes from S3 suspend. Caller is responsible of
- * making a complete copy of the region base..base+size, with
- * parameteres base and size that meet page alignment requirement.
- */
-void *acpi_backup_container(uintptr_t base, size_t size);
+#if CONFIG(HAVE_ACPI_RESUME)
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_RESUME)
-
-#ifdef __PRE_RAM__
+#if ENV_ROMSTAGE_OR_BEFORE
 static inline int acpi_is_wakeup_s3(void)
 {
 	return (acpi_get_sleep_type() == ACPI_S3);
@@ -955,7 +993,7 @@ static inline int acpi_is_wakeup_s4(void) { return 0; }
 
 static inline uintptr_t acpi_align_current(uintptr_t current)
 {
-	return ALIGN(current, 16);
+	return ALIGN_UP(current, 16);
 }
 
 /* ACPI table revisions should match the revision of the ACPI spec

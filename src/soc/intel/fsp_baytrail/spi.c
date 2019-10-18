@@ -15,52 +15,25 @@
  */
 
 /* This file is derived from the flashrom project. */
+#include <arch/early_variables.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 #include <commonlib/helpers.h>
 #include <delay.h>
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
+#include <device/device.h>
+#include <device/pci.h>
 #include <spi_flash.h>
 #include <spi-generic.h>
 
 #include <soc/lpc.h>
 #include <soc/pci_devs.h>
 
-#ifdef __SMM__
-#define pci_read_config_byte(dev, reg, targ)\
-	*(targ) = pci_read_config8(dev, reg)
-#define pci_read_config_word(dev, reg, targ)\
-	*(targ) = pci_read_config16(dev, reg)
-#define pci_read_config_dword(dev, reg, targ)\
-	*(targ) = pci_read_config32(dev, reg)
-#define pci_write_config_byte(dev, reg, val)\
-	pci_write_config8(dev, reg, val)
-#define pci_write_config_word(dev, reg, val)\
-	pci_write_config16(dev, reg, val)
-#define pci_write_config_dword(dev, reg, val)\
-	pci_write_config32(dev, reg, val)
-#else /* !__SMM__ */
-#include <device/device.h>
-#include <device/pci.h>
-#define pci_read_config_byte(dev, reg, targ)\
-	*(targ) = pci_read_config8(dev, reg)
-#define pci_read_config_word(dev, reg, targ)\
-	*(targ) = pci_read_config16(dev, reg)
-#define pci_read_config_dword(dev, reg, targ)\
-	*(targ) = pci_read_config32(dev, reg)
-#define pci_write_config_byte(dev, reg, val)\
-	pci_write_config8(dev, reg, val)
-#define pci_write_config_word(dev, reg, val)\
-	pci_write_config16(dev, reg, val)
-#define pci_write_config_dword(dev, reg, val)\
-	pci_write_config32(dev, reg, val)
-#endif /* !__SMM__ */
-
 typedef struct spi_slave ich_spi_slave;
 
-static int ichspi_lock = 0;
+static int g_ichspi_lock CAR_GLOBAL = 0;
 
 typedef struct ich9_spi_regs {
 	uint32_t bfpr;
@@ -108,7 +81,7 @@ typedef struct ich_spi_controller {
 	uint16_t *control;
 } ich_spi_controller;
 
-static ich_spi_controller cntlr;
+static ich_spi_controller g_cntlr CAR_GLOBAL;
 
 enum {
 	SPIS_SCIP =		0x0001,
@@ -165,7 +138,7 @@ enum {
 static uint8_t readb_(const void *addr)
 {
 	uint8_t v = read8(addr);
-	if (IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)) {
+	if (CONFIG(DEBUG_SPI_FLASH)) {
 		printk(BIOS_DEBUG, "SPI: read %2.2x from %4.4x\n",
 				v, (((uint32_t) addr) & SPI_OFFSET_MASK));
 	}
@@ -175,7 +148,7 @@ static uint8_t readb_(const void *addr)
 static uint16_t readw_(const void *addr)
 {
 	uint16_t v = read16(addr);
-	if (IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)) {
+	if (CONFIG(DEBUG_SPI_FLASH)) {
 		printk(BIOS_DEBUG, "SPI: read %4.4x from %4.4x\n",
 				v, (((uint32_t) addr) & SPI_OFFSET_MASK));
 	}
@@ -185,7 +158,7 @@ static uint16_t readw_(const void *addr)
 static uint32_t readl_(const void *addr)
 {
 	uint32_t v = read32(addr);
-	if (IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)) {
+	if (CONFIG(DEBUG_SPI_FLASH)) {
 		printk(BIOS_DEBUG, "SPI: read %8.8x from %4.4x\n",
 				v, (((uint32_t) addr) & SPI_OFFSET_MASK));
 	}
@@ -195,7 +168,7 @@ static uint32_t readl_(const void *addr)
 static void writeb_(uint8_t b, void *addr)
 {
 	write8(addr, b);
-	if (IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)) {
+	if (CONFIG(DEBUG_SPI_FLASH)) {
 		printk(BIOS_DEBUG, "SPI: wrote %2.2x to %4.4x\n",
 				b, (((uint32_t) addr) & SPI_OFFSET_MASK));
 	}
@@ -204,7 +177,7 @@ static void writeb_(uint8_t b, void *addr)
 static void writew_(uint16_t b, void *addr)
 {
 	write16(addr, b);
-	if (IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)) {
+	if (CONFIG(DEBUG_SPI_FLASH)) {
 		printk(BIOS_DEBUG, "SPI: wrote %4.4x to %4.4x\n",
 				b, (((uint32_t) addr) & SPI_OFFSET_MASK));
 	}
@@ -213,7 +186,7 @@ static void writew_(uint16_t b, void *addr)
 static void writel_(uint32_t b, void *addr)
 {
 	write32(addr, b);
-	if (IS_ENABLED(CONFIG_DEBUG_SPI_FLASH)) {
+	if (CONFIG(DEBUG_SPI_FLASH)) {
 		printk(BIOS_DEBUG, "SPI: wrote %8.8x to %4.4x\n",
 				b, (((uint32_t) addr) & SPI_OFFSET_MASK));
 	}
@@ -253,31 +226,34 @@ static ich9_spi_regs *spi_regs(void)
 {
 	uint32_t sbase;
 
-#ifdef __SMM__
+#ifdef __SIMPLE_DEVICE__
 	pci_devfn_t dev = PCI_DEV(0, LPC_DEV, LPC_FUNC);
 #else
 	struct device *dev = pcidev_on_root(LPC_DEV, LPC_FUNC);
 #endif
-	pci_read_config_dword(dev, SBASE, &sbase);
+	sbase = pci_read_config32(dev, SBASE);
 	sbase &= ~0x1ff;
 
 	return (void *)sbase;
 }
 
+#define MENU_BYTES member_size(struct ich9_spi_regs, opmenu)
+
 void spi_init(void)
 {
+	ich_spi_controller *cntlr = car_get_var_ptr(&g_cntlr);
 	ich9_spi_regs *ich9_spi = spi_regs();
 
-	ichspi_lock = readw_(&ich9_spi->hsfs) & HSFS_FLOCKDN;
-	cntlr.opmenu = ich9_spi->opmenu;
-	cntlr.menubytes = sizeof(ich9_spi->opmenu);
-	cntlr.optype = &ich9_spi->optype;
-	cntlr.addr = &ich9_spi->faddr;
-	cntlr.data = (uint8_t *)ich9_spi->fdata;
-	cntlr.databytes = sizeof(ich9_spi->fdata);
-	cntlr.status = &ich9_spi->ssfs;
-	cntlr.control = (uint16_t *)ich9_spi->ssfc;
-	cntlr.preop = &ich9_spi->preop;
+	car_set_var(g_ichspi_lock, readw_(&ich9_spi->hsfs) & HSFS_FLOCKDN);
+	cntlr->opmenu = ich9_spi->opmenu;
+	cntlr->menubytes = sizeof(ich9_spi->opmenu);
+	cntlr->optype = &ich9_spi->optype;
+	cntlr->addr = &ich9_spi->faddr;
+	cntlr->data = (uint8_t *)ich9_spi->fdata;
+	cntlr->databytes = sizeof(ich9_spi->fdata);
+	cntlr->status = &ich9_spi->ssfs;
+	cntlr->control = (uint16_t *)ich9_spi->ssfc;
+	cntlr->preop = &ich9_spi->preop;
 }
 
 typedef struct spi_transaction {
@@ -338,17 +314,18 @@ static void spi_setup_type(spi_transaction *trans)
 
 static int spi_setup_opcode(spi_transaction *trans)
 {
+	ich_spi_controller *cntlr = car_get_var_ptr(&g_cntlr);
 	uint16_t optypes;
-	uint8_t opmenu[cntlr.menubytes];
+	uint8_t opmenu[MENU_BYTES];
 
 	trans->opcode = trans->out[0];
 	spi_use_out(trans, 1);
-	if (!ichspi_lock) {
+	if (!car_get_var(g_ichspi_lock)) {
 		/* The lock is off, so just use index 0. */
-		writeb_(trans->opcode, cntlr.opmenu);
-		optypes = readw_(cntlr.optype);
+		writeb_(trans->opcode, cntlr->opmenu);
+		optypes = readw_(cntlr->optype);
 		optypes = (optypes & 0xfffc) | (trans->type & 0x3);
-		writew_(optypes, cntlr.optype);
+		writew_(optypes, cntlr->optype);
 		return 0;
 	} else {
 		/* The lock is on. See if what we need is on the menu. */
@@ -359,20 +336,19 @@ static int spi_setup_opcode(spi_transaction *trans)
 		if (trans->opcode == SPI_OPCODE_WREN)
 			return 0;
 
-		read_reg(cntlr.opmenu, opmenu, sizeof(opmenu));
-		for (opcode_index = 0; opcode_index < cntlr.menubytes;
-				opcode_index++) {
+		read_reg(cntlr->opmenu, opmenu, sizeof(opmenu));
+		for (opcode_index = 0; opcode_index < ARRAY_SIZE(opmenu); opcode_index++) {
 			if (opmenu[opcode_index] == trans->opcode)
 				break;
 		}
 
-		if (opcode_index == cntlr.menubytes) {
+		if (opcode_index == ARRAY_SIZE(opmenu)) {
 			printk(BIOS_DEBUG, "ICH SPI: Opcode %x not found\n",
 				trans->opcode);
 			return -1;
 		}
 
-		optypes = readw_(cntlr.optype);
+		optypes = readw_(cntlr->optype);
 		optype = (optypes >> (opcode_index * 2)) & 0x3;
 		if (trans->type == SPI_OPCODE_TYPE_WRITE_NO_ADDRESS &&
 			optype == SPI_OPCODE_TYPE_WRITE_WITH_ADDRESS &&
@@ -418,14 +394,15 @@ static int spi_setup_offset(spi_transaction *trans)
  */
 static int ich_status_poll(uint16_t bitmask, int wait_til_set)
 {
+	ich_spi_controller *cntlr = car_get_var_ptr(&g_cntlr);
 	int timeout = 40000; /* This will result in 400 ms */
 	uint16_t status = 0;
 
 	while (timeout--) {
-		status = readw_(cntlr.status);
+		status = readw_(cntlr->status);
 		if (wait_til_set ^ ((status & bitmask) == 0)) {
 			if (wait_til_set)
-				writew_((status & bitmask), cntlr.status);
+				writew_((status & bitmask), cntlr->status);
 			return status;
 		}
 		udelay(10);
@@ -439,6 +416,7 @@ static int ich_status_poll(uint16_t bitmask, int wait_til_set)
 static int spi_ctrlr_xfer(const struct spi_slave *slave, const void *dout,
 		    size_t bytesout, void *din, size_t bytesin)
 {
+	ich_spi_controller *cntlr = car_get_var_ptr(&g_cntlr);
 	uint16_t control;
 	int16_t opcode_index;
 	int with_address;
@@ -464,7 +442,7 @@ static int spi_ctrlr_xfer(const struct spi_slave *slave, const void *dout,
 	if (ich_status_poll(SPIS_SCIP, 0) == -1)
 		return -1;
 
-	writew_(SPIS_CDS | SPIS_FCERR, cntlr.status);
+	writew_(SPIS_CDS | SPIS_FCERR, cntlr->status);
 
 	spi_setup_type(&trans);
 	if ((opcode_index = spi_setup_opcode(&trans)) < 0)
@@ -472,13 +450,13 @@ static int spi_ctrlr_xfer(const struct spi_slave *slave, const void *dout,
 	if ((with_address = spi_setup_offset(&trans)) < 0)
 		return -1;
 
-	if (!ichspi_lock && trans.opcode == SPI_OPCODE_WREN) {
+	if (!car_get_var(g_ichspi_lock) && trans.opcode == SPI_OPCODE_WREN) {
 		/*
 		 * Treat Write Enable as Atomic Pre-Op if possible
 		 * in order to prevent the Management Engine from
 		 * issuing a transaction between WREN and DATA.
 		 */
-		writew_(trans.opcode, cntlr.preop);
+		writew_(trans.opcode, cntlr->preop);
 		return 0;
 	}
 
@@ -486,13 +464,13 @@ static int spi_ctrlr_xfer(const struct spi_slave *slave, const void *dout,
 	control = SPIC_SCGO | ((opcode_index & 0x07) << 4);
 
 	/* Issue atomic preop cycle if needed */
-	if (readw_(cntlr.preop))
+	if (readw_(cntlr->preop))
 		control |= SPIC_ACS;
 
 	if (!trans.bytesout && !trans.bytesin) {
 		/* SPI addresses are 24 bit only */
 		if (with_address)
-			writel_(trans.offset & 0x00FFFFFF, cntlr.addr);
+			writel_(trans.offset & 0x00FFFFFF, cntlr->addr);
 
 		/*
 		 * This is a 'no data' command (like Write Enable), its
@@ -500,7 +478,7 @@ static int spi_ctrlr_xfer(const struct spi_slave *slave, const void *dout,
 		 * spi_setup_opcode() above. Tell the chip to send the
 		 * command.
 		 */
-		writew_(control, cntlr.control);
+		writew_(control, cntlr->control);
 
 		/* wait for the result */
 		status = ich_status_poll(SPIS_CDS | SPIS_FCERR, 1);
@@ -522,7 +500,7 @@ static int spi_ctrlr_xfer(const struct spi_slave *slave, const void *dout,
 	 * and followed by other SPI commands, and this sequence is controlled
 	 * by the SPI chip driver.
 	 */
-	if (trans.bytesout > cntlr.databytes) {
+	if (trans.bytesout > cntlr->databytes) {
 		printk(BIOS_DEBUG, "ICH SPI: Too much to write. Does your SPI chip driver use"
 		     " spi_crop_chunk()?\n");
 		return -1;
@@ -536,28 +514,28 @@ static int spi_ctrlr_xfer(const struct spi_slave *slave, const void *dout,
 		uint32_t data_length;
 
 		/* SPI addresses are 24 bit only */
-		writel_(trans.offset & 0x00FFFFFF, cntlr.addr);
+		writel_(trans.offset & 0x00FFFFFF, cntlr->addr);
 
 		if (trans.bytesout)
-			data_length = min(trans.bytesout, cntlr.databytes);
+			data_length = min(trans.bytesout, cntlr->databytes);
 		else
-			data_length = min(trans.bytesin, cntlr.databytes);
+			data_length = min(trans.bytesin, cntlr->databytes);
 
 		/* Program data into FDATA0 to N */
 		if (trans.bytesout) {
-			write_reg(trans.out, cntlr.data, data_length);
+			write_reg(trans.out, cntlr->data, data_length);
 			spi_use_out(&trans, data_length);
 			if (with_address)
 				trans.offset += data_length;
 		}
 
 		/* Add proper control fields' values */
-		control &= ~((cntlr.databytes - 1) << 8);
+		control &= ~((cntlr->databytes - 1) << 8);
 		control |= SPIC_DS;
 		control |= (data_length - 1) << 8;
 
 		/* write it */
-		writew_(control, cntlr.control);
+		writew_(control, cntlr->control);
 
 		/* Wait for Cycle Done Status or Flash Cycle Error. */
 		status = ich_status_poll(SPIS_CDS | SPIS_FCERR, 1);
@@ -570,7 +548,7 @@ static int spi_ctrlr_xfer(const struct spi_slave *slave, const void *dout,
 		}
 
 		if (trans.bytesin) {
-			read_reg(cntlr.data, trans.in, data_length);
+			read_reg(cntlr->data, trans.in, data_length);
 			spi_use_in(&trans, data_length);
 			if (with_address)
 				trans.offset += data_length;
@@ -579,7 +557,7 @@ static int spi_ctrlr_xfer(const struct spi_slave *slave, const void *dout,
 
 spi_xfer_exit:
 	/* Clear atomic preop now that xfer is done */
-	writew_(0, cntlr.preop);
+	writew_(0, cntlr->preop);
 
 	return 0;
 }

@@ -1,10 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2007 Advanced Micro Devices, Inc.
- * Copyright (C) 2015 Timothy Pearson <tpearson@raptorengineeringinc.com>,
- *	Raptor Engineering
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -17,8 +13,9 @@
 
 #include <arch/cpu.h>
 #include <console/console.h>
+#include <device/pci_ops.h>
 #include <pc80/mc146818rtc.h>
-#if IS_ENABLED(CONFIG_HAVE_OPTION_TABLE)
+#if CONFIG(HAVE_OPTION_TABLE)
 #include "option_table.h"
 #endif
 
@@ -94,13 +91,13 @@ void real_start_other_core(uint32_t nodeid, uint32_t cores)
 		 */
 
 		/* Wait for the first core of each compute unit to start... */
-		uint32_t timeout;
 		for (i = 1; i < cores + 1; i++) {
 			if (!(i & 0x1)) {
 				uint32_t ap_apicid =
 				get_boot_apic_id(nodeid, i);
-				timeout = wait_cpu_state(ap_apicid,
-							F10_APSTATE_ASLEEP, F10_APSTATE_ASLEEP);
+				/* Timeout */
+				wait_cpu_state(ap_apicid, F10_APSTATE_ASLEEP,
+						F10_APSTATE_ASLEEP);
 			}
 		}
 
@@ -123,7 +120,7 @@ void real_start_other_core(uint32_t nodeid, uint32_t cores)
 	}
 }
 
-#if (!IS_ENABLED(CONFIG_CPU_AMD_MODEL_10XXX))
+#if (!CONFIG(CPU_AMD_MODEL_10XXX))
 //it is running on core0 of node0
 static void start_other_cores(void)
 {

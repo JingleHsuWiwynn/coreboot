@@ -20,15 +20,14 @@
  * shouldn't cause any fragmentation.
  */
 
-#include <assert.h>
+#include <console/console.h>
 #include <intelblocks/uart.h>
 #include <soc/gpio.h>
 #include <soc/pci_devs.h>
-#include <string.h>
 
 /* UART pad configuration. Support RXD and TXD for now. */
 const struct uart_gpio_pad_config uart_gpio_pads[] = {
-#if IS_ENABLED(CONFIG_SOC_INTEL_GLK)
+#if CONFIG(SOC_INTEL_GLK)
 	{
 		.console_index = 0,
 		.gpios = {
@@ -50,6 +49,13 @@ const struct uart_gpio_pad_config uart_gpio_pads[] = {
 	},
 #else
 	{
+		.console_index = 0,
+		.gpios = {
+			PAD_CFG_NF(GPIO_38, NATIVE, DEEP, NF1), /* UART0 RX */
+			PAD_CFG_NF(GPIO_39, NATIVE, DEEP, NF1), /* UART0 TX */
+		},
+	},
+	{
 		.console_index = 1,
 		.gpios = {
 			PAD_CFG_NF(GPIO_42, NATIVE, DEEP, NF1), /* UART1 RX */
@@ -68,7 +74,7 @@ const struct uart_gpio_pad_config uart_gpio_pads[] = {
 
 const int uart_max_index = ARRAY_SIZE(uart_gpio_pads);
 
-struct device *soc_uart_console_to_device(int uart_console)
+DEVTREE_CONST struct device *soc_uart_console_to_device(int uart_console)
 {
 	/*
 	 * if index is valid, this function will return corresponding structure
@@ -76,13 +82,13 @@ struct device *soc_uart_console_to_device(int uart_console)
 	 */
 	switch (uart_console) {
 	case 0:
-		return (struct device *)PCH_DEV_UART0;
+		return pcidev_path_on_root(PCH_DEVFN_UART0);
 	case 1:
-		return (struct device *)PCH_DEV_UART1;
+		return pcidev_path_on_root(PCH_DEVFN_UART1);
 	case 2:
-		return (struct device *)PCH_DEV_UART2;
+		return pcidev_path_on_root(PCH_DEVFN_UART2);
 	case 3:
-		return (struct device *)PCH_DEV_UART3;
+		return pcidev_path_on_root(PCH_DEVFN_UART3);
 	default:
 		printk(BIOS_ERR, "Invalid UART console index\n");
 		return NULL;

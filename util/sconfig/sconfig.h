@@ -18,7 +18,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -141,6 +140,18 @@ struct device {
 	struct bus *bus;
 	/* Pointer to last bus under this device. */
 	struct bus *last_bus;
+
+	/* SMBIOS slot type */
+	char *smbios_slot_type;
+
+	/* SMBIOS slot data width */
+	char *smbios_slot_data_width;
+
+	/* SMBIOS slot description for reference designation */
+	char *smbios_slot_designation;
+
+	/* SMBIOS slot length */
+	char *smbios_slot_length;
 };
 
 extern struct bus *root_parent;
@@ -157,6 +168,9 @@ void add_pci_subsystem_ids(struct bus *bus, int vendor, int device,
 
 void add_ioapic_info(struct bus *bus, int apicid, const char *_srcpin,
 		     int irqpin);
+
+void add_slot_desc(struct bus *bus, char *type, char *length, char *designation,
+		   char *data_width);
 
 void yyrestart(FILE *input_file);
 

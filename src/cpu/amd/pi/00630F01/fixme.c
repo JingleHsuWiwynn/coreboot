@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2011 - 2012 Advanced Micro Devices, Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -88,7 +86,7 @@ void amd_initmmio(void)
 	MsrReg = ((1ULL << CONFIG_CPU_ADDR_BITS) - CACHE_ROM_SIZE) | 0x800ull;
 	LibAmdMsrWrite(MTRR_PHYS_MASK(6), &MsrReg, &StdHeader);
 
-	if (IS_ENABLED(CONFIG_UDELAY_LAPIC)){
+	if (CONFIG(UDELAY_LAPIC)){
 		LibAmdMsrRead(0x1B, &MsrReg, &StdHeader);
 		MsrReg |= 1 << 11;
 		LibAmdMsrWrite(0x1B, &MsrReg, &StdHeader);

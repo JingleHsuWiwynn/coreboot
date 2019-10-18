@@ -1,11 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2000,2007 Ronald G. Minnich <rminnich@gmail.com>
- * Copyright (C) 2005 Tyan (written by Yinghai Lu for Tyan)
- * Copyright (C) 2007-2008 coresystems GmbH
- * Copyright (C) 2012 Kyösti Mälkki <kyosti.malkki@gmail.com>
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -23,7 +18,7 @@
 
 /* Macro to access Local APIC registers at default base. */
 #define LAPIC(x)		$(LAPIC_DEFAULT_BASE | LAPIC_ ## x)
-#if !IS_ENABLED(CONFIG_C_ENVIRONMENT_BOOTBLOCK)
+#if !CONFIG(C_ENVIRONMENT_BOOTBLOCK)
 /* Fixed location, ASSERTED in failover.ld if it changes. */
 .set ap_sipi_vector_in_rom, 0xff
 #endif
@@ -318,7 +313,7 @@ no_msr_11e:
 	invd
 	movl	%eax, %cr0
 
-#if IS_ENABLED(CONFIG_MICROCODE_UPDATE_PRE_RAM)
+#if CONFIG(MICROCODE_UPDATE_PRE_RAM)
 	update_microcode:
 	/* put the return address in %esp */
 	movl	$end_microcode_update, %esp

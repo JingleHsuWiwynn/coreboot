@@ -17,10 +17,14 @@
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_def.h>
+#include <device/pci_ops.h>
 #include <device/pciexp.h>
 #include <device/pci_ids.h>
 #include <southbridge/intel/common/pciehp.h>
 #include <assert.h>
+
+#include "chip.h"
 #include "pch.h"
 
 static void pch_pcie_pm_early(struct device *dev)
@@ -113,7 +117,7 @@ static void pch_pcie_pm_early(struct device *dev)
 	/* Adjust ASPM L1 exit latency */
 	reg32 = pci_read_config32(dev, 0x4c);
 	reg32 &= ~((1 << 17) | (1 << 16) | (1 << 15));
-	if (RCBA32(0x2320) & (1 << 16)) {
+	if (RCBA32(CIR9) & (1 << 16)) {
 		/* If RCBA+2320[15]=1 set ASPM L1 to 8-16us */
 		reg32 |= (1 << 17);
 	} else {
@@ -229,11 +233,10 @@ static void pci_init(struct device *dev)
 	// This has no effect but the OS might expect it
 	pci_write_config8(dev, 0x0c, 0x10);
 
-	reg16 = pci_read_config16(dev, 0x3e);
-	reg16 &= ~(1 << 0); /* disable parity error response */
-	// reg16 &= ~(1 << 1); /* disable SERR */
-	reg16 |= (1 << 2); /* ISA enable */
-	pci_write_config16(dev, 0x3e, reg16);
+	reg16 = pci_read_config16(dev, PCI_BRIDGE_CONTROL);
+	reg16 &= ~PCI_BRIDGE_CTL_PARITY;
+	reg16 |= PCI_BRIDGE_CTL_NO_ISA;
+	pci_write_config16(dev, PCI_BRIDGE_CONTROL, reg16);
 
 #ifdef EVEN_MORE_DEBUG
 	reg32 = pci_read_config32(dev, 0x20);
@@ -305,21 +308,8 @@ static const char *pch_pcie_acpi_name(const struct device *dev)
 	return NULL;
 }
 
-static void pcie_set_subsystem(struct device *dev, unsigned vendor,
-			       unsigned device)
-{
-	/* NOTE: This is not the default position! */
-	if (!vendor || !device) {
-		pci_write_config32(dev, 0x94,
-				pci_read_config32(dev, 0));
-	} else {
-		pci_write_config32(dev, 0x94,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
-}
-
 static struct pci_operations pci_ops = {
-	.set_subsystem = pcie_set_subsystem,
+	.set_subsystem = pci_dev_set_subsystem,
 };
 
 static struct device_operations device_ops = {

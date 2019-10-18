@@ -18,23 +18,24 @@
 #include <device/pci.h>
 #include <console/console.h>
 #include <arch/io.h>
+#include <device/mmio.h>
 #include <cpu/x86/smm.h>
-#include <string.h>
-
+#include <cpu/intel/smm_reloc.h>
+#include <bootstate.h>
+#include <soc/gpio.h>
 #include <soc/iomap.h>
 #include <soc/pmc.h>
-#include <soc/smm.h>
 
 /* Save the gpio route register. The settings are committed from
- * southcluster_smm_enable_smi(). */
+ * smm_southbridge_enable_smi(). */
 static uint32_t gpio_route;
 
-void southcluster_smm_save_gpio_route(uint32_t route)
+void smm_southcluster_save_gpio_route(uint32_t route)
 {
 	gpio_route = route;
 }
 
-void southcluster_smm_clear_state(void)
+void smm_southbridge_clear_state(void)
 {
 	uint32_t smi_en;
 
@@ -59,7 +60,7 @@ void southcluster_smm_clear_state(void)
 	clear_pmc_status();
 }
 
-static void southcluster_smm_route_gpios(void)
+static void smm_southcluster_route_gpios(void)
 {
 	u32 *gpio_rout = (u32 *)(PMC_BASE_ADDRESS + GPIO_ROUT);
 	const unsigned short alt_gpio_smi = ACPI_BASE_ADDRESS + ALT_GPIO_SMI;
@@ -84,7 +85,7 @@ static void southcluster_smm_route_gpios(void)
 	outl(alt_gpio_reg, alt_gpio_smi);
 }
 
-void southcluster_smm_enable_smi(void)
+void smm_southbridge_enable_smi(void)
 {
 
 	printk(BIOS_DEBUG, "Enabling SMIs.\n");
@@ -93,7 +94,7 @@ void southcluster_smm_enable_smi(void)
 	disable_gpe(PME_B0_EN);
 
 	/* Set up the GPIO route. */
-	southcluster_smm_route_gpios();
+	smm_southcluster_route_gpios();
 
 	/* Enable SMI generation:
 	 *  - on APMC writes (io 0xb2)
@@ -124,3 +125,16 @@ void smm_setup_structures(void *gnvs, void *tcg, void *smi1)
 		  "d" (APM_CNT)
 	);
 }
+
+static void finalize_chipset(void *unused)
+{
+	printk(BIOS_DEBUG, "Finalizing SMM.\n");
+	/* Lock sleep stretching policy and set SMI lock. */
+	write32((void *)(PMC_BASE_ADDRESS + GEN_PMCON2),
+		read32((void *)(PMC_BASE_ADDRESS + GEN_PMCON2))
+		| SLPSX_STR_POL_LOCK | SMI_LOCK);
+	outb(APM_CNT_FINALIZE, APM_CNT);
+}
+
+BOOT_STATE_INIT_ENTRY(BS_OS_RESUME, BS_ON_ENTRY, finalize_chipset, NULL);
+BOOT_STATE_INIT_ENTRY(BS_PAYLOAD_LOAD, BS_ON_EXIT, finalize_chipset, NULL);

@@ -20,7 +20,7 @@
 #include <soc/iomap.h>
 #include <soc/pch.h>
 
-#if IS_ENABLED(CONFIG_FSP_CAR)
+#if CONFIG(FSP_CAR)
 #include <FsptUpd.h>
 
 const FSPT_UPD temp_ram_init_params = {
@@ -44,7 +44,7 @@ const FSPT_UPD temp_ram_init_params = {
 asmlinkage void bootblock_c_entry(uint64_t base_timestamp)
 {
 	/* Call lib/bootblock.c main */
-	bootblock_main_with_timestamp(base_timestamp, NULL, 0);
+	bootblock_main_with_basetime(base_timestamp);
 }
 
 void bootblock_soc_early_init(void)
@@ -53,12 +53,17 @@ void bootblock_soc_early_init(void)
 	bootblock_pch_early_init();
 	bootblock_cpu_init();
 	pch_early_iorange_init();
-	if (IS_ENABLED(CONFIG_INTEL_LPSS_UART_FOR_CONSOLE))
+	if (CONFIG(INTEL_LPSS_UART_FOR_CONSOLE))
 		uart_bootblock_init();
 }
 
 void bootblock_soc_init(void)
 {
+	/*
+	 * Clear the GPI interrupt status and enable registers. These
+	 * registers do not get reset to default state when booting from S5.
+	 */
+	gpi_clear_int_cfg();
 	report_platform_info();
 	pch_early_init();
 }

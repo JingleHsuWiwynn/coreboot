@@ -155,6 +155,7 @@
 #define PIRQ_PIC_IRQ12			0xc
 #define PIRQ_PIC_IRQ14			0xe
 #define PIRQ_PIC_IRQ15			0xf
+#define PIRQ_PIC_UNKNOWN_UNUSED		0xff
 
 /* Overloaded term, but these values determine the per device route. */
 #define PIRQA				0
@@ -178,7 +179,7 @@
 # define SCIS_IRQ23				0x07
 
 /*
- * In each mainbaord directory there should exist a header file irqroute.h that
+ * In each mainboard directory there should exist a header file irqroute.h that
  * defines the PCI_DEV_PIRQ_ROUTES and PIRQ_PIC_ROUTES macros which
  * consist of PCI_DEV_PIRQ_ROUTE and PIRQ_PIC entries.
  */

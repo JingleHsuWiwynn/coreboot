@@ -14,7 +14,6 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <arch/cache.h>
 #include <bootmem.h>
 #include <bootmode.h>
@@ -27,8 +26,6 @@
 #include <soc/cpu.h>
 #include <soc/mc.h>
 #include <soc/nvidia/tegra/apbmisc.h>
-#include <string.h>
-#include <timer.h>
 #include <soc/sdram.h>
 #include <soc/sdram_configs.h>
 
@@ -79,7 +76,7 @@ static void enable_tegra210_dev(struct device *dev)
 	if (dev->path.type == DEVICE_PATH_CPU_CLUSTER)
 		dev->ops = &soc_ops;
 
-	if (!IS_ENABLED(CONFIG_MAINBOARD_DO_NATIVE_VGA_INIT))
+	if (!CONFIG(MAINBOARD_DO_NATIVE_VGA_INIT))
 		return;
 
 	if (display_init_required())

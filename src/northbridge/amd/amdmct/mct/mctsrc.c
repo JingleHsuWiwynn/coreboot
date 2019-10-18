@@ -14,8 +14,10 @@
  * GNU General Public License for more details.
  */
 
+#include <console/console.h>
 #include <cpu/x86/cr.h>
 #include <cpu/amd/msr.h>
+
 #include "mct_d.h"
 
 /******************************************************************************
@@ -127,7 +129,7 @@ static void dqsTrainRcvrEn_SW(struct MCTStatStruc *pMCTstat,
 	u32 index_reg;
 	u32 ch_start, ch_end, ch;
 	u32 msr;
-	u32 cr4;
+	CRx_TYPE cr4;
 	u32 lo, hi;
 
 	u8 valid;

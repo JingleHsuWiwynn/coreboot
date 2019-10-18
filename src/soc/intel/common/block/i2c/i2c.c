@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/i2c_simple.h>
@@ -21,7 +21,7 @@
 #include <device/pci_def.h>
 #include <device/pci_ids.h>
 #include <drivers/i2c/designware/dw_i2c.h>
-#include <intelblocks/chip.h>
+#include <intelblocks/cfg.h>
 #include <intelblocks/lpss.h>
 #include <soc/iomap.h>
 #include <soc/pci_devs.h>
@@ -47,7 +47,7 @@ uintptr_t dw_i2c_get_soc_early_base(unsigned int bus)
 	return EARLY_I2C_BASE(bus);
 }
 
-#if !ENV_RAMSTAGE
+#if !ENV_PAYLOAD_LOADER
 static int lpss_i2c_early_init_bus(unsigned int bus)
 {
 	const struct dw_i2c_bus_config *config;
@@ -86,6 +86,9 @@ static int lpss_i2c_early_init_bus(unsigned int bus)
 
 	/* Take device out of reset */
 	lpss_reset_release(base);
+
+	/* Ensure controller is in D0 state */
+	lpss_set_power_state(tree_dev, STATE_D0);
 
 	/* Initialize the controller */
 	if (dw_i2c_init(bus, config) < 0) {
@@ -162,6 +165,9 @@ static void dw_i2c_device_init(struct device *dev)
 	if (!base_address)
 		return;
 
+	/* Ensure controller is in D0 state */
+	lpss_set_power_state(dev, STATE_D0);
+
 	/* Take device out of reset if its not done before */
 	if (lpss_is_controller_in_reset(base_address))
 		lpss_reset_release(base_address);
@@ -223,6 +229,12 @@ static const unsigned short pci_device_ids[] = {
 	PCI_DEVICE_ID_INTEL_ICP_I2C3,
 	PCI_DEVICE_ID_INTEL_ICP_I2C4,
 	PCI_DEVICE_ID_INTEL_ICP_I2C5,
+	PCI_DEVICE_ID_INTEL_CMP_I2C0,
+	PCI_DEVICE_ID_INTEL_CMP_I2C1,
+	PCI_DEVICE_ID_INTEL_CMP_I2C2,
+	PCI_DEVICE_ID_INTEL_CMP_I2C3,
+	PCI_DEVICE_ID_INTEL_CMP_I2C4,
+	PCI_DEVICE_ID_INTEL_CMP_I2C5,
 	0,
 };
 

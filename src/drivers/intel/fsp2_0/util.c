@@ -11,11 +11,12 @@
  * (at your option) any later version.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <cf9_reset.h>
 #include <console/console.h>
 #include <fsp/util.h>
 #include <string.h>
+#include <types.h>
 
 static bool looks_like_fsp_header(const uint8_t *raw_hdr)
 {
@@ -80,7 +81,7 @@ enum cb_err fsp_validate_component(struct fsp_header *hdr,
 
 	rdev_munmap(rdev, membase);
 
-	if (IS_ENABLED(CONFIG_DISPLAY_FSP_HEADER))
+	if (CONFIG(DISPLAY_FSP_HEADER))
 		fsp_print_header_info(hdr);
 
 	/* Check if size specified in the header matches the cbfs file size */

@@ -16,7 +16,12 @@
  * GNU General Public License for more details.
  */
 
+#include <arch/io.h>
+#include <console/console.h>
+#include <device/pci_ops.h>
+#include <reset.h>
 #include <southbridge/amd/common/reset.h>
+
 #include "ck804.h"
 
 /* Someone messed up and snuck in some K8-specific code */
@@ -142,7 +147,7 @@ static void ck804_early_setup(unsigned ck804_num, unsigned *busn,
 		CK804_MB_SETUP
 #endif
 
-#if IS_ENABLED(CONFIG_NORTHBRIDGE_AMD_AMDFAM10)
+#if CONFIG(NORTHBRIDGE_AMD_AMDFAM10)
 		/*
 		 * Avoid crash (complete with severe memory corruption!) during initial CAR boot
 		 * in ck804_early_setup_x() on Fam10h systems by not touching 0x78.
@@ -202,7 +207,7 @@ static void ck804_early_setup(unsigned ck804_num, unsigned *busn,
 		/* SYSCTRL */
 		RES_PORT_IO_8, SYSCTRL_IO_BASE + 0xc0 + 8, ~(0xff), ((0 << 4) | (0 << 2) | (0 << 0)),
 		RES_PORT_IO_8, SYSCTRL_IO_BASE + 0xc0 + 9, ~(0xff), ((0 << 4) | (1 << 2) | (1 << 0)),
-#if IS_ENABLED(CONFIG_CK804_USE_NIC)
+#if CONFIG(CK804_USE_NIC)
 		RES_PCI_IO, CK804_DEV(0xa, 0, 0xf8), 0xffffffbf, 0x00000040,
 		RES_PORT_IO_8, SYSCTRL_IO_BASE + 0xc0 + 19, ~(0xff), ((0 << 4) | (1 << 2) | (0 << 0)),
 		RES_PORT_IO_8, SYSCTRL_IO_BASE + 0xc0 + 3, ~(0xff), ((0 << 4) | (1 << 2) | (0 << 0)),
@@ -210,12 +215,12 @@ static void ck804_early_setup(unsigned ck804_num, unsigned *busn,
 		RES_PCI_IO, CK804_DEV(1, 0, 0xe4), ~(1 << 23), (1 << 23),
 #endif
 
-#if IS_ENABLED(CONFIG_CK804_USE_ACI)
+#if CONFIG(CK804_USE_ACI)
 		RES_PORT_IO_8, SYSCTRL_IO_BASE + 0xc0 + 0x0d, ~(0xff), ((0 << 4) | (2 << 2) | (0 << 0)),
 		RES_PORT_IO_8, SYSCTRL_IO_BASE + 0xc0 + 0x1a, ~(0xff), ((0 << 4) | (2 << 2) | (0 << 0)),
 #endif
 
-#if IS_ENABLED(CONFIG_CK804_PCIE_PME_WAKE)
+#if CONFIG(CK804_PCIE_PME_WAKE)
 		RES_PCI_IO, CK804_DEV(1, 0, 0xe4), 0xffffffff, 0x00400000,
 #else
 		RES_PCI_IO, CK804_DEV(1, 0, 0xe4), 0xffbfffff, 0x00000000,
@@ -284,7 +289,7 @@ static void ck804_early_setup(unsigned ck804_num, unsigned *busn,
 
 		RES_PORT_IO_32, ANACTRL_IO_BASE + 0xcc, ~((7 << 4) | (1 << 8)), (CONFIG_CK804B_PCI_E_X << 4) | (1 << 8),
 
-#if IS_ENABLED(CONFIG_CK804_USE_NIC)
+#if CONFIG(CK804_USE_NIC)
 		RES_PCI_IO, CK804_DEV(0xa, 0, 0xf8), 0xffffffbf, 0x00000040,
 		RES_PORT_IO_8, SYSCTRL_IO_BASE + 0xc0 + 19, ~(0xff), ((0 << 4) | (1 << 2) | (0 << 0)),
 		RES_PORT_IO_8, SYSCTRL_IO_BASE + 0xc0 + 3, ~(0xff), ((0 << 4) | (1 << 2) | (0 << 0)),
@@ -351,11 +356,8 @@ static int ck804_early_setup_x(void)
 		}
 	}
 
-	printk(BIOS_DEBUG, "ck804_early_set_port(%d, %d, %d)\n", ck804_num, busn[0], io_base[0]);
 	ck804_early_set_port(ck804_num, busn, io_base);
-	printk(BIOS_DEBUG, "ck804_early_setup(%d, %d, %d)\n", ck804_num, busn[0], io_base[0]);
 	ck804_early_setup(ck804_num, busn, io_base);
-	printk(BIOS_DEBUG, "ck804_early_clear_port(%d, %d, %d)\n", ck804_num, busn[0], io_base[0]);
 	ck804_early_clear_port(ck804_num, busn, io_base);
 
 	return set_ht_link_ck804(4);

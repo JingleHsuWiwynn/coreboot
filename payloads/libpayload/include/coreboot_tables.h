@@ -33,6 +33,59 @@
 #include <arch/types.h>
 #include <ipchksum.h>
 
+enum {
+	CB_TAG_UNUSED			= 0x0000,
+	CB_TAG_MEMORY			= 0x0001,
+	CB_TAG_HWRPB			= 0x0002,
+	CB_TAG_MAINBOARD		= 0x0003,
+	CB_TAG_VERSION			= 0x0004,
+	CB_TAG_EXTRA_VERSION		= 0x0005,
+	CB_TAG_BUILD			= 0x0006,
+	CB_TAG_COMPILE_TIME		= 0x0007,
+	CB_TAG_COMPILE_BY		= 0x0008,
+	CB_TAG_COMPILE_HOST		= 0x0009,
+	CB_TAG_COMPILE_DOMAIN		= 0x000a,
+	CB_TAG_COMPILER			= 0x000b,
+	CB_TAG_LINKER			= 0x000c,
+	CB_TAG_ASSEMBLER		= 0x000d,
+	CB_TAG_SERIAL			= 0x000f,
+	CB_TAG_CONSOLE			= 0x0010,
+	CB_TAG_FORWARD			= 0x0011,
+	CB_TAG_FRAMEBUFFER		= 0x0012,
+	CB_TAG_GPIO			= 0x0013,
+	CB_TAG_TIMESTAMPS		= 0x0016,
+	CB_TAG_CBMEM_CONSOLE		= 0x0017,
+	CB_TAG_MRC_CACHE		= 0x0018,
+	CB_TAG_VBNV			= 0x0019,
+	CB_TAG_VBOOT_HANDOFF		= 0x0020,  /* deprecated */
+	CB_TAG_X86_ROM_MTRR		= 0x0021,
+	CB_TAG_DMA			= 0x0022,
+	CB_TAG_RAM_OOPS			= 0x0023,
+	CB_TAG_ACPI_GNVS		= 0x0024,
+	CB_TAG_BOARD_ID			= 0x0025,
+	CB_TAG_VERSION_TIMESTAMP	= 0x0026,
+	CB_TAG_WIFI_CALIBRATION		= 0x0027,
+	CB_TAG_RAM_CODE			= 0x0028,
+	CB_TAG_SPI_FLASH		= 0x0029,
+	CB_TAG_SERIALNO			= 0x002a,
+	CB_TAG_MTC			= 0x002b,
+	CB_TAG_VPD			= 0x002c,
+	CB_TAG_SKU_ID			= 0x002d,
+	CB_TAG_BOOT_MEDIA_PARAMS	= 0x0030,
+	CB_TAG_CBMEM_ENTRY		= 0x0031,
+	CB_TAG_TSC_INFO			= 0x0032,
+	CB_TAG_MAC_ADDRS		= 0x0033,
+	CB_TAG_VBOOT_WORKBUF		= 0x0034,
+	CB_TAG_MMC_INFO			= 0x0035,
+	CB_TAG_TCPA_LOG			= 0x0036,
+	CB_TAG_FMAP			= 0x0037,
+	CB_TAG_CMOS_OPTION_TABLE	= 0x00c8,
+	CB_TAG_OPTION			= 0x00c9,
+	CB_TAG_OPTION_ENUM		= 0x00ca,
+	CB_TAG_OPTION_DEFAULTS		= 0x00cb,
+	CB_TAG_OPTION_CHECKSUM		= 0x00cc,
+};
+
 struct cbuint64 {
 	u32 lo;
 	u32 hi;
@@ -51,9 +104,6 @@ struct cb_record {
 	u32 tag;
 	u32 size;
 };
-
-#define CB_TAG_UNUSED     0x0000
-#define CB_TAG_MEMORY     0x0001
 
 struct cb_memory_range {
 	struct cbuint64 start;
@@ -75,15 +125,11 @@ struct cb_memory {
 	struct cb_memory_range map[0];
 };
 
-#define CB_TAG_HWRPB      0x0002
-
 struct cb_hwrpb {
 	u32 tag;
 	u32 size;
 	u64 hwrpb;
 };
-
-#define CB_TAG_MAINBOARD  0x0003
 
 struct cb_mainboard {
 	u32 tag;
@@ -93,24 +139,11 @@ struct cb_mainboard {
 	u8 strings[0];
 };
 
-#define CB_TAG_VERSION        0x0004
-#define CB_TAG_EXTRA_VERSION  0x0005
-#define CB_TAG_BUILD          0x0006
-#define CB_TAG_COMPILE_TIME   0x0007
-#define CB_TAG_COMPILE_BY     0x0008
-#define CB_TAG_COMPILE_HOST   0x0009
-#define CB_TAG_COMPILE_DOMAIN 0x000a
-#define CB_TAG_COMPILER       0x000b
-#define CB_TAG_LINKER         0x000c
-#define CB_TAG_ASSEMBLER      0x000d
-
 struct cb_string {
 	u32 tag;
 	u32 size;
 	u8 string[0];
 };
-
-#define CB_TAG_SERIAL         0x000f
 
 struct cb_serial {
 	u32 tag;
@@ -138,8 +171,6 @@ struct cb_serial {
 	u32 uart_pci_addr;
 };
 
-#define CB_TAG_CONSOLE       0x00010
-
 struct cb_console {
 	u32 tag;
 	u32 size;
@@ -153,15 +184,20 @@ struct cb_console {
 #define CB_TAG_CONSOLE_SROM       4 // OBSOLETE
 #define CB_TAG_CONSOLE_EHCI       5
 
-#define CB_TAG_FORWARD       0x00011
-
 struct cb_forward {
 	u32 tag;
 	u32 size;
 	u64 forward;
 };
 
-#define CB_TAG_FRAMEBUFFER      0x0012
+/* Panel orientation, matches drm_connector.h in the Linux kernel. */
+enum cb_fb_orientation {
+	CB_FB_ORIENTATION_NORMAL = 0,
+	CB_FB_ORIENTATION_BOTTOM_UP = 1,
+	CB_FB_ORIENTATION_LEFT_UP = 2,
+	CB_FB_ORIENTATION_RIGHT_UP = 3,
+};
+
 struct cb_framebuffer {
 	u32 tag;
 	u32 size;
@@ -179,9 +215,9 @@ struct cb_framebuffer {
 	u8 blue_mask_size;
 	u8 reserved_mask_pos;
 	u8 reserved_mask_size;
+	u8 orientation;
 };
 
-#define CB_TAG_GPIO 0x0013
 #define CB_GPIO_ACTIVE_LOW 0
 #define CB_GPIO_ACTIVE_HIGH 1
 #define CB_GPIO_MAX_NAME_LENGTH 16
@@ -200,12 +236,6 @@ struct cb_gpios {
 	struct cb_gpio gpios[0];
 };
 
-#define CB_TAG_VBNV		0x0019
-#define CB_TAG_VBOOT_HANDOFF	0x0020
-#define CB_TAG_DMA		0x0022
-#define CB_TAG_RAM_OOPS		0x0023
-#define CB_TAG_MTC		0x002b
-#define CB_TAG_VPD		0x002c
 struct lb_range {
 	uint32_t tag;
 	uint32_t size;
@@ -213,18 +243,12 @@ struct lb_range {
 	uint32_t range_size;
 };
 
-#define CB_TAG_TIMESTAMPS	0x0016
-#define CB_TAG_CBMEM_CONSOLE	0x0017
-#define CB_TAG_MRC_CACHE	0x0018
-#define CB_TAG_ACPI_GNVS	0x0024
-#define CB_TAG_WIFI_CALIBRATION	0x0027
 struct cb_cbmem_tab {
 	uint32_t tag;
 	uint32_t size;
 	uint64_t cbmem_tab;
 };
 
-#define CB_TAG_X86_ROM_MTRR	0x0021
 struct cb_x86_rom_mtrr {
 	uint32_t tag;
 	uint32_t size;
@@ -235,17 +259,12 @@ struct cb_x86_rom_mtrr {
 	uint32_t index;
 };
 
-
-#define CB_TAG_BOARD_ID		0x0025
-#define CB_TAG_RAM_CODE		0x0028
-#define CB_TAG_SKU_ID		0x002d
 struct cb_strapping_id {
 	uint32_t tag;
 	uint32_t size;
 	uint32_t id_code;
 };
 
-#define CB_TAG_SPI_FLASH	0x0029
 struct cb_spi_flash {
 	uint32_t tag;
 	uint32_t size;
@@ -254,7 +273,6 @@ struct cb_spi_flash {
 	uint32_t erase_cmd;
 };
 
-#define CB_TAG_BOOT_MEDIA_PARAMS 0x0030
 struct cb_boot_media_params {
 	uint32_t tag;
 	uint32_t size;
@@ -265,7 +283,6 @@ struct cb_boot_media_params {
 	uint64_t boot_media_size;
 };
 
-#define CB_TAG_TSC_INFO 0x0032
 struct cb_tsc_info {
 	uint32_t tag;
 	uint32_t size;
@@ -273,7 +290,6 @@ struct cb_tsc_info {
 	uint32_t freq_khz;
 };
 
-#define CB_TAG_MAC_ADDRS       0x0033
 struct mac_address {
 	uint8_t mac_addr[6];
 	uint8_t pad[2];         /* Pad it to 8 bytes to keep it simple. */
@@ -286,17 +302,28 @@ struct cb_macs {
 	struct mac_address mac_addrs[0];
 };
 
-#define CB_TAG_SERIALNO		0x002a
+struct cb_mmc_info {
+	uint32_t tag;
+	uint32_t size;
+	/*
+	 * Passes the early mmc status to payload to indicate if firmware
+	 * successfully sent CMD0, CMD1 to the card or not. In case of
+	 * success, the payload can skip the first step of the initialization
+	 * sequence which is to send CMD0, and instead start by sending CMD1
+	 * as described in Jedec Standard JESD83-B1 section 6.4.3.
+	 * passes 1 on success
+	 */
+	int32_t early_cmd1_status;
+};
+
 #define CB_MAX_SERIALNO_LENGTH	32
 
-#define CB_TAG_CMOS_OPTION_TABLE 0x00c8
 struct cb_cmos_option_table {
 	u32 tag;
 	u32 size;
 	u32 header_length;
 };
 
-#define CB_TAG_OPTION         0x00c9
 #define CB_CMOS_MAX_NAME_LENGTH    32
 struct cb_cmos_entries {
 	u32 tag;
@@ -308,8 +335,6 @@ struct cb_cmos_entries {
 	u8 name[CB_CMOS_MAX_NAME_LENGTH];
 };
 
-
-#define CB_TAG_OPTION_ENUM    0x00ca
 #define CB_CMOS_MAX_TEXT_LENGTH 32
 struct cb_cmos_enums {
 	u32 tag;
@@ -319,7 +344,6 @@ struct cb_cmos_enums {
 	u8 text[CB_CMOS_MAX_TEXT_LENGTH];
 };
 
-#define CB_TAG_OPTION_DEFAULTS 0x00cb
 #define CB_CMOS_IMAGE_BUFFER_SIZE 128
 struct cb_cmos_defaults {
 	u32 tag;
@@ -329,7 +353,6 @@ struct cb_cmos_defaults {
 	u8 default_set[CB_CMOS_IMAGE_BUFFER_SIZE];
 };
 
-#define CB_TAG_OPTION_CHECKSUM 0x00cc
 #define CB_CHECKSUM_NONE	0
 #define CB_CHECKSUM_PCBIOS	1
 struct	cb_cmos_checksum {
@@ -372,4 +395,6 @@ static inline const char *cb_mb_part_string(const struct cb_mainboard *cbm)
 	(void *)(((u8 *) (_rec)) + sizeof(*(_rec)) \
 		+ (sizeof((_rec)->map[0]) * (_idx)))
 
+/* Helper functions */
+void *get_cbmem_ptr(unsigned char *ptr);
 #endif

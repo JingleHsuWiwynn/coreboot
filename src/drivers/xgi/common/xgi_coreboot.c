@@ -15,29 +15,23 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include <delay.h>
-#include <stdlib.h>
-#include <string.h>
-#include <arch/io.h>
-#include <vbe.h>
 
+#include <stdlib.h>
+#include <vbe.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
-
 #include <pc80/vga.h>
 
 #include "xgi_coreboot.h"
 #include "vstruct.h"
-
 #include "XGIfb.h"
 #include "XGI_main.h"
 #include "vb_init.h"
 #include "vb_util.h"
 #include "vb_setmode.h"
-
 #include "XGI_main.c"
 
 static int xgi_vbe_valid;
@@ -119,7 +113,7 @@ int xgifb_probe(struct pci_dev *pdev, struct xgifb_video_info *xgifb_info)
 		xgifb_info->video_size = video_size_max;
 	}
 
-	if (IS_ENABLED(CONFIG_LINEAR_FRAMEBUFFER)) {
+	if (CONFIG(LINEAR_FRAMEBUFFER)) {
 		/* Enable PCI_LINEAR_ADDRESSING and MMIO_ENABLE  */
 		xgifb_reg_or(XGISR,
 			     IND_SIS_PCI_ADDRESS_SET,
@@ -264,7 +258,7 @@ int xgifb_probe(struct pci_dev *pdev, struct xgifb_video_info *xgifb_info)
 			xgifb_info->mode_idx =
 				XGIfb_GetXG21DefaultLVDSModeIdx(xgifb_info);
 		else
-			if (IS_ENABLED(CONFIG_LINEAR_FRAMEBUFFER))
+			if (CONFIG(LINEAR_FRAMEBUFFER))
 				xgifb_info->mode_idx = DEFAULT_MODE;
 			else
 				xgifb_info->mode_idx = DEFAULT_TEXT_MODE;
@@ -339,7 +333,7 @@ int xgifb_modeset(struct pci_dev *pdev, struct xgifb_video_info *xgifb_info)
 
 	hw_info = &xgifb_info->hw_info;
 
-	if (IS_ENABLED(CONFIG_LINEAR_FRAMEBUFFER)) {
+	if (CONFIG(LINEAR_FRAMEBUFFER)) {
 		/* Set mode */
 		XGIfb_pre_setmode(xgifb_info);
 		if (XGISetModeNew(xgifb_info, hw_info,

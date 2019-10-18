@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#include <inttypes.h>
+#include <stdint.h>
 #include "mct_d.h"
 
 static void Get_ChannelPS_Cfg0_D(u8 MAAdimms, u8 Speed, u8 MAAload,
@@ -128,8 +128,6 @@ static void Get_ChannelPS_Cfg0_D(u8 MAAdimms, u8 Speed, u8 MAAload,
 					*AddrTmgCTL = 0x002F2F00;
 			} else if (Speed == 1) {
 				*AddrTmgCTL = 0x002F2F00;
-			} else if (Speed == 5) {
-				*AddrTmgCTL = 0x002F2020;
 			} else {
 				*AddrTmgCTL = 0x002F2F2F;
 			}

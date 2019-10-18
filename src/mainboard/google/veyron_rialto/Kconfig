@@ -28,7 +28,6 @@ config BOARD_SPECIFIC_OPTIONS
 	select MAINBOARD_HAS_TPM1
 
 config VBOOT
-	select VBOOT_PHYSICAL_REC_SWITCH
 	select VBOOT_VBNV_FLASH
 
 config MAINBOARD_DIR
@@ -64,8 +63,4 @@ config PMIC_BUS
 	int
 	default 0
 
-config GBB_HWID
-	string
-	depends on CHROMEOS
-	default "RIALTO TEST A-A 2322"
 endif #  BOARD_GOOGLE_VEYRON_RIALTO

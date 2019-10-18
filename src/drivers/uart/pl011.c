@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <boot/coreboot_tables.h>
 #include <console/uart.h>
 #include <drivers/uart/pl011.h>
@@ -49,7 +49,6 @@ unsigned char uart_rx_byte(int idx)
 	return read8(&regs->dr);
 }
 
-#ifndef __PRE_RAM__
 void uart_fill_lb(void *data)
 {
 	struct lb_serial serial;
@@ -63,4 +62,3 @@ void uart_fill_lb(void *data)
 
 	lb_add_console(LB_TAG_CONSOLE_SERIAL8250MEM, data);
 }
-#endif

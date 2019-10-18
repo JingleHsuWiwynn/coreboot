@@ -26,10 +26,8 @@
 #define VX900_MAX_DIMM_SLOTS 2
 #define VX900_MAX_MEM_RANKS 4
 
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/pci.h>
-
-#include <console/console.h>
 
 u32 vx900_get_tolm(void);
 void vx900_set_chrome9hd_fb_size(u32 size_mb);
@@ -41,10 +39,6 @@ uint64_t get_uma_memory_base(void);
 /* We use these throughout the code. They really belong in a generic part of
  * coreboot, but until bureaucracy gets them there, we still need them  */
 
-#ifdef __SIMPLE_DEVICE__
 void dump_pci_device(pci_devfn_t dev);
-#else
-void dump_pci_device(struct device *dev);
-#endif
 
 #endif				/* __VX900_H */

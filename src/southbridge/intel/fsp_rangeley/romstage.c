@@ -15,10 +15,10 @@
  */
 
 #include <stdint.h>
-#include <string.h>
-#include <lib.h>
 #include <timestamp.h>
 #include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <cpu/x86/lapic.h>
 #include <cbmem.h>
@@ -31,6 +31,7 @@
 #include "southbridge/intel/fsp_rangeley/gpio.h"
 #include "southbridge/intel/fsp_rangeley/romstage.h"
 #include <cpu/x86/msr.h>
+#include <cpu/x86/smm.h>
 #include "gpio.h"
 
 void main(FSP_INFO_HEADER *fsp_info_header)
@@ -90,7 +91,6 @@ void main(FSP_INFO_HEADER *fsp_info_header)
  * Memory is setup and the stack is set by the FSP.
  */
 void romstage_main_continue(EFI_STATUS status, void *hob_list_ptr) {
-	int cbmem_was_initted;
 	void *cbmem_hob_ptr;
 
 	timestamp_add_now(TS_AFTER_INITRAM);
@@ -100,7 +100,7 @@ void romstage_main_continue(EFI_STATUS status, void *hob_list_ptr) {
 		__func__, (u32) status, (u32) hob_list_ptr);
 
 	/* FSP reconfigures USB, so reinit it to have debug */
-	if (IS_ENABLED(CONFIG_USBDEBUG_IN_PRE_RAM))
+	if (CONFIG(USBDEBUG_IN_PRE_RAM))
 		usbdebug_hw_init(true);
 
 	printk(BIOS_DEBUG, "FSP Status: 0x%0x\n", (u32)status);
@@ -113,10 +113,7 @@ void romstage_main_continue(EFI_STATUS status, void *hob_list_ptr) {
 	/* Decode E0000 and F0000 segment to DRAM */
 	sideband_write(B_UNIT, BMISC, sideband_read(B_UNIT, BMISC) | (1 << 1) | (1 << 0));
 
-	quick_ram_check();
-	post_code(0x4d);
-
-	cbmem_was_initted = !cbmem_recovery(0);
+	cbmem_recovery(0);
 
 	/* Save the HOB pointer in CBMEM to be used in ramstage*/
 	cbmem_hob_ptr = cbmem_add(CBMEM_ID_HOB_POINTER, sizeof(*hob_list_ptr));
@@ -125,9 +122,11 @@ void romstage_main_continue(EFI_STATUS status, void *hob_list_ptr) {
 	*(u32*)cbmem_hob_ptr = (u32)hob_list_ptr;
 	post_code(0x4e);
 
-	post_code(0x4f);
+	if (CONFIG(SMM_TSEG))
+		smm_list_regions();
 
 	/* Load the ramstage. */
+	post_code(0x4f);
 	run_ramstage();
 	while (1);
 }

@@ -2,7 +2,7 @@
  * This file is part of the coreboot project.
  *
  * Copyright (C) 2015-2017 Intel Corp.
- * Copyright (C) 2017 Siemens AG, Inc.
+ * Copyright (C) 2017-2019 Siemens AG
  * (Written by Andrey Petrov <andrey.petrov@intel.com> for Intel Corp.)
  * (Written by Alexandru Gagniuc <alexandrux.gagniuc@intel.com> for Intel Corp.)
  *
@@ -23,21 +23,23 @@
 #include "chip.h"
 #include <cpu/cpu.h>
 #include <cpu/x86/cache.h>
+#include <cpu/x86/lapic.h>
 #include <cpu/x86/mp.h>
 #include <cpu/intel/microcode.h>
 #include <cpu/intel/turbo.h>
 #include <cpu/x86/msr.h>
 #include <cpu/x86/mtrr.h>
+#include <cpu/x86/smm.h>
+#include <cpu/intel/em64t100_save_state.h>
+#include <cpu/intel/smm_reloc.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <fsp/api.h>
-#include <fsp/memmap.h>
 #include <intelblocks/cpulib.h>
 #include <intelblocks/fast_spi.h>
 #include <intelblocks/mp_init.h>
 #include <intelblocks/msr.h>
 #include <intelblocks/sgx.h>
-#include <intelblocks/smm.h>
 #include <reg_script.h>
 #include <romstage_handoff.h>
 #include <soc/cpu.h>
@@ -46,7 +48,7 @@
 #include <soc/pm.h>
 
 static const struct reg_script core_msr_script[] = {
-#if !IS_ENABLED(CONFIG_SOC_INTEL_GLK)
+#if !CONFIG(SOC_INTEL_GLK)
 	/* Enable C-state and IO/MWAIT redirect */
 	REG_MSR_WRITE(MSR_PKG_CST_CONFIG_CONTROL,
 		(PKG_C_STATE_LIMIT_C2_MASK | CORE_C_STATE_LIMIT_C10_MASK
@@ -70,12 +72,14 @@ static const struct reg_script core_msr_script[] = {
 
 void soc_core_init(struct device *cpu)
 {
+	config_t *conf = config_of_soc();
+
 	/* Clear out pending MCEs */
 	/* TODO(adurbin): Some of these banks are core vs package
 			  scope. For now every CPU clears every bank. */
-	if (IS_ENABLED(SOC_INTEL_COMMON_BLOCK_SGX) ||
+	if ((CONFIG(SOC_INTEL_COMMON_BLOCK_SGX) && conf->sgx_enable) ||
 	    acpi_get_sleep_type() == ACPI_S5)
-		mca_configure(NULL);
+		mca_configure();
 
 	/* Set core MSRs */
 	reg_script_run(core_msr_script);
@@ -87,20 +91,22 @@ void soc_core_init(struct device *cpu)
 	enable_pm_timer_emulation();
 
 	/* Configure Core PRMRR for SGX. */
-	if (IS_ENABLED(CONFIG_SOC_INTEL_COMMON_BLOCK_SGX))
+	if (CONFIG(SOC_INTEL_COMMON_BLOCK_SGX) && conf->sgx_enable)
 		prmrr_core_configure();
 
 	/* Set Max Non-Turbo ratio if RAPL is disabled. */
-	if (IS_ENABLED(CONFIG_APL_SKIP_SET_POWER_LIMITS)) {
+	if (CONFIG(APL_SKIP_SET_POWER_LIMITS)) {
 		cpu_set_p_state_to_max_non_turbo_ratio();
-		cpu_disable_eist();
-	} else if (IS_ENABLED(CONFIG_APL_SET_MIN_CLOCK_RATIO)) {
+		/* Disable speed step */
+		cpu_set_eist(false);
+	} else if (CONFIG(APL_SET_MIN_CLOCK_RATIO)) {
 		cpu_set_p_state_to_min_clock_ratio();
-		cpu_disable_eist();
+		/* Disable speed step */
+		cpu_set_eist(false);
 	}
 }
 
-#if !IS_ENABLED(CONFIG_SOC_INTEL_COMMON_BLOCK_CPU_MPINIT)
+#if !CONFIG(SOC_INTEL_COMMON_BLOCK_CPU_MPINIT)
 static void soc_init_core(struct device *cpu)
 {
 	soc_core_init(cpu);
@@ -116,6 +122,7 @@ static const struct cpu_device_id cpu_table[] = {
 	{ X86_VENDOR_INTEL, CPUID_APOLLOLAKE_E0 },
 	{ X86_VENDOR_INTEL, CPUID_GLK_A0 },
 	{ X86_VENDOR_INTEL, CPUID_GLK_B0 },
+	{ X86_VENDOR_INTEL, CPUID_GLK_R0 },
 	{ 0, 0 },
 };
 
@@ -139,7 +146,7 @@ static struct smm_relocation_attrs relo_attrs;
 /*
  * Do essential initialization tasks before APs can be fired up.
  *
- * IF (IS_ENABLED(CONFIG_SOC_INTEL_COMMON_BLOCK_CPU_MPINIT)) -
+ * IF (CONFIG(SOC_INTEL_COMMON_BLOCK_CPU_MPINIT)) -
  * Skip Pre MP init MTRR programming, as MTRRs are mirrored from BSP,
  * that are set prior to ramstage.
  * Real MTRRs are programmed after resource allocation.
@@ -155,15 +162,18 @@ static struct smm_relocation_attrs relo_attrs;
  */
 static void pre_mp_init(void)
 {
-	if (IS_ENABLED(CONFIG_SOC_INTEL_COMMON_BLOCK_CPU_MPINIT)) {
+	if (CONFIG(SOC_INTEL_COMMON_BLOCK_CPU_MPINIT)) {
 		fsps_load(romstage_handoff_is_resume());
 		return;
 	}
 	x86_setup_mtrrs_with_detect();
 	x86_mtrr_check();
+
+	/* Enable the local CPU apics */
+	setup_lapic();
 }
 
-#if !IS_ENABLED(CONFIG_SOC_INTEL_COMMON_BLOCK_CPU_MPINIT)
+#if !CONFIG(SOC_INTEL_COMMON_BLOCK_CPU_MPINIT)
 static void read_cpu_topology(unsigned int *num_phys, unsigned int *num_virt)
 {
 	msr_t msr;
@@ -198,24 +208,24 @@ void get_microcode_info(const void **microcode, int *parallel)
 static void get_smm_info(uintptr_t *perm_smbase, size_t *perm_smsize,
 				size_t *smm_save_state_size)
 {
-	void *smm_base;
+	uintptr_t smm_base;
 	size_t smm_size;
-	void *handler_base;
+	uintptr_t handler_base;
 	size_t handler_size;
 
 	/* All range registers are aligned to 4KiB */
 	const uint32_t rmask = ~((1 << 12) - 1);
 
 	/* Initialize global tracking state. */
-	smm_region_info(&smm_base, &smm_size);
+	smm_region(&smm_base, &smm_size);
 	smm_subregion(SMM_SUBREGION_HANDLER, &handler_base, &handler_size);
 
-	relo_attrs.smbase = (uint32_t)smm_base;
+	relo_attrs.smbase = smm_base;
 	relo_attrs.smrr_base = relo_attrs.smbase | MTRR_TYPE_WRBACK;
 	relo_attrs.smrr_mask = ~(smm_size - 1) & rmask;
 	relo_attrs.smrr_mask |= MTRR_PHYS_MASK_VALID;
 
-	*perm_smbase = (uintptr_t)handler_base;
+	*perm_smbase = handler_base;
 	*perm_smsize = handler_size;
 	*smm_save_state_size = sizeof(em64t100_smm_state_save_area_t);
 }
@@ -245,10 +255,12 @@ static void relocation_handler(int cpu, uintptr_t curr_smbase,
 
 static void post_mp_init(void)
 {
+	config_t *conf = config_of_soc();
+
 	smm_southbridge_enable(PWRBTN_EN | GBL_EN);
 
-	if (IS_ENABLED(CONFIG_SOC_INTEL_COMMON_BLOCK_SGX))
-		mp_run_on_all_cpus(sgx_configure, NULL, 2000);
+	if (CONFIG(SOC_INTEL_COMMON_BLOCK_SGX) && conf->sgx_enable)
+		mp_run_on_all_cpus(sgx_configure, NULL);
 }
 
 static const struct mp_ops mp_ops = {
@@ -270,13 +282,13 @@ void soc_init_cpus(struct bus *cpu_bus)
 
 void apollolake_init_cpus(struct device *dev)
 {
-	if (IS_ENABLED(CONFIG_SOC_INTEL_COMMON_BLOCK_CPU_MPINIT))
+	if (CONFIG(SOC_INTEL_COMMON_BLOCK_CPU_MPINIT))
 		return;
 	soc_init_cpus(dev->link_list);
 
 	/* Temporarily cache the memory-mapped boot media. */
-	if (IS_ENABLED(CONFIG_BOOT_DEVICE_MEMORY_MAPPED) &&
-		IS_ENABLED(CONFIG_BOOT_DEVICE_SPI_FLASH))
+	if (CONFIG(BOOT_DEVICE_MEMORY_MAPPED) &&
+		CONFIG(BOOT_DEVICE_SPI_FLASH))
 		fast_spi_cache_bios_region();
 }
 
@@ -284,19 +296,4 @@ void cpu_lock_sgx_memory(void)
 {
 	/* Do nothing because MCHECK while loading microcode and enabling
 	 * IA untrusted mode takes care of necessary locking */
-}
-
-int soc_fill_sgx_param(struct sgx_param *sgx_param)
-{
-	struct device *dev = SA_DEV_ROOT;
-	assert(dev != NULL);
-	config_t *conf = dev->chip_info;
-
-	if (!conf) {
-		printk(BIOS_ERR, "Failed to get chip_info for SGX param\n");
-		return -1;
-	}
-
-	sgx_param->enable = conf->sgx_enable;
-	return 0;
 }

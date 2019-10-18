@@ -14,10 +14,10 @@
  */
 
 #include <arch/io.h>
+#include <device/mmio.h>
 #include <console/console.h>
 #include <bootmode.h>
 #include <delay.h>
-#include <string.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
@@ -25,7 +25,9 @@
 #include <drivers/intel/gma/libgfxinit.h>
 #include <southbridge/intel/bd82x6x/nvs.h>
 #include <drivers/intel/gma/opregion.h>
+#include <southbridge/intel/bd82x6x/pch.h>
 #include <cbmem.h>
+#include <types.h>
 
 #include "chip.h"
 #include "sandybridge.h"
@@ -299,7 +301,7 @@ static inline void gtt_write_powermeter(const struct gt_powermeter *pm)
 #define GTT_RETRY 1000
 int gtt_poll(u32 reg, u32 mask, u32 value)
 {
-	unsigned try = GTT_RETRY;
+	unsigned int try = GTT_RETRY;
 	u32 data;
 
 	while (try--) {
@@ -624,7 +626,7 @@ static void gma_func0_init(struct device *dev)
 	/* Init graphics power management */
 	gma_pm_init_pre_vbios(dev);
 
-	if (!IS_ENABLED(CONFIG_MAINBOARD_DO_NATIVE_VGA_INIT))
+	if (!CONFIG(MAINBOARD_USE_LIBGFXINIT))
 		/* PCI Init, will run VBIOS */
 		pci_dev_init(dev);
 
@@ -635,7 +637,7 @@ static void gma_func0_init(struct device *dev)
 
 	/* Running graphics init on S3 breaks Linux drm driver. */
 	if (!acpi_is_wakeup_s3() &&
-	    IS_ENABLED(CONFIG_MAINBOARD_USE_LIBGFXINIT)) {
+	    CONFIG(MAINBOARD_USE_LIBGFXINIT)) {
 		if (vga_disable) {
 			printk(BIOS_INFO,
 			       "IGD is not decoding legacy VGA MEM and IO: skipping NATIVE graphic init\n");
@@ -651,18 +653,6 @@ static void gma_func0_init(struct device *dev)
 
 	gma_enable_swsci();
 	intel_gma_restore_opregion();
-}
-
-static void gma_set_subsystem(struct device *dev, unsigned int vendor,
-			      unsigned int device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
 }
 
 const struct i915_gpu_controller_info *
@@ -731,7 +721,7 @@ static void gma_func0_disable(struct device *dev)
 }
 
 static struct pci_operations gma_pci_ops = {
-	.set_subsystem    = gma_set_subsystem,
+	.set_subsystem    = pci_dev_set_subsystem,
 };
 
 static struct device_operations gma_func0_ops = {

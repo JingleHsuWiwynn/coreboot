@@ -14,16 +14,13 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/acpi.h>
-#include <arch/io.h>
 #include <console/console.h>
 #include <cpu/x86/smm.h>
-#include <elog.h>
 #include <ec/google/chromeec/smm.h>
 #include <soc/iomap.h>
 #include <soc/nvs.h>
 #include <soc/pm.h>
-#include <soc/smm.h>
+#include <intelblocks/smihandler.h>
 #include "ec.h"
 #include <variant/gpio.h>
 
@@ -49,25 +46,25 @@ int mainboard_io_trap_handler(int smif)
 
 void mainboard_smi_gpi_handler(const struct gpi_status *sts)
 {
-	if (IS_ENABLED(CONFIG_BOARD_INTEL_KBLRVP8))
+	if (CONFIG(BOARD_INTEL_KBLRVP8))
 		return;
 
-	if (IS_ENABLED(CONFIG_EC_GOOGLE_CHROMEEC))
+	if (CONFIG(EC_GOOGLE_CHROMEEC))
 		if (gpi_status_get(sts, EC_SMI_GPI))
 			chromeec_smi_process_events();
 }
 
 void mainboard_smi_sleep(u8 slp_typ)
 {
-	if (IS_ENABLED(CONFIG_EC_GOOGLE_CHROMEEC))
-		if (IS_ENABLED(CONFIG_EC_GOOGLE_CHROMEEC))
+	if (CONFIG(EC_GOOGLE_CHROMEEC))
+		if (CONFIG(EC_GOOGLE_CHROMEEC))
 			chromeec_smi_sleep(slp_typ, MAINBOARD_EC_S3_WAKE_EVENTS,
 					MAINBOARD_EC_S5_WAKE_EVENTS);
 }
 
 int mainboard_smi_apmc(u8 apmc)
 {
-	if (IS_ENABLED(CONFIG_EC_GOOGLE_CHROMEEC))
+	if (CONFIG(EC_GOOGLE_CHROMEEC))
 		chromeec_smi_apmc(apmc, MAINBOARD_EC_SCI_EVENTS,
 					MAINBOARD_EC_SMI_EVENTS);
 	return 0;

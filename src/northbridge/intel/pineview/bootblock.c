@@ -11,12 +11,14 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
-#define PCIEXBAR 0x60
+#include <device/pci_ops.h>
+#include <cpu/intel/car/bootblock.h>
+#include "pineview.h"
+
 #define MMCONF_256_BUSSES 16
 #define ENABLE 1
 
-static void bootblock_northbridge_init(void)
+void bootblock_early_northbridge_init(void)
 {
 	pci_io_write_config32(PCI_DEV(0,0,0), PCIEXBAR,
 		CONFIG_MMCONF_BASE_ADDRESS | MMCONF_256_BUSSES | ENABLE);

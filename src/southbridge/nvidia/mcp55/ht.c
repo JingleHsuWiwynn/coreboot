@@ -20,11 +20,10 @@
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
-#include <device/pci_ops.h>
 #include <arch/acpi.h>
 #include "mcp55.h"
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 unsigned long acpi_fill_mcfg(unsigned long current)
 {
 	/* Not implemented */

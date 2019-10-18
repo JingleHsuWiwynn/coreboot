@@ -61,11 +61,10 @@ int get_wifi_sar_limits(struct wifi_sar_limits *sar_limits)
 	const char *wifi_sar_limit_key = CROS_VPD_WIFI_SAR_NAME;
 	/* vpd_gets() reads in one less than size characters from the VPD
 	 * with a terminating null byte ('\0') stored as the last character into
-	 * the buffer, thus the increasing by 1 for buffer_size. */
-	const size_t buffer_size = (sizeof(struct wifi_sar_limits) /
-					sizeof(uint8_t)) * 2 + 1;
-	char wifi_sar_limit_str[buffer_size];
+	 * the buffer, thus the increasing by 1 for the buffer size. */
+	char wifi_sar_limit_str[2 * sizeof(struct wifi_sar_limits) + 1];
 	uint8_t bin_buffer[sizeof(struct wifi_sar_limits)];
+	const size_t buffer_size = ARRAY_SIZE(wifi_sar_limit_str);
 	size_t sar_cbfs_len, sar_expected_len, bin_buff_adjusted_size;
 
 	/* keep it backward compatible. Some older platform are shipping
@@ -74,7 +73,7 @@ int get_wifi_sar_limits(struct wifi_sar_limits *sar_limits)
 	sar_expected_len = buffer_size;
 	bin_buff_adjusted_size = sizeof(struct wifi_sar_limits);
 
-	if (!IS_ENABLED(CONFIG_GEO_SAR_ENABLE)) {
+	if (!CONFIG(GEO_SAR_ENABLE)) {
 		sar_expected_len = buffer_size -
 					sizeof(struct wifi_sar_delta_table) *
 					sizeof(uint8_t) * 2;
@@ -88,7 +87,7 @@ int get_wifi_sar_limits(struct wifi_sar_limits *sar_limits)
 		printk(BIOS_ERR, "Error: Could not locate '%s' in VPD.\n",
 				wifi_sar_limit_key);
 
-		if (!IS_ENABLED(CONFIG_WIFI_SAR_CBFS))
+		if (!CONFIG(WIFI_SAR_CBFS))
 			return -1;
 
 		printk(BIOS_DEBUG, "Checking CBFS for default SAR values\n");

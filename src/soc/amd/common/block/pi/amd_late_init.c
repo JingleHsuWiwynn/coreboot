@@ -19,10 +19,10 @@
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci_def.h>
-#include <device/pci_ops.h>
 #include <dimm_info_util.h>
 #include <memory_info.h>
 #include <lib.h>
+#include <string.h>
 
 #include <amdblocks/agesawrapper.h>
 #include <amdblocks/agesawrapper_call.h>
@@ -178,12 +178,12 @@ static void agesawrapper_post_device(void *unused)
 	if (acpi_is_wakeup_s3())
 		return;
 
-	do_agesawrapper(agesawrapper_amdinitlate, "amdinitlate");
+	do_agesawrapper(AMD_INIT_LATE, "amdinitlate");
 
 	if (!acpi_s3_resume_allowed())
 		return;
 
-	do_agesawrapper(agesawrapper_amdinitrtb, "amdinitrtb");
+	do_agesawrapper(AMD_INIT_RTB, "amdinitrtb");
 }
 
 BOOT_STATE_INIT_ENTRY(BS_POST_DEVICE, BS_ON_EXIT, agesawrapper_post_device,

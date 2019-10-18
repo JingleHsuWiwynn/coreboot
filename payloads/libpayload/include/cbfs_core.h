@@ -144,6 +144,7 @@ struct cbfs_file {
 #define CBFS_FILE_ATTR_TAG_UNUSED2 0xffffffff
 #define CBFS_FILE_ATTR_TAG_COMPRESSION 0x42435a4c
 #define CBFS_FILE_ATTR_TAG_HASH 0x68736148
+#define CBFS_FILE_ATTR_TAG_IBB 0x32494242 /* Initial BootBlock */
 
 /* The common fields of extended cbfs file attributes.
    Attributes are expected to start with tag/len, then append their
@@ -253,8 +254,9 @@ struct cbfs_media {
 void *cbfs_get_file_content(struct cbfs_media *media, const char *name,
 			    int type, size_t *sz);
 
-/* returns decompressed size on success, 0 on failure */
-int cbfs_decompress(int algo, void *src, void *dst, int len);
+/* Returns decompressed size on success, 0 on failure. */
+size_t cbfs_decompress(int algo, const void *src, size_t srcn, void *dst,
+		       size_t dstn);
 
 /* returns a pointer to CBFS master header, or CBFS_HEADER_INVALID_ADDRESS
  *  on failure */

@@ -15,7 +15,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/pci_def.h>
 #include <northbridge/intel/sandybridge/sandybridge.h>
 #include <northbridge/intel/sandybridge/raminit_native.h>
@@ -24,15 +24,6 @@
 
 void pch_enable_lpc(void)
 {
-	/* EC Decode Range Port60/64, Port62/66 */
-	/* Enable EC, PS/2 Keyboard/Mouse, LPT */
-	pci_write_config16(PCH_LPC_DEV, LPC_EN,
-			   CNF2_LPC_EN | CNF1_LPC_EN | MC_LPC_EN | KBC_LPC_EN |
-			   LPT_LPC_EN);
-
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN1_DEC, 0x7c1611);
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN2_DEC, 0x040069);
-	pci_write_config32(PCH_LPC_DEV, LPC_GEN3_DEC, 0x0c0701);
 }
 
 void mainboard_rcba_config(void)

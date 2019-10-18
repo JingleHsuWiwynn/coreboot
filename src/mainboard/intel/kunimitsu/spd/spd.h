@@ -16,6 +16,7 @@
 
 #ifndef MAINBOARD_SPD_H
 
+#include <fsp/soc_binding.h>
 #include <gpio.h>
 #include "../gpio.h"
 
@@ -53,8 +54,9 @@ static inline int get_spd_index(void) {
 	};
 	return (gpio_base2_value(spd_gpios, ARRAY_SIZE(spd_gpios)));
 }
-void mainboard_fill_dq_map_data(void *dq_map_ptr);
-void mainboard_fill_dqs_map_data(void *dqs_map_ptr);
+void spd_memory_init_params(MEMORY_INIT_UPD *memory_params);
+void mainboard_fill_dq_map_data(void *dq_map_ch0, void *dq_map_ch1);
+void mainboard_fill_dqs_map_data(void *dqs_map_ch0, void *dqs_map_ch1);
 void mainboard_fill_rcomp_res_data(void *rcomp_ptr);
 void mainboard_fill_rcomp_strength_data(void *rcomp_strength_ptr);
 uintptr_t mainboard_get_spd_data(void);

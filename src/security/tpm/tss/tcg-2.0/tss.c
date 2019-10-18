@@ -1,5 +1,6 @@
 /*
  * Copyright 2016 The Chromium OS Authors. All rights reserved.
+ * Copyright 2017-2019 Eltan B.V.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -181,10 +182,15 @@ uint32_t tlcl_lib_init(void)
 	if (done)
 		return VB2_SUCCESS;
 
-	if (tis_init())
+	if (tis_init()) {
+		printk(BIOS_ERR, "%s: tis_init returned error\n", __func__);
 		return VB2_ERROR_UNKNOWN;
-	if (tis_open())
+	}
+
+	if (tis_open()) {
+		printk(BIOS_ERR, "%s: tis_open returned error\n", __func__);
 		return VB2_ERROR_UNKNOWN;
+	}
 
 	car_set_var(tlcl_init_done, 1);
 
@@ -346,6 +352,38 @@ uint32_t tlcl_define_space(uint32_t space_index, size_t space_size,
 	}
 }
 
+uint16_t tlcl_get_hash_size_from_algo(TPMI_ALG_HASH hash_algo)
+{
+	uint16_t value;
+
+	switch (hash_algo) {
+	case TPM_ALG_ERROR:
+		value = 1;
+		break;
+	case TPM_ALG_SHA1:
+		value = SHA1_DIGEST_SIZE;
+		break;
+	case TPM_ALG_SHA256:
+		value = SHA256_DIGEST_SIZE;
+		break;
+	case TPM_ALG_SHA384:
+		value = SHA384_DIGEST_SIZE;
+		break;
+	case TPM_ALG_SHA512:
+		value = SHA512_DIGEST_SIZE;
+		break;
+	case TPM_ALG_SM3_256:
+		value = SM3_256_DIGEST_SIZE;
+		break;
+	default:
+		printk(BIOS_SPEW, "%s: unknown hash algorithm %d\n", __func__,
+		hash_algo);
+		value = 0;
+	};
+
+	return value;
+}
+
 uint32_t tlcl_disable_platform_hierarchy(void)
 {
 	struct tpm2_response *response;
@@ -359,5 +397,33 @@ uint32_t tlcl_disable_platform_hierarchy(void)
 	if (!response || response->hdr.tpm_code)
 		return TPM_E_INTERNAL_INCONSISTENCY;
 
+	return TPM_SUCCESS;
+}
+
+uint32_t tlcl_get_capability(TPM_CAP capability, uint32_t property,
+		uint32_t property_count,
+		TPMS_CAPABILITY_DATA *capability_data)
+{
+	struct tpm2_get_capability cmd;
+	struct tpm2_response *response;
+
+	cmd.capability = capability;
+	cmd.property = property;
+	cmd.propertyCount = property_count;
+
+	if (property_count > 1) {
+		printk(BIOS_ERR, "%s: property_count more than one not "
+		       "supported yet\n", __func__);
+		return TPM_E_IOERROR;
+	}
+
+	response = tpm_process_command(TPM2_GetCapability, &cmd);
+
+	if (!response) {
+		printk(BIOS_ERR, "%s: Command Failed\n", __func__);
+		return TPM_E_IOERROR;
+	}
+
+	memcpy(capability_data, &response->gc.cd, sizeof(TPMS_CAPABILITY_DATA));
 	return TPM_SUCCESS;
 }

@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2011 The ChromiumOS Authors. All rights reserved.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2 of
@@ -20,6 +18,7 @@
 /* Nehalem bus clock is fixed at 133MHz */
 #define NEHALEM_BCLK		133
 
+#define MSR_CORE_THREAD_COUNT		0x35
 #define MSR_FEATURE_CONFIG		0x13c
 #define MSR_FLEX_RATIO			0x194
 #define  FLEX_RATIO_LOCK		(1 << 20)
@@ -77,6 +76,17 @@ void intel_model_2065x_finalize_smm(void);
 /* Configure power limits for turbo mode */
 void set_power_limits(u8 power_limit_1_time);
 int cpu_config_tdp_levels(void);
+#endif
+
+/* Sanity check config options. */
+#if (CONFIG_SMM_TSEG_SIZE <= CONFIG_SMM_RESERVED_SIZE)
+# error "CONFIG_SMM_TSEG_SIZE <= CONFIG_SMM_RESERVED_SIZE"
+#endif
+#if (CONFIG_SMM_TSEG_SIZE < 0x800000)
+# error "CONFIG_SMM_TSEG_SIZE must at least be 8MiB"
+#endif
+#if ((CONFIG_SMM_TSEG_SIZE & (CONFIG_SMM_TSEG_SIZE - 1)) != 0)
+# error "CONFIG_SMM_TSEG_SIZE is not a power of 2"
 #endif
 
 #endif

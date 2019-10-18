@@ -12,7 +12,7 @@ Please see :doc:`../../northbridge/intel/haswell/mrc.bin`.
 
 ```eval_rst
 If you haven't already, build the coreboot toolchain as described in
-:doc:`../../lessons/lesson1`.
+:doc:`../../tutorial/part1`.
 ```
 
 A fully working image should be possible so long as you have the
@@ -135,7 +135,7 @@ for caveats.
   can't be used for temperature readings.
 
 - There is no automatic, OS-independent fan control. This is because
-  the super I/O hardware monitor can only obtain valid CPU temperature
+  the Super I/O hardware monitor can only obtain valid CPU temperature
   readings from the PECI agent, but the required driver doesn't exist
   in coreboot. The `coretemp` driver can still be used for accurate CPU
   temperature readings from an OS, and hence the OS can do fan control.
@@ -168,7 +168,7 @@ Please also see :doc:`../../northbridge/intel/haswell/known-issues`.
 - VGA graphics
 - disabling VGA graphics using the jumper
 - hiding the AST2400 using the CMOS setting
-- super I/O hardware monitor (see [Known issues](#known-issues))
+- Super I/O hardware monitor (see [Known issues](#known-issues))
 - initialisation with Haswell MRC version 1.6.1 build 2
 - flashrom under coreboot
 - Wake-on-LAN

@@ -1,2 +1,2 @@
-romstage-$(CONFIG_VPD) += lib_vpd.c
-ramstage-$(CONFIG_VPD) += vpd.c lib_vpd.c
+romstage-$(CONFIG_VPD) += vpd_decode.c vpd_premem.c vpd.c
+ramstage-$(CONFIG_VPD) += vpd_decode.c vpd_cbmem.c vpd.c

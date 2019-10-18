@@ -1,10 +1,5 @@
 /*
- * mtrr.c: setting MTRR to decent values for cache initialization on P6
- *
- * Derived from intel_set_mtrr in intel_subr.c and mtrr.c in linux kernel
- *
- * Copyright 2000 Silicon Integrated System Corporation
- * Copyright 2013 Google Inc.
+ * This file is part of the coreboot project.
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
@@ -16,15 +11,17 @@
  *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *	GNU General Public License for more details.
  *
+ * mtrr.c: setting MTRR to decent values for cache initialization on P6
+ * Derived from intel_set_mtrr in intel_subr.c and mtrr.c in linux kernel
  *
  * Reference: Intel Architecture Software Developer's Manual, Volume 3: System
  * Programming
  */
 
 #include <stddef.h>
-#include <stdlib.h>
 #include <string.h>
 #include <bootstate.h>
+#include <commonlib/helpers.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci_ids.h>
@@ -33,10 +30,10 @@
 #include <cpu/x86/mtrr.h>
 #include <cpu/x86/cache.h>
 #include <cpu/x86/lapic.h>
-#include <arch/acpi.h>
 #include <memrange.h>
 #include <cpu/amd/mtrr.h>
-#if IS_ENABLED(CONFIG_X86_AMD_FIXED_MTRRS)
+#include <assert.h>
+#if CONFIG(X86_AMD_FIXED_MTRRS)
 #define MTRR_FIXED_WRBACK_BITS (MTRR_READ_MEM | MTRR_WRITE_MEM)
 #else
 #define MTRR_FIXED_WRBACK_BITS 0
@@ -86,7 +83,7 @@ void fixed_mtrrs_expose_amd_rwdram(void)
 {
 	msr_t syscfg;
 
-	if (!IS_ENABLED(CONFIG_X86_AMD_FIXED_MTRRS))
+	if (!CONFIG(X86_AMD_FIXED_MTRRS))
 		return;
 
 	syscfg = rdmsr(SYSCFG_MSR);
@@ -98,7 +95,7 @@ void fixed_mtrrs_hide_amd_rwdram(void)
 {
 	msr_t syscfg;
 
-	if (!IS_ENABLED(CONFIG_X86_AMD_FIXED_MTRRS))
+	if (!CONFIG(X86_AMD_FIXED_MTRRS))
 		return;
 
 	syscfg = rdmsr(SYSCFG_MSR);
@@ -353,6 +350,9 @@ static void commit_fixed_mtrrs(void)
 			msr_num++;
 		}
 	}
+
+	/* Ensure that both arrays were fully initialized */
+	ASSERT(msr_num == NUM_FIXED_MTRRS)
 
 	for (i = 0; i < ARRAY_SIZE(fixed_msrs); i++)
 		printk(BIOS_DEBUG, "MTRR: Fixed MSR 0x%lx 0x%08x%08x\n",

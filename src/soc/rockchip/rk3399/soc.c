@@ -13,6 +13,7 @@
  * GNU General Public License for more details.
  */
 
+#include <bootmem.h>
 #include <bootmode.h>
 #include <console/console.h>
 #include <device/device.h>
@@ -20,11 +21,18 @@
 #include <soc/clock.h>
 #include <soc/display.h>
 #include <soc/sdram.h>
+#include <soc/symbols.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include <string.h>
 #include <symbols.h>
-#include <arm-trusted-firmware/plat/rockchip/rk3399/include/shared/bl31_param.h>
+
+void bootmem_platform_add_ranges(void)
+{
+	bootmem_add_range((uintptr_t)_pmu_sram, REGION_SIZE(pmu_sram),
+			  BM_MEM_BL31);
+	bootmem_add_range((uintptr_t)_bl31_sram, REGION_SIZE(bl31_sram),
+			  BM_MEM_BL31);
+}
 
 static void soc_read_resources(struct device *dev)
 {
@@ -33,13 +41,7 @@ static void soc_read_resources(struct device *dev)
 
 static void soc_init(struct device *dev)
 {
-	/*
-	 * Reserve the whole TZRAM area because it will be marked as secure-only
-	 * by BL31 and can not be accessed by the non-secure kernel.
-	 */
-	mmio_resource(dev, 1, (TZRAM_BASE / KiB), (TZRAM_SIZE / KiB));
-
-	if (IS_ENABLED(CONFIG_MAINBOARD_DO_NATIVE_VGA_INIT) && display_init_required())
+	if (CONFIG(MAINBOARD_DO_NATIVE_VGA_INIT) && display_init_required())
 		rk_display_init(dev);
 	else
 		printk(BIOS_INFO, "Display initialization disabled.\n");

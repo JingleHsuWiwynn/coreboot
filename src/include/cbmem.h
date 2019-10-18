@@ -106,7 +106,6 @@ void *cbmem_find(u32 id);
 /* Indicate to each hook if cbmem is being recovered or not. */
 typedef void (* const cbmem_init_hook_t)(int is_recovery);
 void cbmem_run_init_hooks(int is_recovery);
-void cbmem_fail_resume(void);
 
 /* Ramstage only functions. */
 /* Add the cbmem memory used to the memory map at boot. */
@@ -155,7 +154,7 @@ void cbmem_add_records_to_cbtable(struct lb_header *header);
  * and CBMEM_CONSOLE. Sometimes it is necessary to have cbmem_top()
  * value stored in nvram to enable early recovery on S3 path.
  */
-#if IS_ENABLED(CONFIG_ARCH_X86)
+#if CONFIG(ARCH_X86)
 void backup_top_of_low_cacheable(uintptr_t ramtop);
 uintptr_t restore_top_of_low_cacheable(void);
 #endif
@@ -170,7 +169,7 @@ static inline int cbmem_possibly_online(void)
 	if (ENV_BOOTBLOCK)
 		return 0;
 
-	if (ENV_VERSTAGE && IS_ENABLED(CONFIG_VBOOT_STARTS_IN_BOOTBLOCK))
+	if (ENV_VERSTAGE && CONFIG(VBOOT_STARTS_IN_BOOTBLOCK))
 		return 0;
 
 	return 1;

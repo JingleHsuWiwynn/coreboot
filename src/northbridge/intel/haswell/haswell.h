@@ -26,7 +26,6 @@
 #define IED_SIZE	CONFIG_IED_REGION_SIZE
 
 /* Northbridge BARs */
-#define DEFAULT_PCIEXBAR	CONFIG_MMCONF_BASE_ADDRESS	/* 4 KB per PCIe device */
 #define DEFAULT_MCHBAR		0xfed10000	/* 16 KB */
 #ifndef __ACPI__
 #define DEFAULT_DMIBAR		((u8 *)0xfed18000)	/* 4 KB */
@@ -108,10 +107,6 @@
 #define  PRSCAPDIS	(1 << 2)
 #define  GLBIOTLBINV	(1 << 1)
 #define  GLBCTXTINV	(1 << 0)
-
-/* Device 0:1.0 PCI configuration space (PCI Express) */
-
-#define BCTRL1		0x3e	/* 16bit */
 
 
 /* Device 0:2.0 PCI configuration space (Graphics Device) */
@@ -209,30 +204,20 @@
 #ifndef __ASSEMBLER__
 static inline void barrier(void) { asm("" ::: "memory"); }
 
-struct ied_header {
-	char signature[10];
-	u32 size;
-	u8 reserved[34];
-} __packed;
-
-#ifdef __SMM__
 void intel_northbridge_haswell_finalize_smm(void);
-#else /* !__SMM__ */
+
 void haswell_early_initialization(int chipset_type);
 void haswell_late_initialization(void);
 void set_translation_table(int start, int end, u64 base, int inc);
 void haswell_unhide_peg(void);
 
 void report_platform_info(void);
-#endif /* !__SMM__ */
 
-#if ENV_RAMSTAGE && !defined(__SIMPLE_DEVICE__)
 #include <device/device.h>
 
 struct acpi_rsdp;
 unsigned long northbridge_write_acpi_tables(struct device *device,
 		unsigned long start, struct acpi_rsdp *rsdp);
-#endif
 
 #endif
 #endif

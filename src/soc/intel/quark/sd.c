@@ -13,7 +13,6 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <commonlib/sdhci.h>
 #include <commonlib/storage.h>
 #include <device/device.h>
@@ -24,7 +23,7 @@
 static void init(struct device *dev)
 {
 	/* Run the SD test */
-	if (IS_ENABLED(CONFIG_STORAGE_TEST)) {
+	if (CONFIG(STORAGE_TEST)) {
 		uint32_t bar;
 		uint32_t previous_bar;
 		uint16_t previous_command;

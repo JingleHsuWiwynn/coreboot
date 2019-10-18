@@ -29,6 +29,7 @@ typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 
+#define DEF_ALLOC 1024
 
 typedef struct {
 	u16 signature;
@@ -380,39 +381,33 @@ static struct fileobject *malloc_fo_sub(const struct fileobject *old,
 static struct fileobject *read_file(const char *filename)
 {
 	FILE *fd = fopen(filename, "rb");
+	off_t read_size = DEF_ALLOC;
 
 	if (!fd) {
 		printerr("%s open failed: %s\n", filename, strerror(errno));
 		return NULL;
 	}
 
-	if (fseek(fd, 0, SEEK_END)) {
-		printerr("%s seek failed: %s\n", filename, strerror(errno));
-		fclose(fd);
-		return NULL;
-	}
-
-	const off_t size = ftell(fd);
-	if (size < 0 || size > SIZE_MAX) {
-		printerr("%s tell failed: %s\n", filename, strerror(errno));
-		fclose(fd);
-		return NULL;
-	}
-
-	if (fseek(fd, 0, SEEK_SET)) {
-		printerr("%s seek failed: %s\n", filename, strerror(errno));
-		fclose(fd);
-		return NULL;
-	}
-
-	struct fileobject *fo = malloc_fo(size);
+	struct fileobject *fo = malloc_fo(read_size);
 	if (!fo) {
 		printerr("malloc failed\n");
 		fclose(fd);
 		return NULL;
 	}
 
-	if (fread(fo->data, 1, size, fd) != size) {
+	off_t total_bytes_read = 0, bytes_read;
+	while ((bytes_read = fread(fo->data + total_bytes_read, 1, read_size, fd)) > 0) {
+		total_bytes_read += bytes_read;
+		struct fileobject *newfo = remalloc_fo(fo, fo->size + read_size);
+		if (!newfo) {
+			fclose(fd);
+			free_fo(fo);
+			return NULL;
+		}
+		fo = newfo;
+	}
+
+	if (!total_bytes_read) {
 		fclose(fd);
 		free_fo(fo);
 		return NULL;
@@ -424,7 +419,7 @@ static struct fileobject *read_file(const char *filename)
 		return NULL;
 	}
 
-	fo->size = size;
+	fo->size = total_bytes_read;
 
 	return fo;
 }
@@ -793,7 +788,20 @@ static void parse_vbt(const struct fileobject *fo,
 	}
 
 	/* Duplicate fo as caller is owner and remalloc frees the object */
-	*vbt = remalloc_fo(malloc_fo_sub(fo, 0), head->vbt_size);
+	struct fileobject *dupfo = malloc_fo_sub(fo, 0);
+	if (!dupfo) {
+		printerr("malloc failed\n");
+		return;
+	}
+
+	struct fileobject *newfo = remalloc_fo(dupfo, head->vbt_size);
+	if (!newfo) {
+		printerr("remalloc failed\n");
+		free_fo(dupfo);
+		return;
+	}
+
+	*vbt = newfo;
 }
 
 /* Option ROM checksum */
@@ -1033,8 +1041,10 @@ static int patch_vbios(struct fileobject *fo,
 	if (old_vbt) {
 		if (oh->vbt_offset + vbt_size(old_vbt) == fo->size) {
 			/* Located at the end of file - reduce file size */
-			if (fo->size < vbt_size(old_vbt))
+			if (fo->size < vbt_size(old_vbt)) {
+				free_fo(old_vbt);
 				return 1;
+			}
 			fo = remalloc_fo(fo, fo->size - vbt_size(old_vbt));
 			if (!fo) {
 				printerr("Failed to allocate memory\n");

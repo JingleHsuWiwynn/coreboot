@@ -1,9 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2010 coresystems GmbH
- * Copyright (C) 2010 Rudolf Marek
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -14,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <cpu/x86/lapic.h>
 #include <cpu/x86/msr.h>
 #include <cpu/x86/mtrr.h>
@@ -22,6 +18,7 @@
 #include <cpu/amd/msr.h>
 #include <cpu/x86/cache.h>
 #include <cpu/x86/smm.h>
+#include <cpu/x86/smi_deprecated.h>
 #include <string.h>
 
 void smm_init(void)
@@ -69,11 +66,6 @@ void smm_init(void)
 	enable_cache();
 
 	/* CPU MSR are set in CPU init */
-}
-
-void smm_lock(void)
-{
-	/* We lock SMM in CPU init */
 }
 
 void smm_init_completion(void)

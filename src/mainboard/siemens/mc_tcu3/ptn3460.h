@@ -16,7 +16,6 @@
 #ifndef PTN3460_H_
 #define PTN3460_H_
 
-#include <delay.h>
 #include "lcd_panel.h"
 
 #define PTN_SLAVE_ADR		0x20
@@ -36,7 +35,7 @@
 #define PTN_INVALID_EDID	0x20000000
 
 struct ptn_3460_config{
-	u8	dp_interface_ctrl;	/* DiplayPort interface control */
+	u8	dp_interface_ctrl;	/* DisplayPort interface control */
 	u8	lvds_interface_ctrl1;	/* LVDS interface control register 1 */
 	u8	lvds_interface_ctrl2;	/* LVDS interface control register 2 */
 	u8	lvds_interface_ctrl3;	/* LVDS interface control register 3 */

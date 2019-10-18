@@ -18,11 +18,9 @@
 #include <arch/acpi.h>
 #include <arch/acpigen.h>
 #include <arch/cpu.h>
-#include <arch/io.h>
 #include <arch/ioapic.h>
 #include <arch/smp/mpspec.h>
 #include <cbmem.h>
-#include <chip.h>
 #include <console/console.h>
 #include <cpu/x86/smm.h>
 #include <cpu/x86/msr.h>
@@ -32,7 +30,6 @@
 #include <ec/google/chromeec/ec.h>
 #include <intelblocks/cpulib.h>
 #include <intelblocks/lpc_lib.h>
-#include <intelblocks/p2sb.h>
 #include <intelblocks/sgx.h>
 #include <intelblocks/uart.h>
 #include <intelblocks/systemagent.h>
@@ -41,7 +38,6 @@
 #include <soc/cpu.h>
 #include <soc/iomap.h>
 #include <soc/msr.h>
-#include <soc/p2sb.h>
 #include <soc/pci_devs.h>
 #include <soc/pm.h>
 #include <soc/ramstage.h>
@@ -51,6 +47,8 @@
 #include <vendorcode/google/chromeos/gnvs.h>
 #include <wrdd.h>
 #include <device/pci_ops.h>
+
+#include "chip.h"
 
 /*
  * List of suported C-states in this processor.
@@ -174,8 +172,7 @@ static int get_cores_per_package(void)
 
 static void acpi_create_gnvs(global_nvs_t *gnvs)
 {
-	const struct device *dev = dev_find_slot(0, PCH_DEVFN_LPC);
-	const struct soc_intel_skylake_config *config = dev->chip_info;
+	const struct soc_intel_skylake_config *config = config_of_soc();
 
 	/* Set unknown wake source */
 	gnvs->pm1i = -1;
@@ -183,15 +180,15 @@ static void acpi_create_gnvs(global_nvs_t *gnvs)
 	/* CPU core count */
 	gnvs->pcnt = dev_count_cpu();
 
-#if IS_ENABLED(CONFIG_CONSOLE_CBMEM)
+#if CONFIG(CONSOLE_CBMEM)
 	/* Update the mem console pointer. */
 	gnvs->cbmc = (u32)cbmem_find(CBMEM_ID_CONSOLE);
 #endif
 
-#if IS_ENABLED(CONFIG_CHROMEOS)
+#if CONFIG(CHROMEOS)
 	/* Initialize Verified Boot data */
 	chromeos_init_chromeos_acpi(&(gnvs->chromeos));
-#if IS_ENABLED(CONFIG_EC_GOOGLE_CHROMEEC)
+#if CONFIG(EC_GOOGLE_CHROMEEC)
 	gnvs->chromeos.vbt2 = google_ec_running_ro() ?
 		ACTIVE_ECFW_RO : ACTIVE_ECFW_RW;
 #endif
@@ -208,7 +205,7 @@ static void acpi_create_gnvs(global_nvs_t *gnvs)
 	gnvs->u2we = config->usb2_wake_enable_bitmap;
 	gnvs->u3we = config->usb3_wake_enable_bitmap;
 
-	if (IS_ENABLED(CONFIG_SOC_INTEL_COMMON_BLOCK_SGX))
+	if (config->sgx_enable)
 		sgx_fill_gnvs(gnvs);
 }
 
@@ -234,9 +231,8 @@ unsigned long acpi_fill_madt(unsigned long current)
 
 void acpi_fill_fadt(acpi_fadt_t *fadt)
 {
-	const struct device *dev = SA_DEV_ROOT;
-	const config_t *config = dev ? dev->chip_info : NULL;
 	const uint16_t pmbase = ACPI_BASE_ADDRESS;
+	config_t *config = config_of_soc();
 
 	/* Use ACPI 3.0 revision */
 	fadt->header.revision = get_acpi_table_revision(FADT);
@@ -276,7 +272,7 @@ void acpi_fill_fadt(acpi_fadt_t *fadt)
 	fadt->mon_alrm = 0x00;
 	fadt->century = 0x00;
 	fadt->iapc_boot_arch = ACPI_FADT_LEGACY_FREE;
-	if (!IS_ENABLED(CONFIG_NO_FADT_8042))
+	if (!CONFIG(NO_FADT_8042))
 		fadt->iapc_boot_arch |= ACPI_FADT_8042;
 
 	fadt->flags = ACPI_FADT_WBINVD | ACPI_FADT_C1_SUPPORTED |
@@ -284,13 +280,13 @@ void acpi_fill_fadt(acpi_fadt_t *fadt)
 			ACPI_FADT_RESET_REGISTER | ACPI_FADT_SEALED_CASE |
 			ACPI_FADT_S4_RTC_WAKE | ACPI_FADT_PLATFORM_CLOCK;
 
-	if (config && config->s0ix_enable)
+	if (config->s0ix_enable)
 		fadt->flags |= ACPI_FADT_LOW_PWR_IDLE_S0;
 
 	fadt->reset_reg.space_id = 1;
 	fadt->reset_reg.bit_width = 8;
 	fadt->reset_reg.bit_offset = 0;
-	fadt->reset_reg.resv = 0;
+	fadt->reset_reg.access_size = 0;
 	fadt->reset_reg.addrl = 0xcf9;
 	fadt->reset_reg.addrh = 0;
 	fadt->reset_value = 6;
@@ -298,79 +294,80 @@ void acpi_fill_fadt(acpi_fadt_t *fadt)
 	fadt->x_pm1a_evt_blk.space_id = 1;
 	fadt->x_pm1a_evt_blk.bit_width = fadt->pm1_evt_len * 8;
 	fadt->x_pm1a_evt_blk.bit_offset = 0;
-	fadt->x_pm1a_evt_blk.resv = 0;
+	fadt->x_pm1a_evt_blk.access_size = 0;
 	fadt->x_pm1a_evt_blk.addrl = pmbase + PM1_STS;
 	fadt->x_pm1a_evt_blk.addrh = 0x0;
 
 	fadt->x_pm1b_evt_blk.space_id = 1;
 	fadt->x_pm1b_evt_blk.bit_width = 0;
 	fadt->x_pm1b_evt_blk.bit_offset = 0;
-	fadt->x_pm1b_evt_blk.resv = 0;
+	fadt->x_pm1b_evt_blk.access_size = 0;
 	fadt->x_pm1b_evt_blk.addrl = 0x0;
 	fadt->x_pm1b_evt_blk.addrh = 0x0;
 
 	fadt->x_pm1a_cnt_blk.space_id = 1;
 	fadt->x_pm1a_cnt_blk.bit_width = fadt->pm1_cnt_len * 8;
 	fadt->x_pm1a_cnt_blk.bit_offset = 0;
-	fadt->x_pm1a_cnt_blk.resv = 0;
+	fadt->x_pm1a_cnt_blk.access_size = 0;
 	fadt->x_pm1a_cnt_blk.addrl = pmbase + PM1_CNT;
 	fadt->x_pm1a_cnt_blk.addrh = 0x0;
 
 	fadt->x_pm1b_cnt_blk.space_id = 1;
 	fadt->x_pm1b_cnt_blk.bit_width = 0;
 	fadt->x_pm1b_cnt_blk.bit_offset = 0;
-	fadt->x_pm1b_cnt_blk.resv = 0;
+	fadt->x_pm1b_cnt_blk.access_size = 0;
 	fadt->x_pm1b_cnt_blk.addrl = 0x0;
 	fadt->x_pm1b_cnt_blk.addrh = 0x0;
 
 	fadt->x_pm2_cnt_blk.space_id = 1;
 	fadt->x_pm2_cnt_blk.bit_width = fadt->pm2_cnt_len * 8;
 	fadt->x_pm2_cnt_blk.bit_offset = 0;
-	fadt->x_pm2_cnt_blk.resv = 0;
+	fadt->x_pm2_cnt_blk.access_size = 0;
 	fadt->x_pm2_cnt_blk.addrl = pmbase + PM2_CNT;
 	fadt->x_pm2_cnt_blk.addrh = 0x0;
 
 	fadt->x_pm_tmr_blk.space_id = 1;
 	fadt->x_pm_tmr_blk.bit_width = fadt->pm_tmr_len * 8;
 	fadt->x_pm_tmr_blk.bit_offset = 0;
-	fadt->x_pm_tmr_blk.resv = 0;
+	fadt->x_pm_tmr_blk.access_size = 0;
 	fadt->x_pm_tmr_blk.addrl = pmbase + PM1_TMR;
 	fadt->x_pm_tmr_blk.addrh = 0x0;
 
 	fadt->x_gpe0_blk.space_id = 0;
 	fadt->x_gpe0_blk.bit_width = 0;
 	fadt->x_gpe0_blk.bit_offset = 0;
-	fadt->x_gpe0_blk.resv = 0;
+	fadt->x_gpe0_blk.access_size = 0;
 	fadt->x_gpe0_blk.addrl = 0;
 	fadt->x_gpe0_blk.addrh = 0;
 
 	fadt->x_gpe1_blk.space_id = 1;
 	fadt->x_gpe1_blk.bit_width = 0;
 	fadt->x_gpe1_blk.bit_offset = 0;
-	fadt->x_gpe1_blk.resv = 0;
+	fadt->x_gpe1_blk.access_size = 0;
 	fadt->x_gpe1_blk.addrl = 0x0;
 	fadt->x_gpe1_blk.addrh = 0x0;
 }
 
-static void generate_c_state_entries(int s0ix_enable, int max_cstate)
+static void write_c_state_entries(acpi_cstate_t *map, const int *set, size_t max_c_state)
 {
-
-	acpi_cstate_t map[max_cstate];
-	int *set;
-	int i;
-
-	if (s0ix_enable)
-		set = cstate_set_s0ix;
-	else
-		set = cstate_set_non_s0ix;
-
-	for (i = 0; i < max_cstate; i++) {
+	for (size_t i = 0; i < max_c_state; i++) {
 		memcpy(&map[i], &cstate_map[set[i]], sizeof(acpi_cstate_t));
 		map[i].ctype = i + 1;
 	}
 
 	/* Generate C-state tables */
-	acpigen_write_CST_package(map, ARRAY_SIZE(map));
+	acpigen_write_CST_package(map, max_c_state);
+}
+
+static void generate_c_state_entries(int s0ix_enable)
+{
+	if (s0ix_enable) {
+		acpi_cstate_t map[ARRAY_SIZE(cstate_set_s0ix)];
+		write_c_state_entries(map, cstate_set_s0ix, ARRAY_SIZE(map));
+	} else {
+		acpi_cstate_t map[ARRAY_SIZE(cstate_set_non_s0ix)];
+		write_c_state_entries(map, cstate_set_non_s0ix, ARRAY_SIZE(map));
+	}
 }
 
 static int calculate_power(int tdp, int p1_ratio, int ratio)
@@ -506,20 +503,13 @@ void generate_cpu_entries(struct device *device)
 	int totalcores = dev_count_cpu();
 	int cores_per_package = get_cores_per_package();
 	int numcpus = totalcores/cores_per_package;
-	struct device *dev = SA_DEV_ROOT;
-	config_t *config = dev->chip_info;
+	config_t *config = config_of_soc();
 	int is_s0ix_enable = config->s0ix_enable;
-	int max_c_state;
-
-	if (is_s0ix_enable)
-		max_c_state = ARRAY_SIZE(cstate_set_s0ix);
-	else
-		max_c_state = ARRAY_SIZE(cstate_set_non_s0ix);
 
 	printk(BIOS_DEBUG, "Found %d CPU(s) with %d core(s) each.\n",
 	       numcpus, cores_per_package);
 
-	if (config && config->eist_enable && config->speed_shift_enable) {
+	if (config->eist_enable && config->speed_shift_enable) {
 		struct cppc_config cppc_config;
 		cpu_init_cppc_config(&cppc_config, 2 /* version 2 */);
 		acpigen_write_CPPC_package(&cppc_config);
@@ -537,8 +527,7 @@ void generate_cpu_entries(struct device *device)
 				cpu_id*cores_per_package+core_id,
 				pcontrol_blk, plen);
 			/* Generate C-state tables */
-			generate_c_state_entries(is_s0ix_enable,
-				max_c_state);
+			generate_c_state_entries(is_s0ix_enable);
 
 			if (config->eist_enable) {
 				/* Generate P-state tables */
@@ -561,7 +550,7 @@ void generate_cpu_entries(struct device *device)
 
 static unsigned long acpi_fill_dmar(unsigned long current)
 {
-	struct device *const igfx_dev = dev_find_slot(0, SA_DEVFN_IGD);
+	struct device *const igfx_dev = pcidev_path_on_root(SA_DEVFN_IGD);
 	const u32 gfx_vtbar = MCHBAR32(GFXVTBAR) & ~0xfff;
 	const bool gfxvten = MCHBAR32(GFXVTBAR) & 1;
 
@@ -584,30 +573,20 @@ static unsigned long acpi_fill_dmar(unsigned long current)
 		acpi_dmar_rmrr_fixup(tmp, current);
 	}
 
-	struct device *const p2sb_dev = dev_find_slot(0, PCH_DEVFN_P2SB);
 	const u32 vtvc0bar = MCHBAR32(VTVC0BAR) & ~0xfff;
 	const bool vtvc0en = MCHBAR32(VTVC0BAR) & 1;
 
 	/* General VTBAR has to be set and in 32-bit space. */
-	if (p2sb_dev && vtvc0bar && vtvc0en && !MCHBAR32(VTVC0BAR + 4)) {
+	if (vtvc0bar && vtvc0en && !MCHBAR32(VTVC0BAR + 4)) {
 		const unsigned long tmp = current;
 
-		/* P2SB may already be hidden. There's no clear rule, when. */
-		const u8 p2sb_hidden =
-			pci_read_config8(p2sb_dev, PCH_P2SB_E0 + 1);
-		pci_write_config8(p2sb_dev, PCH_P2SB_E0 + 1, 0);
+		current += acpi_create_dmar_drhd(current, DRHD_INCLUDE_PCI_ALL, 0, vtvc0bar);
 
-		const u16 ibdf = pci_read_config16(p2sb_dev, PCH_P2SB_IBDF);
-		const u16 hbdf = pci_read_config16(p2sb_dev, PCH_P2SB_HBDF);
+		current += acpi_create_dmar_ds_ioapic(current, 2, V_P2SB_IBDF_BUS,
+						      V_P2SB_IBDF_DEV, V_P2SB_IBDF_FUN);
 
-		pci_write_config8(p2sb_dev, PCH_P2SB_E0 + 1, p2sb_hidden);
-
-		current += acpi_create_dmar_drhd(current,
-				DRHD_INCLUDE_PCI_ALL, 0, vtvc0bar);
-		current += acpi_create_dmar_ds_ioapic(current,
-				2, ibdf >> 8, PCI_SLOT(ibdf), PCI_FUNC(ibdf));
-		current += acpi_create_dmar_ds_msi_hpet(current,
-				0, hbdf >> 8, PCI_SLOT(hbdf), PCI_FUNC(hbdf));
+		current += acpi_create_dmar_ds_msi_hpet(current, 0, V_P2SB_HBDF_BUS,
+							V_P2SB_HBDF_DEV, V_P2SB_HBDF_FUN);
 
 		acpi_dmar_drhd_fixup(tmp, current);
 	}
@@ -619,11 +598,11 @@ unsigned long northbridge_write_acpi_tables(struct device *const dev,
 					    unsigned long current,
 					    struct acpi_rsdp *const rsdp)
 {
-	const struct soc_intel_skylake_config *const config = dev->chip_info;
+	const struct soc_intel_skylake_config *const config = config_of(dev);
 	acpi_dmar_t *const dmar = (acpi_dmar_t *)current;
 
 	/* Create DMAR table only if we have VT-d capability. */
-	if ((config && config->ignore_vtd) || !soc_is_vtd_capable())
+	if (config->ignore_vtd || !soc_is_vtd_capable())
 		return current;
 
 	printk(BIOS_DEBUG, "ACPI:    * DMAR\n");
@@ -695,8 +674,7 @@ void southbridge_inject_dsdt(struct device *device)
 /* Save wake source information for calculating ACPI _SWS values */
 int soc_fill_acpi_wake(uint32_t *pm1, uint32_t **gpe0)
 {
-	const struct device *dev = dev_find_slot(0, PCH_DEVFN_LPC);
-	const struct soc_intel_skylake_config *config = dev->chip_info;
+	const struct soc_intel_skylake_config *config = config_of_soc();
 	struct chipset_power_state *ps;
 	static uint32_t gpe0_sts[GPE0_REG_MAX];
 	uint32_t pm1_en;
@@ -782,6 +760,10 @@ const char *soc_acpi_name(const struct device *dev)
 	if (dev->path.type != DEVICE_PATH_PCI)
 		return NULL;
 
+	/* Only match devices on the root bus */
+	if (dev->bus && dev->bus->secondary > 0)
+		return NULL;
+
 	switch (dev->path.pci.devfn) {
 	case SA_DEVFN_ROOT:	return "MCHC";
 	case SA_DEVFN_IGD:	return "GFX0";
@@ -815,6 +797,10 @@ const char *soc_acpi_name(const struct device *dev)
 	case PCH_DEVFN_PCIE10:	return "RP10";
 	case PCH_DEVFN_PCIE11:	return "RP11";
 	case PCH_DEVFN_PCIE12:	return "RP12";
+	case PCH_DEVFN_PCIE13:	return "RP13";
+	case PCH_DEVFN_PCIE14:	return "RP14";
+	case PCH_DEVFN_PCIE15:	return "RP15";
+	case PCH_DEVFN_PCIE16:	return "RP16";
 	case PCH_DEVFN_UART0:	return "UAR0";
 	case PCH_DEVFN_UART1:	return "UAR1";
 	case PCH_DEVFN_GSPI0:	return "SPI0";

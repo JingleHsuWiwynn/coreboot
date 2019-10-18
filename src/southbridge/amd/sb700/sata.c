@@ -21,7 +21,10 @@
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
 #include <arch/io.h>
+#include <device/mmio.h>
 #include <option.h>
+#include <types.h>
+
 #include "sb700.h"
 
 static int sata_drive_detect(int portnum, uint16_t iobar)
@@ -350,7 +353,7 @@ static void sata_init(struct device *dev)
 	byte |= 7 << 0;
 	pci_write_config8(dev, 0x4, byte);
 
-#if IS_ENABLED(CONFIG_SOUTHBRIDGE_AMD_SUBTYPE_SP5100)
+#if CONFIG(SOUTHBRIDGE_AMD_SUBTYPE_SP5100)
 	/* Master Latency Timer */
 	pci_write_config32(dev, 0xC, 0x00004000);
 #endif

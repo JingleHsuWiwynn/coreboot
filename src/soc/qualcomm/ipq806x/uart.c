@@ -31,9 +31,8 @@
  * SUCH DAMAGE.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <boot/coreboot_tables.h>
-#include <console/console.h>
 #include <console/uart.h>
 #include <delay.h>
 #include <gpio.h>
@@ -399,9 +398,7 @@ uint8_t uart_rx_byte(int idx)
 	return byte;
 }
 
-#ifndef __PRE_RAM__
 /* TODO: Implement fuction */
 void uart_fill_lb(void *data)
 {
 }
-#endif

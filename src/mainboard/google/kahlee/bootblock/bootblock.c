@@ -17,6 +17,7 @@
 #include <bootblock_common.h>
 #include <soc/gpio.h>
 #include <soc/southbridge.h>
+#include <amdblocks/lpc.h>
 #include <variant/ec.h>
 #include <variant/gpio.h>
 
@@ -29,12 +30,12 @@ void bootblock_mainboard_early_init(void)
 	mainboard_ec_init();
 
 	gpios = variant_early_gpio_table(&num_gpios);
-	sb_program_gpios(gpios, num_gpios);
+	program_gpios(gpios, num_gpios);
 }
 
 void bootblock_mainboard_init(void)
 {
-	if (IS_ENABLED(CONFIG_EM100)) {
+	if (CONFIG(EM100)) {
 		/*
 		 * We should be able to rely on defaults, but it seems safer
 		 * to explicitly set up these registers.
@@ -61,5 +62,5 @@ void bootblock_mainboard_init(void)
 	}
 
 	/* Setup TPM decode before verstage */
-	sb_tpm_decode_spi();
+	lpc_tpm_decode_spi();
 }

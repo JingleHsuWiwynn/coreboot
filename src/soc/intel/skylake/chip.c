@@ -15,13 +15,13 @@
  */
 
 #include <arch/acpi.h>
-#include <chip.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <fsp/util.h>
-#include <intelblocks/chip.h>
+#include <intelblocks/cfg.h>
 #include <intelblocks/itss.h>
+#include <intelblocks/lpc_lib.h>
 #include <intelblocks/xdci.h>
 #include <intelpch/lockdown.h>
 #include <soc/acpi.h>
@@ -31,6 +31,8 @@
 #include <soc/pci_devs.h>
 #include <soc/ramstage.h>
 #include <string.h>
+
+#include "chip.h"
 
 void soc_init_pre_device(void *chip_info)
 {
@@ -59,7 +61,7 @@ static struct device_operations pci_domain_ops = {
 	.read_resources   = &pci_domain_read_resources,
 	.set_resources    = &pci_domain_set_resources,
 	.scan_bus         = &pci_domain_scan_bus,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.write_acpi_tables	= &northbridge_write_acpi_tables,
 	.acpi_name		= &soc_acpi_name,
 #endif
@@ -67,7 +69,7 @@ static struct device_operations pci_domain_ops = {
 
 static struct device_operations cpu_bus_ops = {
 	.init             = DEVICE_NOOP,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_fill_ssdt_generator = generate_cpu_entries,
 #endif
 };
@@ -90,8 +92,8 @@ struct chip_operations soc_intel_skylake_ops = {
 /* UPD parameters to be initialized before SiliconInit */
 void soc_silicon_init_params(SILICON_INIT_UPD *params)
 {
-	struct device *dev = dev_find_slot(0, PCH_DEVFN_LPC);
-	const struct soc_intel_skylake_config *config = dev->chip_info;
+	struct device *dev = pcidev_path_on_root(PCH_DEVFN_LPC);
+	const struct soc_intel_skylake_config *config = config_of(dev);
 	int i;
 
 	memcpy(params->SerialIoDevMode, config->SerialIoDevMode,
@@ -150,11 +152,8 @@ void soc_silicon_init_params(SILICON_INIT_UPD *params)
 	params->ScsSdCardEnabled = config->ScsSdCardEnabled;
 
 	/* Enable ISH if device is on */
-	dev = dev_find_slot(0, PCH_DEVFN_ISH);
-	if (dev)
-		params->IshEnable = dev->enabled;
-	else
-		params->IshEnable = 0;
+	dev = pcidev_path_on_root(PCH_DEVFN_ISH);
+	params->IshEnable = dev ? dev->enabled : 0;
 
 	params->EnableAzalia = config->EnableAzalia;
 	params->IoBufferOwnership = config->IoBufferOwnership;
@@ -190,12 +189,13 @@ void soc_silicon_init_params(SILICON_INIT_UPD *params)
 	params->PmConfigPwrBtnOverridePeriod =
 		config->PmConfigPwrBtnOverridePeriod;
 	params->PmConfigPwrCycDur = config->PmConfigPwrCycDur;
-	params->SerialIrqConfigSirqEnable = config->SerialIrqConfigSirqEnable;
-	params->SerialIrqConfigSirqMode = config->SerialIrqConfigSirqMode;
+	params->SerialIrqConfigSirqEnable = config->serirq_mode != SERIRQ_OFF;
+	params->SerialIrqConfigSirqMode =
+		config->serirq_mode == SERIRQ_CONTINUOUS;
 	params->SerialIrqConfigStartFramePulse =
 		config->SerialIrqConfigStartFramePulse;
 
-	params->SkipMpInit = !chip_get_fsp_mp_init();
+	params->SkipMpInit = !CONFIG_USE_INTEL_FSP_MP_INIT;
 
 	for (i = 0; i < ARRAY_SIZE(config->i2c_voltage); i++)
 		params->SerialIoI2cVoltage[i] = config->i2c_voltage[i];
@@ -207,23 +207,24 @@ void soc_silicon_init_params(SILICON_INIT_UPD *params)
 	 * do the changes and then lock it back in coreboot
 	 *
 	 */
-	if (config->HeciEnabled == 0)
-		params->PsfUnlock = 1;
-	else
-		params->PsfUnlock = 0;
+	params->PsfUnlock = !config->HeciEnabled;
 
 	for (i = 0; i < ARRAY_SIZE(config->domain_vr_config); i++)
 		fill_vr_domain_config(params, i, &config->domain_vr_config[i]);
 
 	/* Show SPI controller if enabled in devicetree.cb */
-	dev = dev_find_slot(0, PCH_DEVFN_SPI);
-	params->ShowSpiController = dev->enabled;
+	dev = pcidev_path_on_root(PCH_DEVFN_SPI);
+	params->ShowSpiController = dev ? dev->enabled : 0;
 
 	/* Enable xDCI controller if enabled in devicetree and allowed */
-	dev = dev_find_slot(0, PCH_DEVFN_USBOTG);
-	if (!xdci_can_enable())
-		dev->enabled = 0;
-	params->XdciEnable = dev->enabled;
+	dev = pcidev_path_on_root(PCH_DEVFN_USBOTG);
+	if (dev) {
+		if (!xdci_can_enable())
+			dev->enabled = 0;
+		params->XdciEnable = dev->enabled;
+	} else {
+		params->XdciEnable = 0;
+	}
 
 	params->SendVrMbxCmd = config->SendVrMbxCmd;
 
@@ -233,6 +234,9 @@ void soc_silicon_init_params(SILICON_INIT_UPD *params)
 	params->SlowSlewRateForGt = config->SlowSlewRateForGt;
 	params->SlowSlewRateForSa = config->SlowSlewRateForSa;
 	params->FastPkgCRampDisable = config->FastPkgCRampDisable;
+
+	/* Legacy 8254 timer support */
+	params->Early8254ClockGatingEnable = !CONFIG_USE_LEGACY_8254_TIMER;
 
 	soc_irq_settings(params);
 }

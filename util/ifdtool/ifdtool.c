@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <commonlib/helpers.h>
+#include <fmap.h>
 #include "ifdtool.h"
 
 #ifndef O_BINARY
@@ -46,15 +47,15 @@ static int selected_chip = 0;
 static int platform = -1;
 
 static const struct region_name region_names[MAX_REGIONS] = {
-	{ "Flash Descriptor", "fd", "flashregion_0_flashdescriptor.bin" },
-	{ "BIOS", "bios", "flashregion_1_bios.bin" },
-	{ "Intel ME", "me", "flashregion_2_intel_me.bin" },
-	{ "GbE", "gbe", "flashregion_3_gbe.bin" },
-	{ "Platform Data", "pd", "flashregion_4_platform_data.bin" },
-	{ "Reserved", "res1", "flashregion_5_reserved.bin" },
-	{ "Reserved", "res2", "flashregion_6_reserved.bin" },
-	{ "Reserved", "res3", "flashregion_7_reserved.bin" },
-	{ "EC", "ec", "flashregion_8_ec.bin" },
+	{ "Flash Descriptor", "fd", "flashregion_0_flashdescriptor.bin", "SI_DESC" },
+	{ "BIOS", "bios", "flashregion_1_bios.bin", "SI_BIOS" },
+	{ "Intel ME", "me", "flashregion_2_intel_me.bin", "SI_ME" },
+	{ "GbE", "gbe", "flashregion_3_gbe.bin", "SI_GBE" },
+	{ "Platform Data", "pd", "flashregion_4_platform_data.bin", "SI_PDR" },
+	{ "Reserved", "res1", "flashregion_5_reserved.bin", NULL },
+	{ "Reserved", "res2", "flashregion_6_reserved.bin", NULL },
+	{ "Reserved", "res3", "flashregion_7_reserved.bin", NULL },
+	{ "EC", "ec", "flashregion_8_ec.bin", "SI_EC" },
 };
 
 /* port from flashrom */
@@ -236,7 +237,7 @@ static int get_ifd_version_from_fcba(char *image, int size)
 	int read_freq;
 	const fcba_t *fcba = find_fcba(image, size);
 	const fdbar_t *fdb = find_fd(image, size);
-	if (!fcba) /* a valid fcba indicates a valid fdb */
+	if (!fcba || !fdb)
 		exit(EXIT_FAILURE);
 
 	chipset = guess_ich_chipset(fdb);
@@ -804,6 +805,51 @@ static void write_regions(char *image, int size)
 	}
 }
 
+static void validate_layout(char *image, int size)
+{
+	uint i, errors = 0;
+	struct fmap *fmap;
+	long int fmap_loc = fmap_find((uint8_t *)image, size);
+	const frba_t *frba = find_frba(image, size);
+
+	if (fmap_loc < 0 || !frba)
+		exit(EXIT_FAILURE);
+
+	fmap = (struct fmap *)(image + fmap_loc);
+
+	for (i = 0; i < max_regions; i++) {
+		if (region_names[i].fmapname == NULL)
+			continue;
+
+		region_t region = get_region(frba, i);
+
+		if (region.size == 0)
+			continue;
+
+		const struct fmap_area *area =
+			fmap_find_area(fmap, region_names[i].fmapname);
+
+		if (!area)
+			continue;
+
+		if ((uint)region.base != area->offset ||
+			(uint)region.size != area->size) {
+			printf("Region mismatch between %s and %s\n",
+				region_names[i].terse, area->name);
+			printf(" Descriptor region %s:\n", region_names[i].terse);
+			printf("  offset: 0x%08x\n", region.base);
+			printf("  length: 0x%08x\n", region.size);
+			printf(" FMAP area %s:\n", area->name);
+			printf("  offset: 0x%08x\n", area->offset);
+			printf("  length: 0x%08x\n", area->size);
+			errors++;
+		}
+	}
+
+	if (errors > 0)
+		exit(EXIT_FAILURE);
+}
+
 static void write_image(const char *filename, char *image, int size)
 {
 	char new_filename[FILENAME_MAX]; // allow long file names
@@ -925,15 +971,24 @@ static void set_chipdensity(const char *filename, char *image, int size,
 	write_image(filename, image, size);
 }
 
+static int check_region(const frba_t *frba, unsigned int region_type)
+{
+	region_t region;
+
+	if (!frba)
+		return 0;
+
+	region = get_region(frba, region_type);
+	return !!((region.base < region.limit) && (region.size > 0));
+}
+
 static void lock_descriptor(const char *filename, char *image, int size)
 {
 	int wr_shift, rd_shift;
 	fmba_t *fmba = find_fmba(image, size);
+	const frba_t *frba = find_frba(image, size);
 	if (!fmba)
 		exit(EXIT_FAILURE);
-	/* TODO: Dynamically take Platform Data Region and GbE Region
-	 * into regard.
-	 */
 
 	if (ifd_version >= IFD_VERSION_2) {
 		wr_shift = FLMSTR_WR_SHIFT_V2;
@@ -969,36 +1024,66 @@ static void lock_descriptor(const char *filename, char *image, int size)
 	case PLATFORM_CNL:
 	case PLATFORM_ICL:
 	case PLATFORM_SKLKBL:
-		/* CPU/BIOS can read descriptor, BIOS, EC and GbE. */
-		fmba->flmstr1 |= 0x10b << rd_shift;
-		/* CPU/BIOS can write BIOS and Gbe. */
-		fmba->flmstr1 |= 0xa << wr_shift;
-		/* ME can read descriptor, ME and GbE. */
-		fmba->flmstr2 |= 0xd << rd_shift;
+		/* CPU/BIOS can read descriptor and BIOS. */
+		fmba->flmstr1 |= (1 << REGION_DESC) << rd_shift;
+		fmba->flmstr1 |= (1 << REGION_BIOS) << rd_shift;
+		/* CPU/BIOS can write BIOS. */
+		fmba->flmstr1 |= (1 << REGION_BIOS) << wr_shift;
+		/* ME can read descriptor and ME. */
+		fmba->flmstr2 |= (1 << REGION_DESC) << rd_shift;
+		fmba->flmstr2 |= (1 << REGION_ME) << rd_shift;
 		/* ME can write ME. */
-		fmba->flmstr2 |= 0x4 << wr_shift;
-		/* GbE can read GbE and descriptor. */
-		fmba->flmstr3 |= 0x9 << rd_shift;
-		/* GbE can write GbE. */
-		fmba->flmstr3 |= 0x8 << wr_shift;
-		/* EC can read EC and descriptor. */
-		fmba->flmstr5 |= 0x101 << rd_shift;
-		/* EC can write EC region. */
-		fmba->flmstr5 |= 0x100 << wr_shift;
+		fmba->flmstr2 |= (1 << REGION_ME) << wr_shift;
+		if (check_region(frba, REGION_GBE)) {
+			/* BIOS can read/write GbE. */
+			fmba->flmstr1 |= (1 << REGION_GBE) << rd_shift;
+			fmba->flmstr1 |= (1 << REGION_GBE) << wr_shift;
+			/* ME can read GbE. */
+			fmba->flmstr2 |= (1 << REGION_GBE) << rd_shift;
+			/* GbE can read descriptor and read/write GbE.. */
+			fmba->flmstr3 |= (1 << REGION_DESC) << rd_shift;
+			fmba->flmstr3 |= (1 << REGION_GBE) << rd_shift;
+			fmba->flmstr3 |= (1 << REGION_GBE) << wr_shift;
+		}
+		if (check_region(frba, REGION_PDR)) {
+			/* BIOS can read/write PDR. */
+			fmba->flmstr1 |= (1 << REGION_PDR) << rd_shift;
+			fmba->flmstr1 |= (1 << REGION_PDR) << wr_shift;
+		}
+		if (check_region(frba, REGION_EC)) {
+			/* BIOS can read EC. */
+			fmba->flmstr1 |= (1 << REGION_EC) << rd_shift;
+			/* EC can read descriptor and read/write EC. */
+			fmba->flmstr5 |= (1 << REGION_DESC) << rd_shift;
+			fmba->flmstr5 |= (1 << REGION_EC) << rd_shift;
+			fmba->flmstr5 |= (1 << REGION_EC) << wr_shift;
+		}
 		break;
 	default:
-		/* CPU/BIOS can read descriptor, BIOS, and GbE. */
-		fmba->flmstr1 |= 0xb << rd_shift;
-		/* CPU/BIOS can write BIOS and GbE. */
-		fmba->flmstr1 |= 0xa << wr_shift;
-		/* ME can read descriptor, ME, and GbE. */
-		fmba->flmstr2 |= 0xd << rd_shift;
-		/* ME can write ME and GbE. */
-		fmba->flmstr2 |= 0xc << wr_shift;
-		/* GbE can write only GbE. */
-		fmba->flmstr3 |= 0x8 << rd_shift;
-		/* GbE can read only GbE. */
-		fmba->flmstr3 |= 0x8 << wr_shift;
+		/* CPU/BIOS can read descriptor and BIOS. */
+		fmba->flmstr1 |= (1 << REGION_DESC) << rd_shift;
+		fmba->flmstr1 |= (1 << REGION_BIOS) << rd_shift;
+		/* CPU/BIOS can write BIOS. */
+		fmba->flmstr1 |= (1 << REGION_BIOS) << wr_shift;
+		/* ME can read descriptor and ME. */
+		fmba->flmstr2 |= (1 << REGION_DESC) << rd_shift;
+		fmba->flmstr2 |= (1 << REGION_ME) << rd_shift;
+		/* ME can write ME. */
+		fmba->flmstr2 |= (1 << REGION_ME) << wr_shift;
+		if (check_region(frba, REGION_GBE)) {
+			/* BIOS can read GbE. */
+			fmba->flmstr1 |= (1 << REGION_GBE) << rd_shift;
+			/* BIOS can write GbE. */
+			fmba->flmstr1 |= (1 << REGION_GBE) << wr_shift;
+			/* ME can read GbE. */
+			fmba->flmstr2 |= (1 << REGION_GBE) << rd_shift;
+			/* ME can write GbE. */
+			fmba->flmstr2 |= (1 << REGION_GBE) << wr_shift;
+			/* GbE can write GbE. */
+			fmba->flmstr3 |= (1 << REGION_GBE) << rd_shift;
+			/* GbE can read GbE. */
+			fmba->flmstr3 |= (1 << REGION_GBE) << wr_shift;
+		}
 		break;
 	}
 
@@ -1028,7 +1113,7 @@ static void unlock_descriptor(const char *filename, char *image, int size)
 }
 
 /* Set the AltMeDisable (or HAP for >= IFD_VERSION_2) */
-void fpsba_set_altmedisable(fpsba_t *fpsba, fmsba_t *fmsba, bool altmedisable)
+static void fpsba_set_altmedisable(fpsba_t *fpsba, fmsba_t *fmsba, bool altmedisable)
 {
 	if (ifd_version >= IFD_VERSION_2) {
 		printf("%sting the HAP bit to %s Intel ME...\n",
@@ -1068,7 +1153,7 @@ void fpsba_set_altmedisable(fpsba_t *fpsba, fmsba_t *fmsba, bool altmedisable)
 	}
 }
 
-void inject_region(const char *filename, char *image, int size,
+static void inject_region(const char *filename, char *image, int size,
 		   unsigned int region_type, const char *region_fname)
 {
 	frba_t *frba = find_frba(image, size);
@@ -1134,7 +1219,7 @@ void inject_region(const char *filename, char *image, int size,
 	write_image(filename, image, size);
 }
 
-unsigned int next_pow2(unsigned int x)
+static unsigned int next_pow2(unsigned int x)
 {
 	unsigned int y = 1;
 	if (x == 0)
@@ -1161,7 +1246,7 @@ static int regions_collide(const region_t *r1, const region_t *r2)
 	return !(r1->limit < r2->base || r1->base > r2->limit);
 }
 
-void new_layout(const char *filename, char *image, int size,
+static void new_layout(const char *filename, char *image, int size,
 		const char *layout_fname)
 {
 	FILE *romlayout;
@@ -1320,6 +1405,7 @@ static void print_usage(const char *name)
 	printf("\n"
 	       "   -d | --dump:                       dump intel firmware descriptor\n"
 	       "   -f | --layout <filename>           dump regions into a flashrom layout file\n"
+	       "   -t | --validate                    Validate that the firmware descriptor layout matches the fmap layout\n"
 	       "   -x | --extract:                    extract intel fd modules\n"
 	       "   -i | --inject <region>:<module>    inject file <module> into region <region>\n"
 	       "   -n | --newlayout <filename>        update regions using a flashrom layout file\n"
@@ -1349,7 +1435,7 @@ int main(int argc, char *argv[])
 {
 	int opt, option_index = 0;
 	int mode_dump = 0, mode_extract = 0, mode_inject = 0, mode_spifreq = 0;
-	int mode_em100 = 0, mode_locked = 0, mode_unlocked = 0;
+	int mode_em100 = 0, mode_locked = 0, mode_unlocked = 0, mode_validate = 0;
 	int mode_layout = 0, mode_newlayout = 0, mode_density = 0;
 	int mode_altmedisable = 0, altmedisable = 0;
 	char *region_type_string = NULL, *region_fname = NULL;
@@ -1374,10 +1460,11 @@ int main(int argc, char *argv[])
 		{"version", 0, NULL, 'v'},
 		{"help", 0, NULL, 'h'},
 		{"platform", 0, NULL, 'p'},
+		{"validate", 0, NULL, 't'},
 		{0, 0, 0, 0}
 	};
 
-	while ((opt = getopt_long(argc, argv, "df:D:C:M:xi:n:s:p:eluvh?",
+	while ((opt = getopt_long(argc, argv, "df:D:C:M:xi:n:s:p:eluvth?",
 				  long_options, &option_index)) != EOF) {
 		switch (opt) {
 		case 'd':
@@ -1554,6 +1641,9 @@ int main(int argc, char *argv[])
 			}
 			fprintf(stderr, "Platform is: %s\n", optarg);
 			break;
+		case 't':
+			mode_validate = 1;
+			break;
 		case 'v':
 			print_version();
 			exit(EXIT_SUCCESS);
@@ -1569,7 +1659,7 @@ int main(int argc, char *argv[])
 
 	if ((mode_dump + mode_layout + mode_extract + mode_inject +
 		mode_newlayout + (mode_spifreq | mode_em100 | mode_unlocked |
-		 mode_locked) + mode_altmedisable) > 1) {
+		 mode_locked) + mode_altmedisable + mode_validate) > 1) {
 		fprintf(stderr, "You may not specify more than one mode.\n\n");
 		print_usage(argv[0]);
 		exit(EXIT_FAILURE);
@@ -1577,7 +1667,7 @@ int main(int argc, char *argv[])
 
 	if ((mode_dump + mode_layout + mode_extract + mode_inject +
 	     mode_newlayout + mode_spifreq + mode_em100 + mode_locked +
-	     mode_unlocked + mode_density + mode_altmedisable) == 0) {
+	     mode_unlocked + mode_density + mode_altmedisable + mode_validate) == 0) {
 		fprintf(stderr, "You need to specify a mode.\n\n");
 		print_usage(argv[0]);
 		exit(EXIT_FAILURE);
@@ -1627,6 +1717,9 @@ int main(int argc, char *argv[])
 
 	if (mode_extract)
 		write_regions(image, size);
+
+	if (mode_validate)
+		validate_layout(image, size);
 
 	if (mode_inject)
 		inject_region(filename, image, size, region_type,

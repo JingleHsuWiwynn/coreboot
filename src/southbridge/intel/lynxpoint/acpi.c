@@ -19,6 +19,8 @@
 #include <cbmem.h>
 #include <types.h>
 #include <string.h>
+#include <version.h>
+
 #include "pch.h"
 #include "nvs.h"
 
@@ -72,12 +74,12 @@ void acpi_create_serialio_ssdt(acpi_header_t *ssdt)
 	/* Fill the SSDT header */
 	memset((void *)ssdt, 0, sizeof(acpi_header_t));
 	memcpy(&ssdt->signature, "SSDT", 4);
-	ssdt->revision = 2;
+	ssdt->revision = get_acpi_table_revision(SSDT);
 	memcpy(&ssdt->oem_id, OEM_ID, 6);
 	memcpy(&ssdt->oem_table_id, "SERIALIO", 8);
 	ssdt->oem_revision = 43;
 	memcpy(&ssdt->asl_compiler_id, ASLC, 4);
-	ssdt->asl_compiler_revision = 42;
+	ssdt->asl_compiler_revision = asl_revision;
 	ssdt->length = sizeof(acpi_header_t);
 	acpigen_set_current((char *) current);
 

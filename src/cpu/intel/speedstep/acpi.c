@@ -1,9 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2009 coresystems GmbH
- *               2012 secunet Security Networks AG
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2 of
@@ -21,9 +18,9 @@
 #include <arch/acpigen.h>
 #include <arch/cpu.h>
 #include <cpu/x86/msr.h>
+#include <cpu/intel/fsb.h>
 #include <cpu/intel/speedstep.h>
 #include <device/device.h>
-#include <string.h>
 
 static int determine_total_number_of_cores(void)
 {
@@ -41,29 +38,6 @@ static int determine_total_number_of_cores(void)
 	return count;
 }
 
-/**
- * @brief Returns three times the FSB clock in MHz
- *
- * The result of calculations with the returned value shall be divided by 3.
- * This helps to avoid rounding errors.
- */
-static int get_fsb(void)
-{
-	const u32 fsbcode = rdmsr(MSR_FSB_FREQ).lo & 7;
-	switch (fsbcode) {
-	case 0: return  800; /*  / 3 == 266 */
-	case 1: return  400; /*  / 3 == 133 */
-	case 2: return  600; /*  / 3 == 200 */
-	case 3: return  500; /*  / 3 == 166 */
-	case 4: return 1000; /*  / 3 == 333 */
-	case 5: return  300; /*  / 3 == 100 */
-	case 6: return 1200; /*  / 3 == 400 */
-	}
-	printk(BIOS_WARNING,
-	       "Warning: No supported FSB frequency. Assuming 200MHz\n");
-	return 600;
-}
-
 static void gen_pstate_entries(const sst_table_t *const pstates,
 			      const int cpuID, const int cores_per_package,
 			      const uint8_t coordination)
@@ -76,7 +50,12 @@ static void gen_pstate_entries(const sst_table_t *const pstates,
 			cpuID, cores_per_package, coordination);
 	acpigen_write_name("_PSS");
 
-	const int fsb3 = get_fsb();
+	int fsb3 = get_ia32_fsb_x3();
+	if (fsb3 <= 0) {
+		printk(BIOS_ERR, "CPU or FSB not supported. Assuming 200MHz\n");
+		fsb3 = 600;
+	}
+
 	const int min_ratio2 = SPEEDSTEP_DOUBLE_RATIO(
 		pstates->states[pstates->num_states - 1]);
 	const int max_ratio2 = SPEEDSTEP_DOUBLE_RATIO(pstates->states[0]);

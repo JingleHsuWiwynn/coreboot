@@ -16,8 +16,10 @@
 #ifndef __VBOOT_SYMBOLS_H__
 #define __VBOOT_SYMBOLS_H__
 
-extern u8 _vboot2_work[];
-extern u8 _evboot2_work[];
-#define _vboot2_work_size (_evboot2_work - _vboot2_work)
+#include <symbols.h>
+
+DECLARE_REGION(vboot2_work)
+
+DECLARE_REGION(vboot2_tpm_log)
 
 #endif /* __VBOOT_SYMBOLS_H__ */

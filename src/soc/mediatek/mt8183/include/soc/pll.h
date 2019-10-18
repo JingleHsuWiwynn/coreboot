@@ -244,7 +244,7 @@ enum {
 
 /* PLL rate */
 enum {
-	ARMPLL_LL_HZ	= 1100 * MHz,
+	ARMPLL_LL_HZ	= 1417 * MHz,
 	ARMPLL_L_HZ	= 1200 * MHz,
 	CCIPLL_HZ	= 598 * 2 * MHz,
 	MAINPLL_HZ	= 1092 * MHz,
@@ -268,6 +268,16 @@ enum {
 /* top_mux rate */
 enum {
 	SPI_HZ		= MAINPLL_D5_D2_HZ,
+	UART_HZ		= CLK26M_HZ,
+};
+
+enum {
+	DCM_INFRA_BUS_MASK = 0x40907ffb,
+	DCM_INFRA_BUS_ON = 0x40904203,
+	DCM_INFRA_MEM_ON = 0x1 << 27,
+	DCM_INFRA_P2PRX_MASK = 0xf,
+	DCM_INFRA_PERI_MASK = 0xf03ffffb,
+	DCM_INFRA_PERI_ON = 0xf03f83e3,
 };
 
 #endif /* SOC_MEDIATEK_MT8183_PLL_H */

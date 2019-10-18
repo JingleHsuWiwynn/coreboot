@@ -15,8 +15,7 @@
  */
 
 #include <console/console.h>
-#include <delay.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_def.h>
@@ -74,7 +73,7 @@ u32 pch_read_soft_strap(int id)
 	return SPIBAR32(SPIBAR_FDOD);
 }
 
-#ifndef __PRE_RAM__
+#ifndef __SIMPLE_DEVICE__
 
 /* Put device in D3Hot Power State */
 static void pch_enable_d3hot(struct device *dev)

@@ -27,7 +27,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 #*****************************************************************************
-ifeq ($(CONFIG_SOC_AMD_STONEYRIDGE_FP4)$(CONFIG_SOC_AMD_STONEYRIDGE_FT4),y)
+ifeq ($(CONFIG_SOC_AMD_MERLINFALCON)$(CONFIG_SOC_AMD_STONEYRIDGE_FP4)$(CONFIG_SOC_AMD_STONEYRIDGE_FT4),y)
 
 subdirs-y += ../../../cpu/amd/mtrr/
 subdirs-y += ../../../cpu/x86/tsc
@@ -46,11 +46,9 @@ bootblock-$(CONFIG_USBDEBUG) += enable_usbdebug.c
 bootblock-y += monotonic_timer.c
 bootblock-y += pmutil.c
 bootblock-y += reset.c
-bootblock-y += sb_util.c
 bootblock-y += tsc_freq.c
 bootblock-y += southbridge.c
 bootblock-y += nb_util.c
-bootblock-$(CONFIG_SPI_FLASH) += spi.c
 bootblock-$(CONFIG_HAVE_SMI_HANDLER) += smi_util.c
 
 romstage-y += BiosCallOuts.c
@@ -61,34 +59,30 @@ romstage-y += gpio.c
 romstage-y += monotonic_timer.c
 romstage-y += pmutil.c
 romstage-y += reset.c
-romstage-y += sb_util.c
 romstage-y += smbus.c
 romstage-y += smbus_spd.c
-romstage-y += ramtop.c
+romstage-y += memmap.c
 romstage-$(CONFIG_STONEYRIDGE_UART) += uart.c
 romstage-y += tsc_freq.c
 romstage-y += southbridge.c
 romstage-y += nb_util.c
-romstage-$(CONFIG_SPI_FLASH) += spi.c
 romstage-$(CONFIG_HAVE_SMI_HANDLER) += smi_util.c
 
 verstage-y += gpio.c
 verstage-y += i2c.c
 verstage-y += monotonic_timer.c
-verstage-y += sb_util.c
 verstage-y += pmutil.c
 verstage-y += reset.c
 verstage-$(CONFIG_STONEYRIDGE_UART) += uart.c
 verstage-y += tsc_freq.c
 verstage-y += nb_util.c
-verstage-$(CONFIG_SPI_FLASH) += spi.c
 
 postcar-y += monotonic_timer.c
 postcar-$(CONFIG_STONEYRIDGE_UART) += uart.c
-postcar-y += ramtop.c
-postcar-y += sb_util.c
+postcar-y += memmap.c
 postcar-y += nb_util.c
 postcar-$(CONFIG_VBOOT_MEASURED_BOOT) += i2c.c
+postcar-y += tsc_freq.c
 
 ramstage-y += BiosCallOuts.c
 ramstage-y += i2c.c
@@ -98,35 +92,28 @@ ramstage-y += mca.c
 ramstage-$(CONFIG_USBDEBUG) += enable_usbdebug.c
 ramstage-$(CONFIG_HAVE_ACPI_TABLES) += acpi.c
 ramstage-y += gpio.c
-ramstage-y += hda.c
-ramstage-y += iommu.c
 ramstage-y += monotonic_timer.c
 ramstage-y += southbridge.c
-ramstage-y += sb_util.c
-ramstage-y += lpc.c
 ramstage-y += northbridge.c
 ramstage-y += pmutil.c
 ramstage-y += reset.c
 ramstage-y += sata.c
 ramstage-y += sm.c
 ramstage-y += smbus.c
-ramstage-y += ramtop.c
+ramstage-y += memmap.c
 ramstage-$(CONFIG_HAVE_SMI_HANDLER) += smi.c
 ramstage-$(CONFIG_HAVE_SMI_HANDLER) += smi_util.c
 ramstage-$(CONFIG_STONEYRIDGE_UART) += uart.c
 ramstage-y += usb.c
 ramstage-y += tsc_freq.c
-ramstage-$(CONFIG_SPI_FLASH) += spi.c
 ramstage-y += finalize.c
 ramstage-y += nb_util.c
 
 smm-y += monotonic_timer.c
 smm-y += smihandler.c
 smm-y += smi_util.c
-smm-y += sb_util.c
 smm-y += tsc_freq.c
 smm-$(CONFIG_DEBUG_SMI) += uart.c
-smm-$(CONFIG_SPI_FLASH) += spi.c
 smm-y += nb_util.c
 smm-y += gpio.c
 
@@ -150,7 +137,11 @@ STONEYRIDGE_FWM_POSITION=$(call int-add, \
 
 ### 0
 FIRMWARE_LOCATE=$(dir $(call strip_quotes, $(CONFIG_AMD_PUBKEY_FILE)))
+ifeq ($(CONFIG_HAVE_MERLINFALCON_BINARIES),y)
+FIRMWARE_TYPE=CZ
+else
 FIRMWARE_TYPE=ST
+endif
 
 ###5
 PUBSIGNEDKEY_FILE=$(top)/$(FIRMWARE_LOCATE)/RtmPubSigned$(FIRMWARE_TYPE).key
@@ -179,7 +170,7 @@ SMUSCS_FILE=$(top)/$(FIRMWARE_LOCATE)/SmuScs$(FIRMWARE_TYPE).bin
 ###9
 PSPSECUREDEBUG_FILE=$(top)/$(FIRMWARE_LOCATE)/PspSecureDebug$(FIRMWARE_TYPE).Key
 
-ifeq ($(CONFIG_USE_PSPSCUREOS),y)
+ifeq ($(CONFIG_USE_PSPSECUREOS),y)
 ###2
 PSPSCUREOS_FILE=$(top)/$(FIRMWARE_LOCATE)/PspSecureOs_prod_$(FIRMWARE_TYPE).csbin
 
@@ -199,28 +190,37 @@ SMUFIRMWARE2_FILE=$(top)/$(FIRMWARE_LOCATE)/SmuFirmware2_prod_$(FIRMWARE_TYPE).s
 SMUFIRMWARE2_FN_FILE=$(top)/$(FIRMWARE_LOCATE)/SmuFirmware2_prod_$(FIRMWARE_TYPE)_FN.sbin
 endif
 
+ifeq ("$(wildcard $(SMUFWM_FN_FILE))","")
+SMUFWM_FN_FILE=
+SMUFIRMWARE2_FN_FILE=
+endif
+
 add_opt_prefix=$(if $(call strip_quotes, $(1)), $(2) $(call strip_quotes, $(1)), )
 
 OPT_STONEYRIDGE_XHCI_FWM_FILE=$(call add_opt_prefix, $(CONFIG_STONEYRIDGE_XHCI_FWM_FILE), --xhci)
 OPT_STONEYRIDGE_GEC_FWM_FILE=$(call add_opt_prefix, $(CONFIG_STONEYRIDGE_GEC_FWM_FILEddd), --gec)
 
-OPT_2AMD_PUBKEY_FILE=$(call add_opt_prefix, $(CONFIG_AMD_PUBKEY_FILE), --pubkey2)
-OPT_2PSPBTLDR_FILE=$(call add_opt_prefix, $(PSPBTLDR_FILE), --bootloader2)
-OPT_2SMUFWM_FILE=$(call add_opt_prefix, $(SMUFWM_FILE), --smufirmware_2)
-OPT_2PSPRCVR_FILE=$(call add_opt_prefix, $(PSPRCVR_FILE), --recovery2)
-OPT_2PUBSIGNEDKEY_FILE=$(call add_opt_prefix, $(PUBSIGNEDKEY_FILE), --rtmpubkey2)
-OPT_2PSPNVRAM_FILE=$(call add_opt_prefix, $(PSPNVRAM_FILE), --nvram2)
-OPT_2PSPSECUREDEBUG_FILE=$(call add_opt_prefix, $(PSPSECUREDEBUG_FILE), --securedebug2)
-ifeq ($(CONFIG_USE_PSPSCUREOS),y)
-OPT_2PSPSCUREOS_FILE=$(call add_opt_prefix, $(PSPSCUREOS_FILE), --secureos2)
-OPT_2PSPTRUSTLETS_FILE=$(call add_opt_prefix, $(PSPTRUSTLETS_FILE), --trustlets2)
-OPT_2TRUSTLETKEY_FILE=$(call add_opt_prefix, $(TRUSTLETKEY_FILE), --trustletkey2)
+OPT_AMD_PUBKEY_FILE=$(call add_opt_prefix, $(CONFIG_AMD_PUBKEY_FILE), --pubkey)
+OPT_PSPBTLDR_FILE=$(call add_opt_prefix, $(PSPBTLDR_FILE), --bootloader)
+OPT_SMUFWM_FILE=$(call add_opt_prefix, $(SMUFWM_FILE), --smufirmware)
+OPT_PSPRCVR_FILE=$(call add_opt_prefix, $(PSPRCVR_FILE), --recovery)
+OPT_PUBSIGNEDKEY_FILE=$(call add_opt_prefix, $(PUBSIGNEDKEY_FILE), --rtmpubkey)
+OPT_PSPNVRAM_FILE=$(call add_opt_prefix, $(PSPNVRAM_FILE), --nvram)
+OPT_PSPSECUREDEBUG_FILE=$(call add_opt_prefix, $(PSPSECUREDEBUG_FILE), --securedebug)
+ifeq ($(CONFIG_USE_PSPSECUREOS),y)
+OPT_PSPSCUREOS_FILE=$(call add_opt_prefix, $(PSPSCUREOS_FILE), --secureos)
+OPT_PSPTRUSTLETS_FILE=$(call add_opt_prefix, $(PSPTRUSTLETS_FILE), --trustlets)
+OPT_TRUSTLETKEY_FILE=$(call add_opt_prefix, $(TRUSTLETKEY_FILE), --trustletkey)
 endif
-OPT_2SMUFIRMWARE2_FILE=$(call add_opt_prefix, $(SMUFIRMWARE2_FILE), --smufirmware2_2)
-OPT_2SMUSCS_FILE=$(call add_opt_prefix, $(SMUSCS_FILE), --smuscs2)
-OPT_2SMUFWM_FN_FILE=$(call add_opt_prefix, $(SMUFWM_FN_FILE), --smufnfirmware_2)
-OPT_2SMUFIRMWARE2_FN_FILE=$(call add_opt_prefix, $(SMUFIRMWARE2_FN_FILE), --smufnfirmware2_2)
+OPT_SMUFIRMWARE2_FILE=$(call add_opt_prefix, $(SMUFIRMWARE2_FILE), --smufirmware2)
+OPT_SMUSCS_FILE=$(call add_opt_prefix, $(SMUSCS_FILE), --smuscs)
+SUBPROG_FN_SMU_FW=1
+OPT_SMUFWM_FN_FILE=$(call add_opt_prefix, $(SMUFWM_FN_FILE), --subprogram $(SUBPROG_FN_SMU_FW) --smufirmware)
+OPT_SMUFIRMWARE2_FN_FILE=$(call add_opt_prefix, $(SMUFIRMWARE2_FN_FILE), --subprogram $(SUBPROG_FN_SMU_FW) --smufirmware2)
 
+ifeq ($(FIRMWARE_TYPE),ST)
+OPT_COMBOCAPABLE=--combo-capable
+endif
 
 $(obj)/amdfw.rom:	$(call strip_quotes, $(CONFIG_STONEYRIDGE_XHCI_FWM_FILE)) \
 			$(call strip_quotes, $(CONFIG_STONEYRIDGE_GEC_FWM_FILE)) \
@@ -256,20 +256,21 @@ $(obj)/amdfw.rom:	$(call strip_quotes, $(CONFIG_STONEYRIDGE_XHCI_FWM_FILE)) \
 		$(OPT_TRUSTLETKEY_FILE) \
 		$(OPT_SMUFIRMWARE2_FILE) \
 		$(OPT_SMUSCS_FILE) \
-		$(OPT_2AMD_PUBKEY_FILE) \
-		$(OPT_2PSPBTLDR_FILE) \
-		$(OPT_2SMUFWM_FILE) \
-		$(OPT_2SMUFWM_FN_FILE) \
-		$(OPT_2PSPRCVR_FILE) \
-		$(OPT_2PUBSIGNEDKEY_FILE) \
-		$(OPT_2PSPSCUREOS_FILE) \
-		$(OPT_2PSPNVRAM_FILE) \
-		$(OPT_2PSPSECUREDEBUG_FILE) \
-		$(OPT_2PSPTRUSTLETS_FILE) \
-		$(OPT_2TRUSTLETKEY_FILE) \
-		$(OPT_2SMUFIRMWARE2_FILE) \
-		$(OPT_2SMUFIRMWARE2_FN_FILE) \
-		$(OPT_2SMUSCS_FILE) \
+		$(OPT_AMD_PUBKEY_FILE) \
+		$(OPT_PSPBTLDR_FILE) \
+		$(OPT_SMUFWM_FILE) \
+		$(OPT_SMUFWM_FN_FILE) \
+		$(OPT_PSPRCVR_FILE) \
+		$(OPT_PUBSIGNEDKEY_FILE) \
+		$(OPT_PSPSCUREOS_FILE) \
+		$(OPT_PSPNVRAM_FILE) \
+		$(OPT_PSPSECUREDEBUG_FILE) \
+		$(OPT_PSPTRUSTLETS_FILE) \
+		$(OPT_TRUSTLETKEY_FILE) \
+		$(OPT_SMUFIRMWARE2_FILE) \
+		$(OPT_SMUFIRMWARE2_FN_FILE) \
+		$(OPT_SMUSCS_FILE) \
+		$(OPT_COMBOCAPABLE)\
 		--flashsize $(CONFIG_ROM_SIZE) \
 		--location $(shell printf "0x%x" $(STONEYRIDGE_FWM_POSITION)) \
 		--output	$@
@@ -319,4 +320,4 @@ endif
 
 endif # ifeq ($(CONFIG_SOC_AMD_PSP_SELECTABLE_SMU_FW),y)
 
-endif # ($(CONFIG_SOC_AMD_STONEYRIDGE_FP4)$(CONFIG_SOC_AMD_STONEYRIDGE_FT4),y)
+endif # ($(CONFIG_SOC_AMD_MERLINFALCON)$(CONFIG_SOC_AMD_STONEYRIDGE_FP4)$(CONFIG_SOC_AMD_STONEYRIDGE_FT4),y)

@@ -26,6 +26,9 @@
 #include <timestamp.h>
 #include <vendorcode/google/chromeos/chromeos.h>
 
+/* called from assembly in bootblock_asm.S */
+void tegra124_main(void);
+
 static void run_next_stage(void *entry)
 {
 	ASSERT(entry);
@@ -41,7 +44,7 @@ static void run_next_stage(void *entry)
 	clock_halt_avp();
 }
 
-void main(void)
+void tegra124_main(void)
 {
 	// enable pinmux clamp inputs
 	clamp_tristate_inputs();
@@ -64,7 +67,7 @@ void main(void)
 	pinmux_set_config(PINMUX_UART2_RTS_N_INDEX,
 			  PINMUX_UART2_RTS_N_FUNC_UB3);
 
-	if (CONFIG_BOOTBLOCK_CONSOLE) {
+	if (CONFIG(BOOTBLOCK_CONSOLE)) {
 		console_init();
 		exception_init();
 	}

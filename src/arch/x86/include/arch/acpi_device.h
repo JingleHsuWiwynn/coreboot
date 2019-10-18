@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright 2016 Google Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -62,10 +60,11 @@ struct acpi_dp {
 #define ACPI_DT_NAMESPACE_HID		"PRP0001"
 
 struct device;
-const char *acpi_device_name(struct device *dev);
-const char *acpi_device_path(struct device *dev);
-const char *acpi_device_scope(struct device *dev);
-const char *acpi_device_path_join(struct device *dev, const char *name);
+const char *acpi_device_name(const struct device *dev);
+const char *acpi_device_hid(const struct device *dev);
+const char *acpi_device_path(const struct device *dev);
+const char *acpi_device_scope(const struct device *dev);
+const char *acpi_device_path_join(const struct device *dev, const char *name);
 int acpi_device_status(const struct device *dev);
 
 /*
@@ -309,9 +308,12 @@ void acpi_device_write_gpio(const struct acpi_gpio *gpio);
  * ACPI Descriptors for Serial Bus interfaces
  */
 
-#define ACPI_SERIAL_BUS_TYPE_I2C	1
-#define ACPI_SERIAL_BUS_TYPE_SPI	2
-#define ACPI_SERIAL_BUS_REVISION_ID	1
+#define ACPI_SERIAL_BUS_TYPE_I2C		1
+#define ACPI_SERIAL_BUS_TYPE_SPI		2
+#define ACPI_I2C_SERIAL_BUS_REVISION_ID		1 /* TODO: upgrade to 2 */
+#define ACPI_I2C_TYPE_SPECIFIC_REVISION_ID	1
+#define ACPI_SPI_SERIAL_BUS_REVISION_ID		1
+#define ACPI_SPI_TYPE_SPECIFIC_REVISION_ID	1
 
 /*
  * ACPI I2C Bus

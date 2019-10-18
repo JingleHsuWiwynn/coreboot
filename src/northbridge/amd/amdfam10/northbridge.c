@@ -16,7 +16,7 @@
  */
 
 #include <console/console.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <stdint.h>
 #include <device/device.h>
 #include <device/pci.h>
@@ -34,8 +34,9 @@
 #include <cpu/amd/amdfam10_sysconf.h>
 #include <cpu/amd/msr.h>
 #include <cpu/amd/family_10h-family_15h/ram_calc.h>
+#include <types.h>
 
-#if IS_ENABLED(CONFIG_LOGICAL_CPUS)
+#if CONFIG(LOGICAL_CPUS)
 #include <cpu/amd/multicore.h>
 #include <pc80/mc146818rtc.h>
 #endif
@@ -49,7 +50,7 @@
 #include <cpu/amd/model_10xxx_rev.h>
 #endif
 
-#if IS_ENABLED(CONFIG_DIMM_DDR3)
+#if CONFIG(DIMM_DDR3)
 #include "../amdmct/mct_ddr3/s3utils.h"
 #endif
 
@@ -177,7 +178,7 @@ static void ht_route_link(struct bus *link, scan_state mode)
 	pci_write_config32(link->dev, link->cap + 0x14, busses);
 
 	if (mode == HT_ROUTE_FINAL) {
-		if (CONFIG_HT_CHAIN_DISTRIBUTE)
+		if (CONFIG(HT_CHAIN_DISTRIBUTE))
 			parent->subordinate = ALIGN_UP(link->subordinate, 8) - 1;
 		else
 			parent->subordinate = link->subordinate;
@@ -208,15 +209,6 @@ static void amd_g34_fixup(struct bus *link, struct device *dev)
 			*/
 			f3xe8 = pci_read_config32(get_node_pci(nodeid, 3), 0xe8);
 			uint8_t internal_node_number = ((f3xe8 & 0xc0000000) >> 30);
-			uint8_t defective_link_number_1;
-			uint8_t defective_link_number_2;
-			if (is_fam15h()) {
-				defective_link_number_1 = 4;	/* Link 0 Sublink 1 */
-				defective_link_number_2 = 7;	/* Link 3 Sublink 1 */
-			} else {
-				defective_link_number_1 = 6;	/* Link 2 Sublink 1 */
-				defective_link_number_2 = 5;	/* Link 1 Sublink 1 */
-			}
 			if (internal_node_number == 0) {
 				/* Node 0 */
 				if (link->link_num == 6)	/* Link 2 Sublink 1 */
@@ -316,7 +308,7 @@ static void amdfam10_scan_chains(struct device *dev)
 {
 	struct bus *link;
 
-#if IS_ENABLED(CONFIG_CPU_AMD_SOCKET_G34_NON_AGESA)
+#if CONFIG(CPU_AMD_SOCKET_G34_NON_AGESA)
 	if (is_fam15h()) {
 		uint8_t current_link_number = 0;
 
@@ -361,7 +353,7 @@ static void amdfam10_scan_chains(struct device *dev)
 
 	for (link = dev->link_list; link; link = link->next) {
 		if (link->ht_link_up) {
-			if (IS_ENABLED(CONFIG_CPU_AMD_MODEL_10XXX))
+			if (CONFIG(CPU_AMD_MODEL_10XXX))
 				amd_g34_fixup(link, dev);
 			amdfam10_scan_chain(link);
 		}
@@ -581,7 +573,7 @@ static void amdfam10_create_vga_resource(struct device *dev, unsigned nodeid)
 	 * we only deal with the 'first' vga card */
 	for (link = dev->link_list; link; link = link->next) {
 		if (link->bridge_ctrl & PCI_BRIDGE_CTL_VGA) {
-#if IS_ENABLED(CONFIG_MULTIPLE_VGA_ADAPTERS)
+#if CONFIG(MULTIPLE_VGA_ADAPTERS)
 			extern struct device *vga_pri; // the primary vga device, defined in device.c
 			printk(BIOS_DEBUG, "VGA: vga_pri bus num = %d bus range [%d,%d]\n", vga_pri->bus->secondary,
 				link->secondary,link->subordinate);
@@ -640,7 +632,7 @@ static void mcf0_control_init(struct device *dev)
 {
 }
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 static const char *amdfam10_northbridge_acpi_name(const struct device *dev)
 {
 	return "";
@@ -653,7 +645,7 @@ static struct device_operations northbridge_operations = {
 	.enable_resources = pci_dev_enable_resources,
 	.init		  = mcf0_control_init,
 	.scan_bus	  = amdfam10_scan_chains,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.write_acpi_tables = northbridge_write_acpi_tables,
 	.acpi_fill_ssdt_generator = northbridge_acpi_write_vars,
 	.acpi_name = amdfam10_northbridge_acpi_name,
@@ -744,7 +736,6 @@ static void amdfam10_domain_read_resources(struct device *dev)
 			uint8_t node;
 			uint8_t interleaved;
 			int8_t range;
-			int8_t max_range;
 			uint8_t max_node;
 			uint64_t max_range_limit;
 			uint32_t dword;
@@ -755,7 +746,6 @@ static void amdfam10_domain_read_resources(struct device *dev)
 			/* Find highest DRAM range (DramLimitAddr) */
 			num_nodes = 0;
 			max_node = 0;
-			max_range = -1;
 			interleaved = 0;
 			max_range_limit = 0;
 			struct device *node_dev;
@@ -781,7 +771,6 @@ static void amdfam10_domain_read_resources(struct device *dev)
 					qword |= (((uint64_t)dword2) & 0xff) << 40;
 
 					if (qword > max_range_limit) {
-						max_range = range;
 						max_range_limit = qword;
 						max_node = dword & 0x7;
 					}
@@ -790,7 +779,7 @@ static void amdfam10_domain_read_resources(struct device *dev)
 
 			/* Calculate CC6 storage area size */
 			if (interleaved)
-				qword = (0x1000000 * num_nodes);
+				qword = (uint64_t)0x1000000 * num_nodes;
 			else
 				qword = 0x1000000;
 
@@ -886,7 +875,7 @@ static struct hw_mem_hole_info get_hw_mem_hole_info(void)
 
 static void setup_uma_memory(void)
 {
-#if IS_ENABLED(CONFIG_GFXUMA)
+#if CONFIG(GFXUMA)
 	uint32_t topmem = (uint32_t) bsp_topmem();
 	uma_memory_size = get_uma_memory_size(topmem);
 	uma_memory_base = topmem - uma_memory_size;	/* TOP_MEM1 */
@@ -903,7 +892,6 @@ static void amdfam10_domain_set_resources(struct device *dev)
 	struct bus *link;
 #if CONFIG_HW_MEM_HOLE_SIZEK != 0
 	struct hw_mem_hole_info mem_hole;
-	u32 reset_memhole = 1;
 #endif
 
 	pci_tolm = 0xffffffffUL;
@@ -934,7 +922,6 @@ static void amdfam10_domain_set_resources(struct device *dev)
 	// Use hole_basek as mmio_basek, and we don't need to reset hole anymore
 	if ((mem_hole.node_id !=  -1) && (mmio_basek > mem_hole.hole_startk)) {
 		mmio_basek = mem_hole.hole_startk;
-		reset_memhole = 0;
 	}
 
 #endif
@@ -985,7 +972,7 @@ static void amdfam10_domain_set_resources(struct device *dev)
 			     i, mmio_basek, basek, limitk);
 	}
 
-#if IS_ENABLED(CONFIG_GFXUMA)
+#if CONFIG(GFXUMA)
 	uma_resource(dev, 7, uma_memory_base >> 10, uma_memory_size >> 10);
 #endif
 
@@ -1035,7 +1022,7 @@ static void amdfam10_domain_scan_bus(struct device *dev)
 	}
 }
 
-#if IS_ENABLED(CONFIG_GENERATE_SMBIOS_TABLES)
+#if CONFIG(GENERATE_SMBIOS_TABLES)
 static int amdfam10_get_smbios_data16(int *count, int handle,
 				      unsigned long *current)
 {
@@ -1085,7 +1072,7 @@ static int amdfam10_get_smbios_data16(int *count, int handle,
 static uint16_t amdmct_mct_speed_enum_to_mhz(uint8_t speed)
 {
 	if (is_fam15h()) {
-		if (IS_ENABLED(CONFIG_DIMM_DDR3)) {
+		if (CONFIG(DIMM_DDR3)) {
 			switch (speed) {
 				case 0x4:
 					return 333;
@@ -1106,7 +1093,7 @@ static uint16_t amdmct_mct_speed_enum_to_mhz(uint8_t speed)
 			return 0;
 		}
 	} else {
-		if (IS_ENABLED(CONFIG_DIMM_DDR2)) {
+		if (CONFIG(DIMM_DDR2)) {
 			switch (speed) {
 				case 1:
 					return 200;
@@ -1121,7 +1108,7 @@ static uint16_t amdmct_mct_speed_enum_to_mhz(uint8_t speed)
 				default:
 					return 0;
 			}
-		} else if (IS_ENABLED(CONFIG_DIMM_DDR3)) {
+		} else if (CONFIG(DIMM_DDR3)) {
 			switch (speed) {
 				case 3:
 					return 333;
@@ -1185,7 +1172,7 @@ static int amdfam10_get_smbios_data17(int *count, int handle, int parent_handle,
 				cols = mem_info->dct_stat[node].DimmCols[slot];
 				ranks = mem_info->dct_stat[node].DimmRanks[slot];
 				banks = mem_info->dct_stat[node].DimmBanks[slot];
-#if IS_ENABLED(CONFIG_DIMM_DDR3)
+#if CONFIG(DIMM_DDR3)
 				chip_size = mem_info->dct_stat[node].DimmChipSize[slot];
 				chip_width = mem_info->dct_stat[node].DimmChipWidth[slot];
 #else
@@ -1193,7 +1180,7 @@ static int amdfam10_get_smbios_data17(int *count, int handle, int parent_handle,
 				chip_width = 0;
 #endif
 				uint64_t dimm_size_bytes;
-				if (IS_ENABLED(CONFIG_DIMM_DDR3)) {
+				if (CONFIG(DIMM_DDR3)) {
 					width = mem_info->dct_stat[node].DimmWidth[slot];
 					dimm_size_bytes = ((width / chip_width) * chip_size * ranks) / 8;
 				} else {
@@ -1226,9 +1213,9 @@ static int amdfam10_get_smbios_data17(int *count, int handle, int parent_handle,
 					snprintf(string_buffer, sizeof(string_buffer), "NODE %d DIMM_%s%d", node, (slot & 0x1)?"B":"A", (slot >> 1) + 1);
 				}
 				t->device_locator = smbios_add_string(t->eos, string_buffer);
-				if (IS_ENABLED(CONFIG_DIMM_DDR2))
+				if (CONFIG(DIMM_DDR2))
 					t->memory_type = MEMORY_TYPE_DDR2;
-				else if (IS_ENABLED(CONFIG_DIMM_DDR3))
+				else if (CONFIG(DIMM_DDR3))
 					t->memory_type = MEMORY_TYPE_DDR3;
 				t->type_detail = MEMORY_TYPE_DETAIL_SYNCHRONOUS;
 				if (mem_info->dct_stat[node].DimmRegistered[slot])
@@ -1245,13 +1232,13 @@ static int amdfam10_get_smbios_data17(int *count, int handle, int parent_handle,
 					snprintf(string_buffer, sizeof(string_buffer), "%08X", mem_info->dct_stat[node].DimmSerialNumber[slot]);
 					t->serial_number = smbios_add_string(t->eos, string_buffer);
 				}
-				if (IS_ENABLED(CONFIG_DIMM_DDR2)) {
+				if (CONFIG(DIMM_DDR2)) {
 					/* JEDEC specifies 1.8V only, so assume that the memory is configured for 1.8V */
 					t->minimum_voltage = 1800;
 					t->maximum_voltage = 1800;
 					t->configured_voltage = 1800;
-				} else if (IS_ENABLED(CONFIG_DIMM_DDR3)) {
-#if IS_ENABLED(CONFIG_DIMM_DDR3)
+				} else if (CONFIG(DIMM_DDR3)) {
+#if CONFIG(DIMM_DDR3)
 					/* Find the maximum and minimum supported voltages */
 					uint8_t supported_voltages = mem_info->dct_stat[node].DimmSupportedVoltages[slot];
 					uint8_t configured_voltage = mem_info->dct_stat[node].DimmConfiguredVoltage[slot];
@@ -1308,7 +1295,7 @@ static int amdfam10_get_smbios_data(struct device *dev, int *handle, unsigned lo
 }
 #endif
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 static const char *amdfam10_domain_acpi_name(const struct device *dev)
 {
 	if (dev->path.type == DEVICE_PATH_DOMAIN)
@@ -1324,10 +1311,10 @@ static struct device_operations pci_domain_ops = {
 	.enable_resources = NULL,
 	.init		  = NULL,
 	.scan_bus	  = amdfam10_domain_scan_bus,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_name	  = amdfam10_domain_acpi_name,
 #endif
-#if IS_ENABLED(CONFIG_GENERATE_SMBIOS_TABLES)
+#if CONFIG(GENERATE_SMBIOS_TABLES)
 	.get_smbios_data  = amdfam10_get_smbios_data,
 #endif
 };
@@ -1356,7 +1343,7 @@ static void sysconf_init(struct device *dev) // first node
 	sysconf.bsp_apicid = lapicid();
 	sysconf.apicid_offset = sysconf.bsp_apicid;
 
-#if IS_ENABLED(CONFIG_ENABLE_APIC_EXT_ID)
+#if CONFIG(ENABLE_APIC_EXT_ID)
 	if (pci_read_config32(dev, 0x68) & (HTTC_APIC_EXT_ID|HTTC_APIC_EXT_BRD_CST))
 	{
 		sysconf.enabled_apic_ext_id = 1;
@@ -1372,42 +1359,6 @@ static void sysconf_init(struct device *dev) // first node
 	}
 	#endif
 #endif
-}
-
-static void add_more_links(struct device *dev, unsigned total_links)
-{
-	struct bus *link, *last = NULL;
-	int link_num = -1;
-
-	for (link = dev->link_list; link; link = link->next) {
-		if (link_num < link->link_num)
-			link_num = link->link_num;
-		last = link;
-	}
-
-	if (last) {
-		int links = total_links - (link_num + 1);
-		if (links > 0) {
-			link = malloc(links*sizeof(*link));
-			if (!link)
-				die("Couldn't allocate more links!\n");
-			memset(link, 0, links*sizeof(*link));
-			last->next = link;
-		}
-	} else {
-		link = malloc(total_links*sizeof(*link));
-		memset(link, 0, total_links*sizeof(*link));
-		dev->link_list = link;
-	}
-
-	for (link_num = link_num + 1; link_num < total_links; link_num++) {
-		link->link_num = link_num;
-		link->dev = dev;
-		link->next = link + 1;
-		last = link;
-		link = link->next;
-	}
-	last->next = NULL;
 }
 
 static void remap_bsp_lapic(struct bus *cpu_bus)
@@ -1450,8 +1401,8 @@ static void cpu_bus_scan(struct device *dev)
 		siblings = 3; //quad core
 	}
 
-	disable_siblings = !CONFIG_LOGICAL_CPUS;
-#if IS_ENABLED(CONFIG_LOGICAL_CPUS)
+	disable_siblings = !CONFIG(LOGICAL_CPUS);
+#if CONFIG(LOGICAL_CPUS)
 	get_option(&disable_siblings, "multi_core");
 #endif
 
@@ -1541,7 +1492,6 @@ static void cpu_bus_scan(struct device *dev)
 		uint8_t rev_gte_d = 0;
 		uint8_t dual_node = 0;
 		uint32_t f3xe8;
-		uint32_t family;
 		uint32_t model;
 
 		busn = CONFIG_CBB;
@@ -1582,7 +1532,7 @@ static void cpu_bus_scan(struct device *dev)
 
 		f3xe8 = pci_read_config32(get_node_pci(0, 3), 0xe8);
 
-		family = model = cpuid_eax(0x80000001);
+		model = cpuid_eax(0x80000001);
 		model = ((model & 0xf0000) >> 12) | ((model & 0xf0) >> 4);
 
 		if (is_fam15h()) {
@@ -1656,7 +1606,7 @@ static void cpu_bus_scan(struct device *dev)
 				}
 			}
 
-#if IS_ENABLED(CONFIG_ENABLE_APIC_EXT_ID) && (CONFIG_APIC_ID_OFFSET > 0)
+#if CONFIG(ENABLE_APIC_EXT_ID) && (CONFIG_APIC_ID_OFFSET > 0)
 			if (sysconf.enabled_apic_ext_id) {
 				if (apic_id != 0 || sysconf.lift_bsp_apicid) {
 					apic_id += sysconf.apicid_offset;
@@ -1690,17 +1640,14 @@ static void detect_and_enable_probe_filter(struct device *dev)
 
 	uint8_t fam15h = 0;
 	uint8_t rev_gte_d = 0;
-	unsigned nb_cfg_54;
-	uint32_t family;
 	uint32_t model;
 
-	family = model = cpuid_eax(0x80000001);
+	model = cpuid_eax(0x80000001);
 	model = ((model & 0xf0000) >> 12) | ((model & 0xf0) >> 4);
 
 	if (is_fam15h()) {
 		/* Family 15h or later */
 		fam15h = 1;
-		nb_cfg_54 = 1;
 	}
 
 	if ((model >= 0x8) || fam15h)
@@ -1861,19 +1808,10 @@ static void detect_and_enable_cache_partitioning(struct device *dev)
 		uint8_t cu_enabled;
 		uint8_t compute_unit_count = 0;
 
-		uint32_t f3xe8;
-		uint8_t dual_node = 0;
-
 		for (i = 0; i < sysconf.nodes; i++) {
 			struct device *f3x_dev = pcidev_on_root(0x18 + i, 3);
 			struct device *f4x_dev = pcidev_on_root(0x18 + i, 4);
 			struct device *f5x_dev = pcidev_on_root(0x18 + i, 5);
-
-			f3xe8 = pci_read_config32(f3x_dev, 0xe8);
-
-			/* Check for dual node capability */
-			if (f3xe8 & 0x20000000)
-				dual_node = 1;
 
 			/* Determine the number of active compute units on this node */
 			f5x80 = pci_read_config32(f5x_dev, 0x80);
@@ -1978,7 +1916,7 @@ static void root_complex_enable_dev(struct device *dev)
 }
 
 static void root_complex_finalize(void *chip_info) {
-#if IS_ENABLED(CONFIG_HAVE_ACPI_RESUME) && IS_ENABLED(CONFIG_DIMM_DDR3)
+#if CONFIG(HAVE_ACPI_RESUME) && CONFIG(DIMM_DDR3)
 	save_mct_information_to_nvram();
 #endif
 }

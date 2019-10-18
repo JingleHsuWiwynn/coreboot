@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 Google Inc.
+ * This file is part of the coreboot project.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,10 +12,9 @@
  * GNU General Public License for more details.
  */
 
-#include <stdlib.h>
 #include <types.h>
 #include <console/uart.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <boot/coreboot_tables.h>
 #include <cpu/ti/am335x/uart.h>
 
@@ -183,7 +182,6 @@ void uart_tx_flush(int idx)
 {
 }
 
-#ifndef __PRE_RAM__
 void uart_fill_lb(void *data)
 {
 	struct lb_serial serial;
@@ -191,8 +189,9 @@ void uart_fill_lb(void *data)
 	serial.baseaddr = uart_platform_base(CONFIG_UART_FOR_CONSOLE);
 	serial.baud = get_uart_baudrate();
 	serial.regwidth = 2;
+	serial.input_hertz = uart_platform_refclk();
+	serial.uart_pci_addr = CONFIG_UART_PCI_ADDR;
 	lb_add_serial(&serial, data);
 
 	lb_add_console(LB_TAG_CONSOLE_SERIAL8250MEM, data);
 }
-#endif

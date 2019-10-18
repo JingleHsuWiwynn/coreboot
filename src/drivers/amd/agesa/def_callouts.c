@@ -15,6 +15,7 @@
  */
 
 #include <cbfs.h>
+#include <console/console.h>
 #include <spd_bin.h>
 #include <string.h>
 
@@ -25,9 +26,9 @@
 #include <northbridge/amd/agesa/BiosCallOuts.h>
 #include <northbridge/amd/agesa/dimmSpd.h>
 
-#if IS_ENABLED(CONFIG_NORTHBRIDGE_AMD_PI)
-#if IS_ENABLED(CONFIG_ARCH_ROMSTAGE_X86_64) || \
-	IS_ENABLED(CONFIG_ARCH_RAMSTAGE_X86_64)
+#if CONFIG(NORTHBRIDGE_AMD_PI)
+#if CONFIG(ARCH_ROMSTAGE_X86_64) || \
+	CONFIG(ARCH_RAMSTAGE_X86_64)
 #error "FIXME: CALLOUT_ENTRY is UINT32 Data, not UINT Data"
 #endif
 #endif
@@ -159,18 +160,19 @@ AGESA_STATUS agesa_GfxGetVbiosImage(UINT32 Func, UINTN FchData, VOID *ConfigPrt)
 
 AGESA_STATUS agesa_ReadSpd (UINT32 Func, UINTN Data, VOID *ConfigPtr)
 {
-	AGESA_STATUS Status = AGESA_UNSUPPORTED;
-#ifdef __PRE_RAM__
-	Status = AmdMemoryReadSPD (Func, Data, ConfigPtr);
-#endif
-	return Status;
+	if (!ENV_ROMSTAGE)
+		return AGESA_UNSUPPORTED;
+
+	return AmdMemoryReadSPD (Func, Data, ConfigPtr);
 }
 
 AGESA_STATUS agesa_ReadSpd_from_cbfs(UINT32 Func, UINTN Data, VOID *ConfigPtr)
 {
-	AGESA_STATUS Status = AGESA_UNSUPPORTED;
-#ifdef __PRE_RAM__
 	AGESA_READ_SPD_PARAMS *info = ConfigPtr;
+
+	if (!ENV_ROMSTAGE)
+		return AGESA_UNSUPPORTED;
+
 	if (info->MemChannelId > 0)
 		return AGESA_UNSUPPORTED;
 	if (info->SocketId != 0)
@@ -182,9 +184,7 @@ AGESA_STATUS agesa_ReadSpd_from_cbfs(UINT32 Func, UINTN Data, VOID *ConfigPtr)
 	if (read_ddr3_spd_from_cbfs((u8*)info->Buffer, 0) < 0)
 		die("No SPD data\n");
 
-	Status = AGESA_SUCCESS;
-#endif
-	return Status;
+	return AGESA_SUCCESS;
 }
 
 #if HAS_AGESA_FCH_OEM_CALLOUT

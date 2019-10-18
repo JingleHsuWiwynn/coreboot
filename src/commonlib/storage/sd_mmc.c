@@ -1,13 +1,5 @@
 /*
- * Copyright 2008, Freescale Semiconductor, Inc
- * Andy Fleming
- *
- * Copyright 2013 Google Inc.  All rights reserved.
- * Copyright 2017 Intel Corporation
- *
- * MultiMediaCard (MMC), eMMC and Secure Digital (SD) common initialization
- * code which brings the card into the standby state.  This code is controller
- * independent.
+ * This file is part of the coreboot project.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -18,17 +10,20 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
+ * MultiMediaCard (MMC), eMMC and Secure Digital (SD) common initialization
+ * code which brings the card into the standby state.  This code is controller
+ * independent.
  */
 
-#include <assert.h>
 #include <commonlib/storage.h>
 #include <delay.h>
 #include <endian.h>
+#include <string.h>
+
 #include "mmc.h"
 #include "sd_mmc.h"
 #include "storage.h"
-#include <string.h>
-#include <timer.h>
 
 uint64_t sd_mmc_extract_uint32_bits(const uint32_t *array, int start, int count)
 {
@@ -168,7 +163,7 @@ int sd_mmc_enter_standby(struct storage_media *media)
 
 	/* Test for SD version 2 */
 	err = CARD_TIMEOUT;
-	if (IS_ENABLED(CONFIG_COMMONLIB_STORAGE_SD)) {
+	if (CONFIG(COMMONLIB_STORAGE_SD)) {
 		err = sd_send_if_cond(media);
 
 		/* Get SD card operating condition */
@@ -177,7 +172,7 @@ int sd_mmc_enter_standby(struct storage_media *media)
 	}
 
 	/* If the command timed out, we check for an MMC card */
-	if (IS_ENABLED(CONFIG_COMMONLIB_STORAGE_MMC) && (err == CARD_TIMEOUT)) {
+	if (CONFIG(COMMONLIB_STORAGE_MMC) && (err == CARD_TIMEOUT)) {
 		/* Some cards seem to need this */
 		sd_mmc_go_idle(media);
 

@@ -16,22 +16,21 @@
  */
 
 #include <stdint.h>
-#include <string.h>
 #include <console/console.h>
-#include <arch/io.h>
+#include <cf9_reset.h>
+#include <device/pci_ops.h>
 #include <cpu/x86/lapic.h>
 #include <timestamp.h>
 #include "sandybridge.h"
-#include <cpu/x86/bist.h>
-#include <cpu/intel/romstage.h>
+#include <arch/romstage.h>
 #include <device/pci_def.h>
 #include <device/device.h>
-#include <halt.h>
 #include <northbridge/intel/sandybridge/chip.h>
 #include <southbridge/intel/bd82x6x/pch.h>
-#include <southbridge/intel/common/gpio.h>
+#include <southbridge/intel/common/pmclib.h>
+#include <elog.h>
 
-static void early_pch_init(void)
+static void early_pch_reset_pmcon(void)
 {
 	u8 reg8;
 
@@ -44,47 +43,38 @@ static void early_pch_init(void)
 /* Platform has no romstage entry point under mainboard directory,
  * so this one is named with prefix mainboard.
  */
-void mainboard_romstage_entry(unsigned long bist)
+void mainboard_romstage_entry(void)
 {
 	int s3resume = 0;
 
-	if (MCHBAR16(SSKPD) == 0xCAFE) {
-		outb(0x6, 0xcf9);
-		halt ();
-	}
+	if (MCHBAR16(SSKPD) == 0xCAFE)
+		system_reset();
 
-	if (bist == 0)
-		enable_lapic();
+	enable_lapic();
 
-	pch_enable_lpc();
-
-	/* Enable GPIOs */
-	pci_write_config32(PCH_LPC_DEV, GPIO_BASE, DEFAULT_GPIOBASE|1);
-	pci_write_config8(PCH_LPC_DEV, GPIO_CNTL, 0x10);
-
-	setup_pch_gpios(&mainboard_gpio_map);
+	/* Init LPC, GPIO, BARs, disable watchdog ... */
+	early_pch_init();
 
 	/* Initialize superio */
 	mainboard_config_superio();
 
 	/* USB is initialized in MRC if MRC is used.  */
-	if (CONFIG_USE_NATIVE_RAMINIT) {
+	if (CONFIG(USE_NATIVE_RAMINIT)) {
 		early_usb_init(mainboard_usb_ports);
 	}
 
 	/* Initialize console device(s) */
 	console_init();
 
-	/* Halt if there was a built in self test failure */
-	report_bist_failure(bist);
-
 	/* Perform some early chipset initialization required
 	 * before RAM initialization can work
 	 */
-	sandybridge_early_initialization();
-	printk(BIOS_DEBUG, "Back from sandybridge_early_initialization()\n");
+	systemagent_early_init();
+	printk(BIOS_DEBUG, "Back from systemagent_early_init()\n");
 
 	s3resume = southbridge_detect_s3_resume();
+
+	elog_boot_notify(s3resume);
 
 	post_code(0x38);
 
@@ -101,7 +91,7 @@ void mainboard_romstage_entry(unsigned long bist)
 
 	post_code(0x3b);
 	/* Perform some initialization that must run before stage2 */
-	early_pch_init();
+	early_pch_reset_pmcon();
 	post_code(0x3c);
 
 	southbridge_configure_default_intmap();

@@ -18,8 +18,8 @@
 #ifndef SUPERIO_NSC_COMMON_PRE_RAM_H
 #define SUPERIO_NSC_COMMON_PRE_RAM_H
 
-#include <device/pnp_def.h>
 #include <stdint.h>
+#include <device/pnp_type.h>
 
 void nsc_enable_serial(pnp_devfn_t dev, u16 iobase);
 

@@ -14,7 +14,6 @@
  */
 
 #include <arch/acpi.h>
-#include <assert.h>
 #include <cbmem.h>
 #include <console/uart.h>
 #include <device/device.h>
@@ -27,7 +26,6 @@
 #include <soc/pci_devs.h>
 #include <soc/iomap.h>
 #include <soc/nvs.h>
-#include <string.h>
 
 #define UART_PCI_ENABLE	(PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER)
 #define UART_CONSOLE_INVALID_INDEX	0xFF
@@ -35,8 +33,11 @@
 extern const struct uart_gpio_pad_config uart_gpio_pads[];
 extern const int uart_max_index;
 
-static void uart_lpss_init(uintptr_t baseaddr)
+static void uart_lpss_init(const struct device *dev, uintptr_t baseaddr)
 {
+	/* Ensure controller is in D0 state */
+	lpss_set_power_state(dev, STATE_D0);
+
 	/* Take UART out of reset */
 	lpss_reset_release(baseaddr);
 
@@ -45,11 +46,12 @@ static void uart_lpss_init(uintptr_t baseaddr)
 			CONFIG_SOC_INTEL_COMMON_LPSS_UART_CLK_N_VAL);
 }
 
-#if IS_ENABLED(CONFIG_DRIVERS_UART_8250MEM)
+#if CONFIG(INTEL_LPSS_UART_FOR_CONSOLE)
 uintptr_t uart_platform_base(int idx)
 {
-	/* return Base address for UART console index */
-	return UART_BASE_0_ADDR(idx);
+	if (idx == CONFIG_UART_FOR_CONSOLE)
+		return CONFIG_CONSOLE_UART_BASE_ADDRESS;
+	return 0;
 }
 #endif
 
@@ -66,15 +68,13 @@ static int uart_get_valid_index(void)
 	return UART_CONSOLE_INVALID_INDEX;
 }
 
-void uart_common_init(struct device *device, uintptr_t baseaddr)
+void uart_common_init(const struct device *device, uintptr_t baseaddr)
 {
 #if defined(__SIMPLE_DEVICE__)
-	pci_devfn_t dev = (pci_devfn_t)(uintptr_t)device;
+	pci_devfn_t dev = PCI_BDF(device);
 #else
-	struct device *dev = device;
+	const struct device *dev = device;
 #endif
-	if (!dev)
-		return;
 
 	/* Set UART base address */
 	pci_write_config32(dev, PCI_BASE_ADDRESS_0, baseaddr);
@@ -82,17 +82,17 @@ void uart_common_init(struct device *device, uintptr_t baseaddr)
 	/* Enable memory access and bus master */
 	pci_write_config32(dev, PCI_COMMAND, UART_PCI_ENABLE);
 
-	uart_lpss_init(baseaddr);
+	uart_lpss_init(device, baseaddr);
 }
 
-struct device *uart_get_device(void)
+const struct device *uart_get_device(void)
 {
 	/*
 	 * This function will get called even if INTEL_LPSS_UART_FOR_CONSOLE
 	 * config option is not selected.
 	 * By default return NULL in this case to avoid compilation errors.
 	 */
-	if (!IS_ENABLED(CONFIG_INTEL_LPSS_UART_FOR_CONSOLE))
+	if (!CONFIG(INTEL_LPSS_UART_FOR_CONSOLE))
 		return NULL;
 
 	int console_index = uart_get_valid_index();
@@ -106,14 +106,16 @@ struct device *uart_get_device(void)
 bool uart_is_controller_initialized(void)
 {
 	uintptr_t base;
+	const struct device *dev_uart = uart_get_device();
+
+	if (!dev_uart)
+		return false;
 
 #if defined(__SIMPLE_DEVICE__)
-	pci_devfn_t dev = (pci_devfn_t)(uintptr_t)uart_get_device();
+	pci_devfn_t dev = PCI_BDF(dev_uart);
 #else
-	struct device *dev = uart_get_device();
+	const struct device *dev = dev_uart;
 #endif
-	if (!dev)
-		return false;
 
 	base = pci_read_config32(dev, PCI_BASE_ADDRESS_0) & ~0xFFF;
 	if (!base)
@@ -137,13 +139,15 @@ static void uart_configure_gpio_pads(void)
 
 void uart_bootblock_init(void)
 {
-	/* Program UART BAR0, command, reset and clock register */
-	uart_common_init(uart_get_device(),
-		UART_BASE(CONFIG_UART_FOR_CONSOLE));
+	const struct device *dev_uart;
 
-	if (!IS_ENABLED(CONFIG_DRIVERS_UART_8250MEM_32))
-		/* Put UART in byte access mode for 16550 compatibility */
-		soc_uart_set_legacy_mode();
+	dev_uart = uart_get_device();
+
+	if (!dev_uart)
+		return;
+
+	/* Program UART BAR0, command, reset and clock register */
+	uart_common_init(dev_uart, CONFIG_CONSOLE_UART_BASE_ADDRESS);
 
 	/* Configure the 2 pads per UART. */
 	uart_configure_gpio_pads();
@@ -156,12 +160,12 @@ static void uart_read_resources(struct device *dev)
 	pci_dev_read_resources(dev);
 
 	/* Set the configured UART base address for the debug port */
-	if (IS_ENABLED(CONFIG_INTEL_LPSS_UART_FOR_CONSOLE) &&
+	if (CONFIG(INTEL_LPSS_UART_FOR_CONSOLE) &&
 	    uart_is_debug_controller(dev)) {
 		struct resource *res = find_resource(dev, PCI_BASE_ADDRESS_0);
 		/* Need to set the base and size for the resource allocator. */
-		res->base = UART_BASE(CONFIG_UART_FOR_CONSOLE);
-		res->size = UART_BASE_SIZE;
+		res->base = CONFIG_CONSOLE_UART_BASE_ADDRESS;
+		res->size = 0x1000;
 		res->flags = IORESOURCE_MEM | IORESOURCE_ASSIGNED |
 				IORESOURCE_FIXED;
 	}
@@ -204,7 +208,7 @@ static bool uart_controller_needs_init(struct device *dev)
 	 * If coreboot has CONSOLE_SERIAL enabled, the skip re-initializing
 	 * controller here.
 	 */
-	if (IS_ENABLED(CONFIG_CONSOLE_SERIAL))
+	if (CONFIG(CONSOLE_SERIAL))
 		return false;
 
 	/* If this device does not correspond to debug port, then skip. */
@@ -230,7 +234,7 @@ static void uart_common_enable_resources(struct device *dev)
 
 		base = pci_read_config32(dev, PCI_BASE_ADDRESS_0) & ~0xFFF;
 		if (base)
-			uart_lpss_init(base);
+			uart_lpss_init(dev, base);
 	}
 }
 
@@ -268,6 +272,9 @@ static const unsigned short pci_device_ids[] = {
 	PCI_DEVICE_ID_INTEL_ICP_UART0,
 	PCI_DEVICE_ID_INTEL_ICP_UART1,
 	PCI_DEVICE_ID_INTEL_ICP_UART2,
+	PCI_DEVICE_ID_INTEL_CMP_UART0,
+	PCI_DEVICE_ID_INTEL_CMP_UART1,
+	PCI_DEVICE_ID_INTEL_CMP_UART2,
 	0,
 };
 

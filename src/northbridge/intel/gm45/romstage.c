@@ -18,14 +18,15 @@
 #include <cbmem.h>
 #include <romstage_handoff.h>
 #include <console/console.h>
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <arch/acpi.h>
 #include <cpu/x86/lapic.h>
-#include <cpu/x86/bist.h>
-#include <cpu/intel/romstage.h>
+#include <arch/romstage.h>
 #include <northbridge/intel/gm45/gm45.h>
 #include <southbridge/intel/i82801ix/i82801ix.h>
 #include <southbridge/intel/common/gpio.h>
+#include <southbridge/intel/common/pmclib.h>
+#include <string.h>
 
 #define LPC_DEV PCI_DEV(0, 0x1f, 0)
 #define MCH_DEV PCI_DEV(0, 0, 0)
@@ -45,7 +46,7 @@ void __weak mb_post_raminit_setup(void)
 /* Platform has no romstage entry point under mainboard directory,
  * so this one is named with prefix mainboard.
  */
-void mainboard_romstage_entry(unsigned long bist)
+void mainboard_romstage_entry(void)
 {
 	sysinfo_t sysinfo;
 	int s3resume = 0;
@@ -55,19 +56,17 @@ void mainboard_romstage_entry(unsigned long bist)
 	/* basic northbridge setup, including MMCONF BAR */
 	gm45_early_init();
 
-	if (bist == 0)
-		enable_lapic();
+	enable_lapic();
 
 	/* First, run everything needed for console output. */
 	i82801ix_early_init();
 	setup_pch_gpios(&mainboard_gpio_map);
 
-	mb_setup_lpc();
+	i82801ix_lpc_decode();
 
 	mb_setup_superio();
 
 	console_init();
-	report_bist_failure(bist);
 
 	reg16 = pci_read_config16(LPC_DEV, D31F0_GEN_PMCON_3);
 	pci_write_config16(LPC_DEV, D31F0_GEN_PMCON_3, reg16);
@@ -80,19 +79,7 @@ void mainboard_romstage_entry(unsigned long bist)
 	DMIBAR16(0x204) &= ~(3 << 10);
 
 	/* Check for S3 resume. */
-	const u32 pm1_cnt = inl(DEFAULT_PMBASE + 0x04);
-	if (((pm1_cnt >> 10) & 7) == 5) {
-		if (acpi_s3_resume_allowed()) {
-			printk(BIOS_DEBUG, "Resume from S3 detected.\n");
-			s3resume = 1;
-			/* Clear SLP_TYPE. This will break stage2 but
-			 * we care for that when we get there.
-			 */
-			outl(pm1_cnt & ~(7 << 10), DEFAULT_PMBASE + 0x04);
-		} else {
-			printk(BIOS_DEBUG, "Resume from S3 detected, but disabled.\n");
-		}
-	}
+	s3resume = southbridge_detect_s3_resume();
 
 	/* RAM initialization */
 	enter_raminit_or_reset();

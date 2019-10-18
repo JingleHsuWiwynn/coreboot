@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
@@ -240,7 +240,7 @@ static void chrome9hd_init(struct device *dev)
 
 	printk(BIOS_DEBUG, "Enable VGA console\n");
 
-	dump_pci_device(dev);
+	dump_pci_device(PCI_BDF(dev));
 }
 
 static void chrome9hd_enable(struct device *dev)

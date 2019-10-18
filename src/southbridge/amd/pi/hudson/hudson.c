@@ -14,15 +14,16 @@
  */
 
 #include <console/console.h>
-
 #include <arch/io.h>
+#include <device/mmio.h>
 #include <arch/acpi.h>
-
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_def.h>
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
+#include <types.h>
+
 #include "hudson.h"
 #include "smbus.h"
 #include "smi.h"
@@ -98,7 +99,7 @@ static void hudson_init_acpi_ports(void)
 	/* CpuControl is in \_PR.CP00, 6 bytes */
 	pm_write16(PM_CPU_CTRL, ACPI_CPU_CONTROL);
 
-	if (IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)) {
+	if (CONFIG(HAVE_SMI_HANDLER)) {
 		pm_write16(PM_ACPI_SMI_CMD, ACPI_SMI_CTL_PORT);
 		hudson_enable_acpi_cmd_smi();
 	} else {
@@ -118,9 +119,9 @@ static void hudson_init(void *chip_info)
 
 static void hudson_final(void *chip_info)
 {
-	if (IS_ENABLED(CONFIG_HUDSON_IMC_FWM)) {
+	if (CONFIG(HUDSON_IMC_FWM)) {
 		agesawrapper_fchecfancontrolservice();
-		if (!IS_ENABLED(CONFIG_ACPI_ENABLE_THERMAL_ZONE))
+		if (!CONFIG(ACPI_ENABLE_THERMAL_ZONE))
 			enable_imc_thermal_zone();
 	}
 }

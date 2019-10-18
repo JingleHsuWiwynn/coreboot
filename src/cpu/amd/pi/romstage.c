@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2017 Kyösti Mälkki
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -40,8 +38,7 @@ void *asmlinkage romstage_main(unsigned long bist)
 
 	romstage_handoff_init(s3resume);
 
-	uintptr_t stack_top = romstage_ram_stack_base(HIGH_ROMSTAGE_STACK_SIZE,
-		ROMSTAGE_STACK_CBMEM);
+	char *stack_top = cbmem_add(CBMEM_ID_ROMSTAGE_RAM_STACK, HIGH_ROMSTAGE_STACK_SIZE);
 	stack_top += HIGH_ROMSTAGE_STACK_SIZE;
 
 	printk(BIOS_DEBUG, "Move CAR stack.\n");

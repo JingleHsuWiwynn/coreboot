@@ -17,7 +17,6 @@
  *
  */
 
-#include <arch/io.h>
 #include <console/console.h>
 #include <delay.h>
 #include <device/device.h>
@@ -28,8 +27,8 @@
 #include <soc/nvidia/tegra/dc.h>
 #include <soc/nvidia/tegra/displayport.h>
 #include <soc/sor.h>
-#include <stdlib.h>
 #include <string.h>
+#include <types.h>
 
 #include "chip.h"
 

@@ -27,6 +27,8 @@
 #include <stdint.h>
 #include <device/pci_def.h>
 #include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <lib.h>
 #include <stdlib.h>
 #include <commonlib/helpers.h>
@@ -41,7 +43,6 @@
 
 #include "raminit.h"
 #include "e7505.h"
-#include "debug.h"
 
 /*-----------------------------------------------------------------------------
 Definitions:
@@ -52,16 +53,14 @@ Definitions:
 // Unfortunately the code seems to chew up several K of space.
 //#define VALIDATE_DIMM_COMPATIBILITY
 
-#if IS_ENABLED(CONFIG_DEBUG_RAM_SETUP)
+#if CONFIG(DEBUG_RAM_SETUP)
 #define RAM_DEBUG_MESSAGE(x)	printk(BIOS_DEBUG, x)
 #define RAM_DEBUG_HEX32(x)	printk(BIOS_DEBUG, "%08x", x)
 #define RAM_DEBUG_HEX8(x)	printk(BIOS_DEBUG, "%02x", x)
-#define DUMPNORTH()		dump_pci_device(MCHDEV)
 #else
 #define RAM_DEBUG_MESSAGE(x)
 #define RAM_DEBUG_HEX32(x)
 #define RAM_DEBUG_HEX8(x)
-#define DUMPNORTH()
 #endif
 
 #define E7501_SDRAM_MODE	(SDRAM_BURST_INTERLEAVED | SDRAM_BURST_4)
@@ -1766,9 +1765,6 @@ static void sdram_set_registers(const struct mem_controller *ctrl)
  */
 void e7505_mch_init(const struct mem_controller *memctrl)
 {
-	RAM_DEBUG_MESSAGE("Northbridge prior to SDRAM init:\n");
-	DUMPNORTH();
-
 	timestamp_add_now(TS_BEFORE_INITRAM);
 
 	sdram_set_registers(memctrl);
@@ -1781,9 +1777,6 @@ void e7505_mch_done(const struct mem_controller *memctrl)
 	sdram_post_ecc(memctrl);
 
 	timestamp_add_now(TS_AFTER_INITRAM);
-
-	RAM_DEBUG_MESSAGE("Northbridge following SDRAM init:\n");
-	DUMPNORTH();
 }
 
 int e7505_mch_is_ready(void)

@@ -17,7 +17,6 @@
 #include <commonlib/helpers.h>
 #include <console/console.h>
 #include <arch/acpi.h>
-#include <arch/io.h>
 #include <stdint.h>
 #include <delay.h>
 #include <cpu/intel/haswell/haswell.h>
@@ -27,9 +26,9 @@
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
 #include <stdlib.h>
-#include <string.h>
 #include <cpu/x86/smm.h>
 #include <boot/tables.h>
+
 #include "chip.h"
 #include "haswell.h"
 
@@ -396,7 +395,7 @@ static void mc_add_dram_resources(struct device *dev, int *resource_cnt)
 	mmio_resource(dev, index++, (0xa0000 >> 10), (0xc0000 - 0xa0000) >> 10);
 	reserved_ram_resource(dev, index++, (0xc0000 >> 10),
 			      (0x100000 - 0xc0000) >> 10);
-#if IS_ENABLED(CONFIG_CHROMEOS_RAMOOPS)
+#if CONFIG(CHROMEOS_RAMOOPS)
 	reserved_ram_resource(dev, index++,
 			CONFIG_CHROMEOS_RAMOOPS_RAM_START >> 10,
 			CONFIG_CHROMEOS_RAMOOPS_RAM_SIZE >> 10);
@@ -469,18 +468,6 @@ static void disable_devices(void)
 	pci_write_config32(host_dev, DEVEN, deven);
 }
 
-static void intel_set_subsystem(struct device *dev, unsigned int vendor,
-				unsigned int device)
-{
-	if (!vendor || !device) {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				pci_read_config32(dev, PCI_VENDOR_ID));
-	} else {
-		pci_write_config32(dev, PCI_SUBSYSTEM_VENDOR_ID,
-				((device & 0xffff) << 16) | (vendor & 0xffff));
-	}
-}
-
 static void northbridge_init(struct device *dev)
 {
 	u8 bios_reset_cpl, pair;
@@ -511,7 +498,7 @@ static void northbridge_init(struct device *dev)
 }
 
 static struct pci_operations intel_pci_ops = {
-	.set_subsystem    = intel_set_subsystem,
+	.set_subsystem    = pci_dev_set_subsystem,
 };
 
 static struct device_operations mc_ops = {
@@ -538,16 +525,11 @@ static const struct pci_driver mc_driver_hsw __pci_driver = {
 	.devices = mc_pci_device_ids,
 };
 
-static void cpu_bus_init(struct device *dev)
-{
-	bsp_init_and_start_aps(dev->link_list);
-}
-
 static struct device_operations cpu_bus_ops = {
 	.read_resources   = DEVICE_NOOP,
 	.set_resources    = DEVICE_NOOP,
 	.enable_resources = DEVICE_NOOP,
-	.init             = cpu_bus_init,
+	.init             = mp_cpu_bus_init,
 	.scan_bus         = 0,
 };
 

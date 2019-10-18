@@ -20,9 +20,7 @@
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
-#include <device/pci_ops.h>
 #include <device/smbus.h>
-#include <arch/io.h>
 #include "mcp55.h"
 #include "smbus.h"
 
@@ -88,7 +86,7 @@ static struct smbus_bus_operations lops_smbus_bus = {
 	.write_byte	= lsmbus_write_byte,
 };
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 unsigned pm_base;
 #endif
 
@@ -107,7 +105,7 @@ static void mcp55_sm_read_resources(struct device *dev)
 
 static void mcp55_sm_init(struct device *dev)
 {
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	struct resource *res;
 
 	res = find_resource(dev, 0x60);

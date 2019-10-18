@@ -16,11 +16,12 @@
 
 #include <assert.h>
 #include <stdint.h>
-#include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <commonlib/helpers.h>
 #include <delay.h>
-#if IS_ENABLED(CONFIG_SOUTHBRIDGE_INTEL_I82801GX)
+#if CONFIG(SOUTHBRIDGE_INTEL_I82801GX)
 #include <southbridge/intel/i82801gx/i82801gx.h>
 #else
 #include <southbridge/intel/i82801jx/i82801jx.h>
@@ -31,17 +32,17 @@
 
 #define ME_UMA_SIZEMB 0
 
-u32 fsb2mhz(u32 speed)
+u32 fsb_to_mhz(u32 speed)
 {
 	return (speed * 267) + 800;
 }
 
-u32 ddr2mhz(u32 speed)
+u32 ddr_to_mhz(u32 speed)
 {
 	static const u16 mhz[] = { 0, 0, 667, 800, 1067, 1333 };
 
-	if (speed >= ARRAY_SIZE(mhz))
-		return 0;
+	if (speed <= 1 || speed >= ARRAY_SIZE(mhz))
+		die("RAM init: invalid memory speed %u\n", speed);
 
 	return mhz[speed];
 }
@@ -412,13 +413,13 @@ static void program_timings(struct sysinfo *s)
 
 	adjusted_cas = s->selected_timings.CAS - 3;
 
-	u16 fsb2ps[3] = {
+	u16 fsb_to_ps[3] = {
 		5000, // 800
 		3750, // 1067
 		3000  // 1333
 	};
 
-	u16 ddr2ps[6] = {
+	u16 ddr_to_ps[6] = {
 		5000, // 400
 		3750, // 533
 		3000, // 667
@@ -572,13 +573,13 @@ static void program_timings(struct sysinfo *s)
 
 		MCHBAR8_AND_OR(0x400*i + 0x246, ~0x1f, (reg8 << 2) | 1);
 
-		fsb = fsb2ps[s->selected_timings.fsb_clk];
-		ddr = ddr2ps[s->selected_timings.mem_clk];
+		fsb = fsb_to_ps[s->selected_timings.fsb_clk];
+		ddr = ddr_to_ps[s->selected_timings.mem_clk];
 		reg32 = (u32)((s->selected_timings.CAS + 7 + reg8) * ddr);
 		reg32 = (u32)((reg32 / fsb) << 8);
 		reg32 |= 0x0e000000;
-		if ((fsb2mhz(s->selected_timings.fsb_clk) /
-		     ddr2mhz(s->selected_timings.mem_clk)) > 2) {
+		if ((fsb_to_mhz(s->selected_timings.fsb_clk) /
+		     ddr_to_mhz(s->selected_timings.mem_clk)) > 2) {
 			reg32 |= 1 << 24;
 		}
 		MCHBAR32_AND_OR(0x400*i + 0x248, ~0x0f001f00, reg32);
@@ -670,7 +671,7 @@ static void program_timings(struct sysinfo *s)
 	if (s->spd_type == DDR3) {
 		MCHBAR8(0x114) = 0x42;
 		reg16 = (512 - MAX(5, s->selected_timings.tRFC + 10000
-					/ ddr2ps[s->selected_timings.mem_clk]))
+					/ ddr_to_ps[s->selected_timings.mem_clk]))
 					/ 2;
 		reg16 &= 0x1ff;
 		reg32 = (reg16 << 22) | (0x80 << 14) | (0xa << 9);
@@ -1316,7 +1317,6 @@ static u32 mirror_shift_bit(const u32 data, u8 bit)
 void send_jedec_cmd(const struct sysinfo *s, u8 r, u8 ch, u8 cmd, u32 val)
 {
 	u32 addr = test_address(ch, r);
-	volatile u32 rubbish;
 	u8 data8 = cmd;
 	u32 data32;
 
@@ -1336,7 +1336,7 @@ void send_jedec_cmd(const struct sysinfo *s, u8 r, u8 ch, u8 cmd, u32 val)
 	}
 	data32 <<= 3;
 
-	rubbish = read32((void *)((data32 | addr)));
+	read32((void *)((data32 | addr)));
 	udelay(10);
 	MCHBAR8_AND_OR(0x271, ~0x3e, NORMALOP_CMD);
 	MCHBAR8_AND_OR(0x671, ~0x3e, NORMALOP_CMD);
@@ -2156,6 +2156,15 @@ void do_raminit(struct sysinfo *s, int fast_boot)
 		MCHBAR32_OR(0x400*ch + 0x268, 0xc0000000);
 	}
 
+	// Dummy reads
+	if (s->boot_path == BOOT_PATH_NORMAL) {
+		FOR_EACH_POPULATED_RANK(s->dimms, ch, r) {
+			for (bank = 0; bank < 4; bank++)
+				read32((u32 *)(test_address(ch, r) | 0x800000 | (bank << 12)));
+		}
+	}
+	printk(BIOS_DEBUG, "Done dummy reads\n");
+
 	// Receive enable
 	sdram_program_receive_enable(s, fast_boot);
 	printk(BIOS_DEBUG, "Done rcven\n");
@@ -2170,28 +2179,6 @@ void do_raminit(struct sysinfo *s, int fast_boot)
 	MCHBAR8_OR(0x5dc, 0x80);
 	MCHBAR8_AND(0x5dc, ~0x80);
 	MCHBAR8_OR(0x5dc, 0x80);
-
-	// Dummy writes / reads
-	if (s->boot_path == BOOT_PATH_NORMAL) {
-		volatile u32 data;
-		FOR_EACH_POPULATED_RANK(s->dimms, ch, r) {
-			for (bank = 0; bank < 4; bank++) {
-				reg32 = test_address(ch, r) |
-					(bank << 12);
-				write32((u32 *)reg32, 0xffffffff);
-				data = read32((u32 *)reg32);
-				printk(BIOS_DEBUG, "Wrote ones,");
-				printk(BIOS_DEBUG, "  Read: [0x%08x]=0x%08x\n",
-					reg32, data);
-				write32((u32 *)reg32, 0x00000000);
-				data = read32((u32 *)reg32);
-				printk(BIOS_DEBUG, "Wrote zeros,");
-				printk(BIOS_DEBUG, " Read: [0x%08x]=0x%08x\n",
-					reg32, data);
-			}
-		}
-	}
-	printk(BIOS_DEBUG, "Done dummy reads\n");
 
 	// XXX tRD
 

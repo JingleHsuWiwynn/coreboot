@@ -17,10 +17,10 @@
 #ifndef H3NCMN_H
 #define H3NCMN_H
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <device/pci.h>
-#include <console/console.h>
 #include <cpu/amd/msr.h>
+
 #include "comlib.h"
 #include "h3finit.h"
 #include "h3ffeat.h"

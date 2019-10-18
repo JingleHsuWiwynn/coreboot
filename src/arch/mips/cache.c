@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2014 Imagination Technologies
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -111,5 +109,6 @@ void arch_segment_loaded(uintptr_t start, size_t size, int flags)
 {
 	cache_invalidate_all(start, size);
 	if (flags & SEG_FINAL)
-		cache_invalidate_all((uintptr_t)_cbfs_cache, _cbfs_cache_size);
+		cache_invalidate_all((uintptr_t)_cbfs_cache,
+				     REGION_SIZE(cbfs_cache));
 }

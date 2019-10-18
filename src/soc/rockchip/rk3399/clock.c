@@ -15,6 +15,7 @@
 
 #include <assert.h>
 #include <console/console.h>
+#include <device/mmio.h>
 #include <delay.h>
 #include <soc/addressmap.h>
 #include <soc/clock.h>
@@ -659,7 +660,7 @@ void rkclk_configure_ddr(unsigned int hz)
 	}
 	rkclk_set_pll(&cru_ptr->dpll_con[0], &dpll_cfg);
 
-	if (IS_ENABLED(CONFIG_RK3399_SPREAD_SPECTRUM_DDR))
+	if (CONFIG(RK3399_SPREAD_SPECTRUM_DDR))
 		rkclk_set_dpllssc(&dpll_cfg);
 }
 

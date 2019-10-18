@@ -1,8 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright 2012 Google Inc.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -16,10 +14,9 @@
 #ifndef __ARCH_CPU_H__
 #define __ARCH_CPU_H__
 
-#define asmlinkage
-
-#if !defined(__PRE_RAM__)
 #include <device/device.h>
+
+#define asmlinkage
 
 struct cpu_driver {
 	struct device_operations *ops;
@@ -31,7 +28,7 @@ struct thread;
 struct cpu_info {
 	struct device *cpu;
 	unsigned long index;
-#if IS_ENABLED(CONFIG_COOP_MULTITASKING)
+#if CONFIG(COOP_MULTITASKING)
 	struct thread *thread;
 #endif
 };
@@ -42,7 +39,6 @@ struct cpuinfo_ppc64 {
 	uint8_t    ppc64_model;
 };
 
-#endif
-
 struct cpu_info *cpu_info(void);
+
 #endif /* __ARCH_CPU_H__ */

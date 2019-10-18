@@ -18,17 +18,18 @@
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
+#include <device/pci_ops.h>
 #include <device/pci_ids.h>
 #include <pc80/isa-dma.h>
 #include <pc80/mc146818rtc.h>
 #include <arch/ioapic.h>
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 #include <arch/acpi.h>
 #include <arch/acpigen.h>
 #endif
 #include "i82371eb.h"
 
-#if IS_ENABLED(CONFIG_IOAPIC)
+#if CONFIG(IOAPIC)
 static void enable_intel_82093aa_ioapic(void)
 {
 	u16 reg16;
@@ -84,7 +85,7 @@ static void isa_init(struct device *dev)
 	/* Initialize ISA DMA. */
 	isa_dma_init();
 
-#if IS_ENABLED(CONFIG_IOAPIC)
+#if CONFIG(IOAPIC)
 	/*
 	 * Unlike most other southbridges the 82371EB doesn't have a built-in
 	 * IOAPIC. Instead, 82371EB-based boards that support multiple CPUs
@@ -115,7 +116,7 @@ static void sb_read_resources(struct device *dev)
 	res->flags = IORESOURCE_MEM | IORESOURCE_ASSIGNED | IORESOURCE_FIXED |
 		IORESOURCE_RESERVE;
 
-#if IS_ENABLED(CONFIG_IOAPIC)
+#if CONFIG(IOAPIC)
 	res = new_resource(dev, 3); /* IOAPIC */
 	res->base = IO_APIC_ADDR;
 	res->size = 0x00001000;
@@ -124,7 +125,7 @@ static void sb_read_resources(struct device *dev)
 #endif
 }
 
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 static void southbridge_acpi_fill_ssdt_generator(struct device *device)
 {
 	acpigen_write_mainboard_resources("\\_SB.PCI0.MBRS", "_CRS");
@@ -136,12 +137,12 @@ static const struct device_operations isa_ops = {
 	.read_resources		= sb_read_resources,
 	.set_resources		= pci_dev_set_resources,
 	.enable_resources	= pci_dev_enable_resources,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.write_acpi_tables      = acpi_write_hpet,
 	.acpi_fill_ssdt_generator = southbridge_acpi_fill_ssdt_generator,
 #endif
 	.init			= isa_init,
-	.scan_bus		= scan_lpc_bus,	/* TODO: Needed? */
+	.scan_bus		= scan_static_bus,
 	.enable			= 0,
 	.ops_pci		= 0, /* No subsystem IDs on 82371EB! */
 };

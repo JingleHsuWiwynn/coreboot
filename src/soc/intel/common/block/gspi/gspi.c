@@ -14,16 +14,16 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/early_variables.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <assert.h>
 #include <console/console.h>
 #include <delay.h>
 #include <device/device.h>
 #include <device/pci_def.h>
 #include <device/pci_ops.h>
-#include <intelblocks/chip.h>
+#include <intelblocks/cfg.h>
 #include <intelblocks/gspi.h>
+#include <intelblocks/lpss.h>
 #include <intelblocks/spi.h>
 #include <soc/iomap.h>
 #include <soc/pci_devs.h>
@@ -262,15 +262,13 @@ static uint32_t gspi_get_bus_clk_mhz(unsigned int gspi_bus)
 	return cfg[gspi_bus].speed_mhz;
 }
 
-static uintptr_t gspi_base[CONFIG_SOC_INTEL_COMMON_BLOCK_GSPI_MAX] CAR_GLOBAL;
+static uintptr_t gspi_base[CONFIG_SOC_INTEL_COMMON_BLOCK_GSPI_MAX];
 static uintptr_t gspi_get_bus_base_addr(unsigned int gspi_bus)
 {
-	uintptr_t *base = car_get_var_ptr(gspi_base);
+	if (!gspi_base[gspi_bus])
+		gspi_base[gspi_bus] = gspi_calc_base_addr(gspi_bus);
 
-	if (!base[gspi_bus])
-		base[gspi_bus] = gspi_calc_base_addr(gspi_bus);
-
-	return base[gspi_bus];
+	return gspi_base[gspi_bus];
 }
 
 /* Parameters for GSPI controller operation. */
@@ -355,7 +353,7 @@ static uint32_t gspi_csctrl_state_v1(uint32_t pol, enum cs_assert cs_assert)
 
 static uint32_t gspi_csctrl_state(uint32_t pol, enum cs_assert cs_assert)
 {
-	if (IS_ENABLED(CONFIG_SOC_INTEL_COMMON_BLOCK_GSPI_VERSION_2))
+	if (CONFIG(SOC_INTEL_COMMON_BLOCK_GSPI_VERSION_2))
 		return gspi_csctrl_state_v2(pol, cs_assert);
 
 	return gspi_csctrl_state_v1(pol, cs_assert);
@@ -379,7 +377,7 @@ static uint32_t gspi_csctrl_polarity_v1(enum spi_polarity active_pol)
 
 static uint32_t gspi_csctrl_polarity(enum spi_polarity active_pol)
 {
-	if (IS_ENABLED(CONFIG_SOC_INTEL_COMMON_BLOCK_GSPI_VERSION_2))
+	if (CONFIG(SOC_INTEL_COMMON_BLOCK_GSPI_VERSION_2))
 		return gspi_csctrl_polarity_v2(active_pol);
 
 	return gspi_csctrl_polarity_v1(active_pol);
@@ -437,9 +435,11 @@ static uint32_t gspi_get_clk_div(unsigned int gspi_bus)
 {
 	const uint32_t ref_clk_mhz =
 		CONFIG_SOC_INTEL_COMMON_BLOCK_GSPI_CLOCK_MHZ;
-	const uint32_t gspi_clk_mhz = gspi_get_bus_clk_mhz(gspi_bus);
+	uint32_t gspi_clk_mhz = gspi_get_bus_clk_mhz(gspi_bus);
 
-	assert(gspi_clk_mhz != 0);
+	if (!gspi_clk_mhz)
+		gspi_clk_mhz = 1;
+
 	assert(ref_clk_mhz != 0);
 	return (DIV_ROUND_UP(ref_clk_mhz, gspi_clk_mhz) - 1) & SSCR0_SCR_MASK;
 }
@@ -447,8 +447,10 @@ static uint32_t gspi_get_clk_div(unsigned int gspi_bus)
 static int gspi_ctrlr_setup(const struct spi_slave *dev)
 {
 	struct spi_cfg cfg;
+	int devfn;
 	uint32_t cs_ctrl, sscr0, sscr1, clocks, sitf, sirf, pol;
 	struct gspi_ctrlr_params params, *p = &params;
+	const struct device *device;
 
 	/* Only chip select 0 is supported. */
 	if (dev->cs != 0) {
@@ -466,6 +468,16 @@ static int gspi_ctrlr_setup(const struct spi_slave *dev)
 			__func__, p->gspi_bus);
 		return -1;
 	}
+
+	devfn = gspi_soc_bus_to_devfn(p->gspi_bus);
+	/*
+	 * devfn is already validated as part of gspi_ctrlr_params_init.
+	 * No need to revalidate it again.
+	 */
+	device = pcidev_path_on_root(devfn);
+
+	/* Ensure controller is in D0 state */
+	lpss_set_power_state(device, STATE_D0);
 
 	/* Take controller out of reset, keeping DMA in reset. */
 	gspi_write_mmio_reg(p, RESETS, CTRLR_ACTIVE | DMA_RESET);

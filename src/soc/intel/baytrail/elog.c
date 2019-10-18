@@ -14,14 +14,12 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <arch/acpi.h>
 #include <stdint.h>
 #include <console/console.h>
 #include <cbmem.h>
 #include <device/device.h>
 #include <device/pci.h>
-#include <device/pci_ops.h>
 #include <elog.h>
 #include <soc/iomap.h>
 #include <soc/pmc.h>

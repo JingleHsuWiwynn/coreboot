@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <boot/coreboot_tables.h>
 #include <console/uart.h>
 #include <device/device.h>
@@ -31,7 +31,7 @@
 #define SINGLE_CHAR_TIMEOUT	(50 * 1000)
 #define FIFO_TIMEOUT		(16 * SINGLE_CHAR_TIMEOUT)
 
-#if IS_ENABLED(CONFIG_DRIVERS_UART_8250MEM_32)
+#if CONFIG(DRIVERS_UART_8250MEM_32)
 static uint8_t uart8250_read(void *base, uint8_t reg)
 {
 	return read32(base + 4 * reg) & 0xff;
@@ -147,7 +147,6 @@ void uart_tx_flush(int idx)
 	uart8250_mem_tx_flush(base);
 }
 
-#if ENV_RAMSTAGE
 void uart_fill_lb(void *data)
 {
 	struct lb_serial serial;
@@ -156,7 +155,7 @@ void uart_fill_lb(void *data)
 	if (!serial.baseaddr)
 		return;
 	serial.baud = get_uart_baudrate();
-	if (IS_ENABLED(CONFIG_DRIVERS_UART_8250MEM_32))
+	if (CONFIG(DRIVERS_UART_8250MEM_32))
 		serial.regwidth = sizeof(uint32_t);
 	else
 		serial.regwidth = sizeof(uint8_t);
@@ -166,4 +165,3 @@ void uart_fill_lb(void *data)
 
 	lb_add_console(LB_TAG_CONSOLE_SERIAL8250MEM, data);
 }
-#endif

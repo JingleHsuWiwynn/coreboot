@@ -13,28 +13,24 @@
  * GNU General Public License for more details.
  */
 
-#include <string.h>
+#include <boot/coreboot_tables.h>
 #include <vendorcode/google/chromeos/chromeos.h>
 #include <soc/gpio.h>
 
 /* SPI Write protect is GPIO 16 */
 #define CROS_WP_GPIO	58
 
-#ifndef __PRE_RAM__
-#include <boot/coreboot_tables.h>
-
 void fill_lb_gpios(struct lb_gpios *gpios)
 {
 	struct lb_gpio chromeos_gpios[] = {
-		{CROS_WP_GPIO, ACTIVE_HIGH, 0, "write protect"},
-		{-1, ACTIVE_HIGH, get_recovery_mode_switch(), "recovery"},
+		{CROS_WP_GPIO, ACTIVE_HIGH, get_write_protect_state(),
+		 "write protect"},
 		{-1, ACTIVE_HIGH, get_lid_switch(), "lid"},
 		{-1, ACTIVE_HIGH, 0, "power"},
 		{-1, ACTIVE_HIGH, gfx_get_init_done(), "oprom"},
 	};
 	lb_add_gpios(gpios, chromeos_gpios, ARRAY_SIZE(chromeos_gpios));
 }
-#endif
 
 int get_write_protect_state(void)
 {

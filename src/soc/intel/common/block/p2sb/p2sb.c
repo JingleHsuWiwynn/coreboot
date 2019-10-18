@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <console/console.h>
 #include <device/device.h>
 #include <device/pci.h>
@@ -36,7 +36,8 @@ static pci_devfn_t p2sb_get_device(void)
 	pci_devfn_t dev = PCI_DEV(0, PCI_SLOT(devfn), PCI_FUNC(devfn));
 
 	if (dev == PCI_DEV_INVALID)
-		die("PCH_DEV_P2SB not found!\n");
+		die_with_post_code(POST_HW_INIT_FAILURE,
+				   "PCH_DEV_P2SB not found!\n");
 
 	return dev;
 }
@@ -45,7 +46,8 @@ static struct device *p2sb_get_device(void)
 {
 	struct device *dev = PCH_DEV_P2SB;
 	if (!dev)
-		die("PCH_DEV_P2SB not found!\n");
+		die_with_post_code(POST_HW_INIT_FAILURE,
+				   "PCH_DEV_P2SB not found!\n");
 
 	return dev;
 }
@@ -99,7 +101,8 @@ void p2sb_unhide(void)
 
 	if (pci_read_config16(P2SB_GET_DEV, PCI_VENDOR_ID) !=
 			PCI_VENDOR_ID_INTEL)
-		die("Unable to unhide PCH_DEV_P2SB device !\n");
+		die_with_post_code(POST_HW_INIT_FAILURE,
+				   "Unable to unhide PCH_DEV_P2SB device !\n");
 }
 
 void p2sb_hide(void)
@@ -108,7 +111,8 @@ void p2sb_hide(void)
 
 	if (pci_read_config16(P2SB_GET_DEV, PCI_VENDOR_ID) !=
 			0xFFFF)
-		die("Unable to hide PCH_DEV_P2SB device !\n");
+		die_with_post_code(POST_HW_INIT_FAILURE,
+				   "Unable to hide PCH_DEV_P2SB device !\n");
 }
 
 static void p2sb_configure_endpoints(int epmask_id, uint32_t mask)
@@ -151,6 +155,8 @@ static void read_resources(struct device *dev)
 	/*
 	 * There's only one resource on the P2SB device. It's also already
 	 * manually set to a fixed address in earlier boot stages.
+	 * The following code makes sure that it doesn't change if the device
+	 * is visible and the resource allocator is being run.
 	 */
 	mmio_resource(dev, PCI_BASE_ADDRESS_0, P2SB_BAR / KiB, P2SB_SIZE / KiB);
 }
@@ -164,9 +170,15 @@ static const struct device_operations device_ops = {
 static const unsigned short pci_device_ids[] = {
 	PCI_DEVICE_ID_INTEL_APL_P2SB,
 	PCI_DEVICE_ID_INTEL_GLK_P2SB,
+	PCI_DEVICE_ID_INTEL_LWB_P2SB,
+	PCI_DEVICE_ID_INTEL_LWB_P2SB_SUPER,
+	PCI_DEVICE_ID_INTEL_SKL_LP_P2SB,
+	PCI_DEVICE_ID_INTEL_SKL_P2SB,
+	PCI_DEVICE_ID_INTEL_KBL_P2SB,
 	PCI_DEVICE_ID_INTEL_CNL_P2SB,
 	PCI_DEVICE_ID_INTEL_CNP_H_P2SB,
 	PCI_DEVICE_ID_INTEL_ICL_P2SB,
+	PCI_DEVICE_ID_INTEL_CMP_P2SB,
 	0,
 };
 

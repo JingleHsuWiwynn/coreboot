@@ -15,6 +15,8 @@
  * GNU General Public License for more details.
  */
 
+#include <console/console.h>
+#include <device/pci_ops.h>
 #include <soc/acpi.h>
 #include <soc/ramstage.h>
 

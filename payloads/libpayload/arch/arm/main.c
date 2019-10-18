@@ -30,7 +30,7 @@
 #include <exception.h>
 #include <libpayload.h>
 
-unsigned int main_argc;    /**< The argc value to pass to main() */
+int main_argc;    /**< The argc value to pass to main() */
 
 /** The argv value to pass to main() */
 char *main_argv[MAX_ARGC_COUNT];
@@ -48,7 +48,7 @@ void start_main(void)
 	lib_get_sysinfo();
 
 	/* Optionally set up the consoles. */
-#if !IS_ENABLED(CONFIG_LP_SKIP_CONSOLE_INIT)
+#if !CONFIG(LP_SKIP_CONSOLE_INIT)
 	console_init();
 #endif
 

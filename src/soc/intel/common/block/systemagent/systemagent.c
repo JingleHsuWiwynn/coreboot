@@ -14,13 +14,14 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/pci_ops.h>
 #include <cbmem.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <intelblocks/acpi.h>
 #include <intelblocks/systemagent.h>
+#include <smbios.h>
 #include <soc/iomap.h>
 #include <soc/pci_devs.h>
 #include <soc/systemagent.h>
@@ -160,7 +161,7 @@ static void sa_add_dram_resources(struct device *dev, int *resource_count)
 	uintptr_t top_of_ram;
 	int index = *resource_count;
 
-	if (IS_ENABLED(CONFIG_SA_ENABLE_DPR))
+	if (CONFIG(SA_ENABLE_DPR))
 		dpr_size = sa_get_dpr_size();
 
 	/* Get SoC reserve memory size as per user selection */
@@ -270,10 +271,41 @@ static void systemagent_read_resources(struct device *dev)
 	soc_add_fixed_mmio_resources(dev, &index);
 	/* Calculate and add DRAM resources. */
 	sa_add_dram_resources(dev, &index);
-	if (IS_ENABLED(CONFIG_SA_ENABLE_IMR))
+	if (CONFIG(SA_ENABLE_IMR))
 		/* Add the isolated memory ranges (IMRs). */
 		sa_add_imr_resources(dev, &index);
 }
+
+#if CONFIG(GENERATE_SMBIOS_TABLES)
+static int sa_smbios_write_type_16(struct device *dev, int *handle,
+		unsigned long *current)
+{
+	struct smbios_type16 *t = (struct smbios_type16 *)*current;
+	int len = sizeof(struct smbios_type16);
+
+	struct memory_info *meminfo;
+	meminfo = cbmem_find(CBMEM_ID_MEMINFO);
+	if (meminfo == NULL)
+		return 0;	/* can't find mem info in cbmem */
+
+	memset(t, 0, sizeof(struct smbios_type16));
+	t->type = SMBIOS_PHYS_MEMORY_ARRAY;
+	t->handle = *handle;
+	t->length = len - 2;
+	t->location = MEMORY_ARRAY_LOCATION_SYSTEM_BOARD;
+	t->use = MEMORY_ARRAY_USE_SYSTEM;
+	/* TBD, meminfo hob have information about ECC */
+	t->memory_error_correction = MEMORY_ARRAY_ECC_NONE;
+	/* no error information handle available */
+	t->memory_error_information_handle = 0xFFFE;
+	t->maximum_capacity = 32 * (GiB / KiB); /* 32GB as default */
+	t->number_of_memory_devices = meminfo->dimm_cnt;
+
+	*current += len;
+	*handle += 1;
+	return len;
+}
+#endif
 
 void enable_power_aware_intr(void)
 {
@@ -292,8 +324,11 @@ static struct device_operations systemagent_ops = {
 	.enable_resources = pci_dev_enable_resources,
 	.init             = soc_systemagent_init,
 	.ops_pci          = &pci_dev_ops_pci,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.write_acpi_tables = sa_write_acpi_tables,
+#endif
+#if CONFIG(GENERATE_SMBIOS_TABLES)
+	.get_smbios_data = sa_smbios_write_type_16,
 #endif
 };
 
@@ -305,9 +340,12 @@ static const unsigned short systemagent_ids[] = {
 	PCI_DEVICE_ID_INTEL_SKL_ID_U,
 	PCI_DEVICE_ID_INTEL_SKL_ID_Y,
 	PCI_DEVICE_ID_INTEL_SKL_ID_ULX,
-	PCI_DEVICE_ID_INTEL_SKL_ID_H,
-	PCI_DEVICE_ID_INTEL_WHL_ID_Wx2,
-	PCI_DEVICE_ID_INTEL_WHL_ID_Wx4,
+	PCI_DEVICE_ID_INTEL_SKL_ID_H_4,
+	PCI_DEVICE_ID_INTEL_SKL_ID_H_2,
+	PCI_DEVICE_ID_INTEL_SKL_ID_S_2,
+	PCI_DEVICE_ID_INTEL_SKL_ID_S_4,
+	PCI_DEVICE_ID_INTEL_WHL_ID_W_2,
+	PCI_DEVICE_ID_INTEL_WHL_ID_W_4,
 	PCI_DEVICE_ID_INTEL_KBL_ID_S,
 	PCI_DEVICE_ID_INTEL_SKL_ID_H_EM,
 	PCI_DEVICE_ID_INTEL_KBL_ID_U,
@@ -315,13 +353,34 @@ static const unsigned short systemagent_ids[] = {
 	PCI_DEVICE_ID_INTEL_KBL_ID_H,
 	PCI_DEVICE_ID_INTEL_KBL_U_R,
 	PCI_DEVICE_ID_INTEL_KBL_ID_DT,
+	PCI_DEVICE_ID_INTEL_KBL_ID_DT_2,
 	PCI_DEVICE_ID_INTEL_CFL_ID_U,
+	PCI_DEVICE_ID_INTEL_CFL_ID_U_2,
 	PCI_DEVICE_ID_INTEL_CFL_ID_H,
+	PCI_DEVICE_ID_INTEL_CFL_ID_H_4,
+	PCI_DEVICE_ID_INTEL_CFL_ID_H_8,
 	PCI_DEVICE_ID_INTEL_CFL_ID_S,
+	PCI_DEVICE_ID_INTEL_CFL_ID_S_DT_2,
+	PCI_DEVICE_ID_INTEL_CFL_ID_S_DT_4,
+	PCI_DEVICE_ID_INTEL_CFL_ID_S_DT_8,
+	PCI_DEVICE_ID_INTEL_CFL_ID_S_WS_4,
+	PCI_DEVICE_ID_INTEL_CFL_ID_S_WS_6,
+	PCI_DEVICE_ID_INTEL_CFL_ID_S_WS_8,
+	PCI_DEVICE_ID_INTEL_CFL_ID_S_S_4,
+	PCI_DEVICE_ID_INTEL_CFL_ID_S_S_6,
+	PCI_DEVICE_ID_INTEL_CFL_ID_S_S_8,
 	PCI_DEVICE_ID_INTEL_ICL_ID_U,
 	PCI_DEVICE_ID_INTEL_ICL_ID_U_2_2,
 	PCI_DEVICE_ID_INTEL_ICL_ID_Y,
 	PCI_DEVICE_ID_INTEL_ICL_ID_Y_2,
+	PCI_DEVICE_ID_INTEL_CML_ULT,
+	PCI_DEVICE_ID_INTEL_CML_ULT_2_2,
+	PCI_DEVICE_ID_INTEL_CML_ULT_6_2,
+	PCI_DEVICE_ID_INTEL_CML_ULX,
+	PCI_DEVICE_ID_INTEL_CML_S,
+	PCI_DEVICE_ID_INTEL_CML_S_10_2,
+	PCI_DEVICE_ID_INTEL_CML_H,
+	PCI_DEVICE_ID_INTEL_CML_H_8_2,
 	0
 };
 

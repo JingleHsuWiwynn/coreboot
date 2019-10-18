@@ -272,21 +272,23 @@ uhci_stop (hci_t *controller)
 			 uhci_reg_read16(controller, USBCMD) & ~1);	// stop work on schedule
 }
 
+#define UHCI_SLEEP_TIME_US 30
+#define UHCI_TIMEOUT (USB_MAX_PROCESSING_TIME_US / UHCI_SLEEP_TIME_US)
 #define GET_TD(x) ((void*)(((unsigned int)(x))&~0xf))
 
 static td_t *
 wait_for_completed_qh (hci_t *controller, qh_t *qh)
 {
-	int timeout = 1000;	/* max 30 ms. */
+	int timeout = UHCI_TIMEOUT;
 	void *current = GET_TD (qh->elementlinkptr);
 	while (((qh->elementlinkptr & FLISTP_TERMINATE) == 0) && (timeout-- > 0)) {
 		if (current != GET_TD (qh->elementlinkptr)) {
 			current = GET_TD (qh->elementlinkptr);
-			timeout = 1000;
+			timeout = UHCI_TIMEOUT;
 		}
 		uhci_reg_write16(controller, USBSTS,
 				 uhci_reg_read16(controller, USBSTS) | 0);	// clear resettable registers
-		udelay (30);
+		udelay(UHCI_SLEEP_TIME_US);
 	}
 	return (GET_TD (qh->elementlinkptr) ==
 		0) ? 0 : GET_TD (phys_to_virt (qh->elementlinkptr));
@@ -317,6 +319,8 @@ uhci_control (usbdev_t *dev, direction_t dir, int drlen, void *devreq, int dalen
 	unsigned short req = ((unsigned short *) devreq)[0];
 	int i;
 	td_t *tds = memalign (16, sizeof (td_t) * count);
+	if (!tds)
+		fatal("Not enough memory for uhci control.\n");
 	memset (tds, 0, sizeof (td_t) * count);
 	count--;		/* to compensate for 0-indexed array */
 	for (i = 0; i < count; i++) {
@@ -386,6 +390,8 @@ create_schedule (int numpackets)
 	if (numpackets == 0)
 		return 0;
 	td_t *tds = memalign (16, sizeof (td_t) * numpackets);
+	if (!tds)
+		fatal("Not enough memory for packets scheduling.\n");
 	memset (tds, 0, sizeof (td_t) * numpackets);
 	int i;
 	for (i = 0; i < numpackets; i++) {

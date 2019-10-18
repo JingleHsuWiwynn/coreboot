@@ -15,12 +15,10 @@
  */
 
 #include <arch/acpi.h>
-#include <arch/io.h>
 #include <console/console.h>
 #include <cpu/x86/smm.h>
 #include <soc/pm.h>
 #include <soc/smm.h>
-#include <elog.h>
 #include <ec/google/chromeec/ec.h>
 #include <soc/gpio.h>
 #include <soc/iomap.h>
@@ -60,7 +58,7 @@ void mainboard_smi_sleep(u8 slp_typ)
 		set_power_led(LED_BLINK);
 
 		/* Enable DCP mode */
-		if (IS_ENABLED(CONFIG_BOARD_GOOGLE_TIDUS)) {
+		if (CONFIG(BOARD_GOOGLE_TIDUS)) {
 			set_gpio(GPIO_USB_CTL_1, 0);
 		}
 		break;

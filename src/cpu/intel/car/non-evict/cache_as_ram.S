@@ -1,10 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2000,2007 Ronald G. Minnich <rminnich@gmail.com>
- * Copyright (C) 2007-2008 coresystems GmbH
- * Copyright (C) 2012 Kyösti Mälkki <kyosti.malkki@gmail.com>
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -32,6 +28,11 @@
 _cache_as_ram_setup:
 
 bootblock_pre_c_entry:
+
+#if CONFIG(C_ENVIRONMENT_BOOTBLOCK)
+	movl	$cache_as_ram, %esp /* return address */
+	jmp	check_mtrr /* Check if CPU properly reset */
+#endif
 
 cache_as_ram:
 	post_code(0x20)
@@ -134,7 +135,7 @@ addrsize_set_high:
 	orl	$MTRR_DEF_TYPE_EN, %eax
 	wrmsr
 
-#if IS_ENABLED(CONFIG_CPU_HAS_L2_ENABLE_MSR)
+#if CONFIG(CPU_HAS_L2_ENABLE_MSR)
 	/*
 	 * Enable the L2 cache. Currently this assumes that this
 	 * only affect socketed CPU's for which this is always valid,
@@ -152,7 +153,7 @@ addrsize_set_high:
 	invd
 	movl	%eax, %cr0
 
-#if IS_ENABLED(CONFIG_MICROCODE_UPDATE_PRE_RAM)
+#if CONFIG(MICROCODE_UPDATE_PRE_RAM)
 update_microcode:
 	/* put the return address in %esp */
 	movl	$end_microcode_update, %esp

@@ -18,8 +18,11 @@
 #include <console/console.h>
 #include <string.h>
 #include <arch/io.h>
+#include <device/mmio.h>
+#include <device/pci_ops.h>
 #include <cpu/x86/msr.h>
 #include <cbmem.h>
+#include <cf9_reset.h>
 #include <arch/cbfs.h>
 #include <ip_checksum.h>
 #include <pc80/mc146818rtc.h>
@@ -27,18 +30,20 @@
 #include <device/device.h>
 #include <halt.h>
 #include <spd.h>
-#include "raminit.h"
-#include "chip.h"
 #include <timestamp.h>
 #include <cpu/x86/mtrr.h>
 #include <cpu/intel/speedstep.h>
 #include <cpu/intel/turbo.h>
 #include <mrc_cache.h>
-
-#include "nehalem.h"
-
 #include <southbridge/intel/ibexpeak/me.h>
+#include <southbridge/intel/common/pmbase.h>
 #include <delay.h>
+#include <types.h>
+
+#include "chip.h"
+#include "nehalem.h"
+#include "raminit.h"
+#include "raminit_tables.h"
 
 #define NORTHBRIDGE PCI_DEV(0, 0, 0)
 #define SOUTHBRIDGE PCI_DEV(0, 0x1f, 0)
@@ -354,8 +359,6 @@ const int cached_config = 0;
 #define RANK_SHIFT 28
 #define CHANNEL_SHIFT 10
 
-#include "raminit_tables.c"
-
 static void seq9(struct raminfo *info, int channel, int slot, int rank)
 {
 	int i, lane;
@@ -592,6 +595,8 @@ static void calculate_timings(struct raminfo *info)
 					info->
 					spd[channel][slot][CAS_LATENCY_TIME]);
 			}
+	if (cycletime > min_cycletime[0])
+		die("RAM init: Decoded SPD DRAM freq is slower than the controller minimum!");
 	for (clock_speed_index = 0; clock_speed_index < 3; clock_speed_index++) {
 		if (cycletime == min_cycletime[clock_speed_index])
 			break;
@@ -1006,6 +1011,9 @@ static void compute_derived_timings(struct raminfo *info)
 					max_of_unk = max(max_of_unk, unk1 - t);
 			}
 		}
+
+		if (count == 0)
+			die("No memory ranks found for channel %u\n", channel);
 
 		info->avg4044[channel] = sum / count;
 		info->max4048[channel] = max_of_unk;
@@ -1428,14 +1436,17 @@ static void program_total_memory_map(struct raminfo *info)
 		memory_map[2] = TOUUD | 1;
 	quickpath_reserved = 0;
 
-	{
-		u32 t;
+	u32 t = pci_read_config32(PCI_DEV(QUICKPATH_BUS, 0, 1), 0x68);
 
-		gav(t = pci_read_config32(PCI_DEV(QUICKPATH_BUS, 0, 1), 0x68));
-		if (t & 0x800)
-			quickpath_reserved =
-			    (1 << find_lowest_bit_set32(t >> 20));
+	gav(t);
+
+	if (t & 0x800) {
+		u32 shift = t >> 20;
+		if (shift == 0)
+			die("Quickpath value is 0\n");
+		quickpath_reserved = (u32)1 << find_lowest_bit_set32(shift);
 	}
+
 	if (memory_remap)
 		TOUUD -= quickpath_reserved;
 
@@ -1566,14 +1577,14 @@ static void write_training_data(struct raminfo *info)
 static void dump_timings(struct raminfo *info)
 {
 	int channel, slot, rank, lane, i;
-	printk(BIOS_DEBUG, "Timings:\n");
+	printk(RAM_SPEW, "Timings:\n");
 	FOR_POPULATED_RANKS {
-		printk(BIOS_DEBUG, "channel %d, slot %d, rank %d\n", channel,
+		printk(RAM_SPEW, "channel %d, slot %d, rank %d\n", channel,
 		       slot, rank);
 		for (lane = 0; lane < 9; lane++) {
-			printk(BIOS_DEBUG, "lane %d: ", lane);
+			printk(RAM_SPEW, "lane %d: ", lane);
 			for (i = 0; i < 4; i++) {
-				printk(BIOS_DEBUG, "%x (%x) ",
+				printk(RAM_SPEW, "%x (%x) ",
 				       read_500(info, channel,
 						get_timing_register_addr
 						(lane, i, slot, rank),
@@ -1582,12 +1593,12 @@ static void dump_timings(struct raminfo *info)
 				       lane_timings[i][channel][slot][rank]
 				       [lane]);
 			}
-			printk(BIOS_DEBUG, "\n");
+			printk(RAM_SPEW, "\n");
 		}
 	}
-	printk(BIOS_DEBUG, "[178] = %x (%x)\n", read_1d0(0x178, 7),
+	printk(RAM_SPEW, "[178] = %x (%x)\n", read_1d0(0x178, 7),
 	       info->training.reg_178);
-	printk(BIOS_DEBUG, "[10b] = %x (%x)\n", read_1d0(0x10b, 6),
+	printk(RAM_SPEW, "[10b] = %x (%x)\n", read_1d0(0x10b, 6),
 	       info->training.reg_10b);
 }
 
@@ -1621,8 +1632,8 @@ static void save_timings(struct raminfo *info)
 	train.reg_6dc = MCHBAR32(0x6dc);
 	train.reg_6e8 = MCHBAR32(0x6e8);
 
-	printk (BIOS_SPEW, "[6dc] = %x\n", train.reg_6dc);
-	printk (BIOS_SPEW, "[6e8] = %x\n", train.reg_6e8);
+	printk(RAM_SPEW, "[6dc] = %x\n", train.reg_6dc);
+	printk(RAM_SPEW, "[6e8] = %x\n", train.reg_6e8);
 
 	/* Save the MRC S3 restore data to cbmem */
 	mrc_cache_stash_data(MRC_TRAINING_DATA, MRC_CACHE_VERSION,
@@ -2232,26 +2243,11 @@ train_ram_at_178(struct raminfo *info, u8 channel, int slot, int rank,
 	u8 lower_usable[8];
 	u8 upper_usable[8];
 	unsigned short num_successfully_checked[8];
-	u8 secondary_total_rank;
 	u8 reg1b3;
+	int i;
 
-	if (info->populated_ranks_mask[1]) {
-		if (channel == 1)
-			secondary_total_rank =
-			    info->populated_ranks[1][0][0] +
-			    info->populated_ranks[1][0][1]
-			    + info->populated_ranks[1][1][0] +
-			    info->populated_ranks[1][1][1];
-		else
-			secondary_total_rank = 0;
-	} else
-		secondary_total_rank = total_rank;
-
-	{
-		int i;
-		for (i = 0; i < 8; i++)
-			state[i] = BEFORE_USABLE;
-	}
+	for (i = 0; i < 8; i++)
+		state[i] = BEFORE_USABLE;
 
 	if (!first_run) {
 		int is_all_ok = 1;
@@ -2267,7 +2263,6 @@ train_ram_at_178(struct raminfo *info, u8 channel, int slot, int rank,
 				is_all_ok = 0;
 			}
 		if (is_all_ok) {
-			int i;
 			for (i = 0; i < 8; i++)
 				state[i] = COMPLETE;
 		}
@@ -2333,7 +2328,6 @@ train_ram_at_178(struct raminfo *info, u8 channel, int slot, int rank,
 
 		do {
 			u8 failmask = 0;
-			int i;
 			for (i = 0; i < niter; i++) {
 				if (failmask == 0xFF)
 					break;
@@ -2434,7 +2428,6 @@ train_ram_at_178(struct raminfo *info, u8 channel, int slot, int rank,
 
 		do {
 			int failmask = 0;
-			int i;
 			for (i = 0; i < niter; i++) {
 				if (failmask == 0xFF)
 					break;
@@ -3401,7 +3394,7 @@ set_6d_reg(struct raminfo *info, u16 reg, u16 freq1, u16 freq2,
 				 0, 1, &ratios2);
 	compute_frequence_ratios(info, freq1, freq2, num_cycles_3, num_cycles_4,
 				 0, 1, &ratios1);
-	printk (BIOS_SPEW, "[%x] <= %x\n", reg,
+	printk(RAM_SPEW, "[%x] <= %x\n", reg,
 		       ratios1.freq4_to_max_remainder | (ratios2.
 							 freq4_to_max_remainder
 							 << 8)
@@ -3484,7 +3477,8 @@ static void set_2dxx_series(struct raminfo *info, int s3resume)
 		     frequency_11(info) / 2, 4000, 4000, 0, 0);
 
 	if (s3resume) {
-		printk (BIOS_SPEW, "[6dc] <= %x\n", info->cached_training->reg_6dc);
+		printk(RAM_SPEW, "[6dc] <= %x\n",
+			info->cached_training->reg_6dc);
 		MCHBAR32(0x6dc) = info->cached_training->reg_6dc;
 	} else
 		set_6d_reg(info, 0x6dc, 2 * info->fsb_frequency, frequency_11(info), 0,
@@ -3495,7 +3489,8 @@ static void set_2dxx_series(struct raminfo *info, int s3resume)
 	set_2dx8_reg(info, 0x6e4, 1, 2 * info->fsb_frequency,
 		     frequency_11(info) / 2, 3500, 0, 0, 0);
 	if (s3resume) {
-		printk (BIOS_SPEW, "[6e8] <= %x\n", info->cached_training->reg_6e8);
+		printk(RAM_SPEW, "[6e8] <= %x\n",
+			info->cached_training->reg_6e8);
 		MCHBAR32(0x6e8) = info->cached_training->reg_6e8;
 	} else
 		set_6d_reg(info, 0x6e8, 2 * info->fsb_frequency, frequency_11(info), 0,
@@ -3677,8 +3672,7 @@ void chipset_init(const int s3resume)
 	if ((x2ca8 & 1) || (x2ca8 == 8 && !s3resume)) {
 		printk(BIOS_DEBUG, "soft reset detected, rebooting properly\n");
 		MCHBAR8(0x2ca8) = 0;
-		outb(0x6, 0xcf9);
-		halt();
+		system_reset();
 	}
 #if 0
 	if (!s3resume) {
@@ -3736,12 +3730,10 @@ void raminit(const int s3resume, const u8 *spd_addrmap)
 	u16 deven;
 	int cbmem_wasnot_inited;
 
-	/* only used for dummy reads */
-	volatile u8 tmp8;
-	volatile u16 tmp16;
-	volatile u32 tmp32;
-
 	x2ca8 = MCHBAR8(0x2ca8);
+
+	printk(RAM_DEBUG, "Scratchpad MCHBAR8(0x2ca8): 0x%04x\n", x2ca8);
+
 	deven = pci_read_config16(NORTHBRIDGE, D0F0_DEVEN);
 
 	memset(&info, 0x5a, sizeof(info));
@@ -3773,9 +3765,6 @@ void raminit(const int s3resume, const u8 *spd_addrmap)
 		pci_read_config8(SOUTHBRIDGE, GEN_PMCON_2);	// = 0x80
 
 		collect_system_info(&info);
-
-		/* Enable SMBUS. */
-		enable_smbus();
 
 		memset(&info.populated_ranks, 0, sizeof(info.populated_ranks));
 
@@ -3903,8 +3892,7 @@ void raminit(const int s3resume, const u8 *spd_addrmap)
 
 			printk(BIOS_INFO,
 			       "Interrupted RAM init, reset required.\n");
-			outb(0x6, 0xcf9);
-			halt();
+			system_reset();
 		}
 	}
 
@@ -4024,19 +4012,19 @@ void raminit(const int s3resume, const u8 *spd_addrmap)
 		int j;
 		if (s3resume && info.cached_training) {
 			restore_274265(&info);
-			printk(BIOS_DEBUG, "reg2ca9_bit0 = %x\n",
+			printk(RAM_SPEW, "reg2ca9_bit0 = %x\n",
 			       info.cached_training->reg2ca9_bit0);
 			for (i = 0; i < 2; i++)
 				for (j = 0; j < 3; j++)
-					printk(BIOS_DEBUG, "reg274265[%d][%d] = %x\n",
+					printk(RAM_SPEW, "reg274265[%d][%d] = %x\n",
 					       i, j, info.cached_training->reg274265[i][j]);
 		} else {
 			set_274265(&info);
-			printk(BIOS_DEBUG, "reg2ca9_bit0 = %x\n",
+			printk(RAM_SPEW, "reg2ca9_bit0 = %x\n",
 			       info.training.reg2ca9_bit0);
 			for (i = 0; i < 2; i++)
 				for (j = 0; j < 3; j++)
-					printk(BIOS_DEBUG, "reg274265[%d][%d] = %x\n",
+					printk(RAM_SPEW, "reg274265[%d][%d] = %x\n",
 					       i, j, info.training.reg274265[i][j]);
 		}
 
@@ -4055,10 +4043,10 @@ void raminit(const int s3resume, const u8 *spd_addrmap)
 			pci_read_config8(PCI_DEV (0, 0x2, 0x0), 0x4c);
 			pci_read_config8(PCI_DEV (0, 0x2, 0x0), 0x4e);
 
-			tmp8 = MCHBAR8(0x1150);
-			tmp8 = MCHBAR8(0x1151);
-			tmp8 = MCHBAR8(0x1022);
-			tmp8 = MCHBAR8(0x16d0);
+			MCHBAR8(0x1150);
+			MCHBAR8(0x1151);
+			MCHBAR8(0x1022);
+			MCHBAR8(0x16d0);
 			MCHBAR32(0x1300) = 0x60606060;
 			MCHBAR32(0x1304) = 0x60606060;
 			MCHBAR32(0x1308) = 0x78797a7b;
@@ -4246,14 +4234,21 @@ void raminit(const int s3resume, const u8 *spd_addrmap)
 	}
 
 	MCHBAR32_AND_OR(0x2c80, 0, 0x1053688);	// !!!!
-	tmp32 = MCHBAR32(0x1c04);	// !!!!
+	MCHBAR32(0x1c04);	// !!!!
 	MCHBAR32(0x1804) = 0x406080;
 
-	tmp8 = MCHBAR8(0x2ca8);
+	MCHBAR8(0x2ca8);
 
 	if (x2ca8 == 0) {
 		MCHBAR8_AND(0x2ca8, ~3);
 		MCHBAR8(0x2ca8) = MCHBAR8(0x2ca8) + 4;	// "+" or  "|"?
+		/* This issues a CPU reset without resetting the platform */
+		printk(BIOS_DEBUG, "Issuing a CPU reset\n");
+		/* Write back the S3 state to PM1_CNT to let the reset CPU
+		   know it also needs to take the s3 path. */
+		if (s3resume)
+			write_pmbase32(PM1_CNT, read_pmbase32(PM1_CNT)
+				       | (SLP_TYP_S3 << 10));
 		MCHBAR32_OR(0x1af0, 0x10);
 		halt();
 	}
@@ -4261,9 +4256,9 @@ void raminit(const int s3resume, const u8 *spd_addrmap)
 	MCHBAR8(0x2ca8) = MCHBAR8(0x2ca8);
 	MCHBAR32_AND_OR(0x2c80, 0, 0x53688);	// !!!!
 	pci_write_config32(PCI_DEV (0xff, 0, 0), 0x60, 0x20220);
-	tmp16 = MCHBAR16(0x2c20);	// !!!!
-	tmp16 = MCHBAR16(0x2c10);	// !!!!
-	tmp16 = MCHBAR16(0x2c00);	// !!!!
+	MCHBAR16(0x2c20);	// !!!!
+	MCHBAR16(0x2c10);	// !!!!
+	MCHBAR16(0x2c00);	// !!!!
 	MCHBAR16(0x2c00) = 0x8c0;
 	udelay(1000);
 	write_1d0(0, 0x33d, 0, 0);
@@ -4342,8 +4337,7 @@ void raminit(const int s3resume, const u8 *spd_addrmap)
 			       "Couldn't find training data. Rebooting\n");
 			reg32 = inl(DEFAULT_PMBASE + 0x04);
 			outl(reg32 & ~(7 << 10), DEFAULT_PMBASE + 0x04);
-			outb(0xe, 0xcf9);
-			halt();
+			full_reset();
 		}
 		int tm;
 		info.training = *info.cached_training;
@@ -4370,7 +4364,7 @@ void raminit(const int s3resume, const u8 *spd_addrmap)
 	MCHBAR32_AND_OR(0x1f4, 0, 0x20000);	// !!!!
 	MCHBAR32(0x1f0) = 0x1d000200;
 	MCHBAR8_AND_OR(0x1f0, 0, 0x1);	// !!!!
-	tmp8 = MCHBAR8(0x1f0);	// !!!!
+	MCHBAR8(0x1f0);	// !!!!
 
 	program_board_delay(&info);
 
@@ -4429,7 +4423,7 @@ void raminit(const int s3resume, const u8 *spd_addrmap)
 			info.populated_ranks[channel][0][0] ? 9 : 1);
 
 	rmw_1d0(0x116, 0xe, 1, 4, 1);	// = 0x4040432 // !!!!
-	tmp32 = MCHBAR32(0x144);	// !!!!
+	MCHBAR32(0x144);	// !!!!
 	write_1d0(2, 0xae, 6, 1);
 	write_1d0(2, 0x300, 6, 1);
 	write_1d0(2, 0x121, 3, 1);
@@ -4679,7 +4673,7 @@ void raminit(const int s3resume, const u8 *spd_addrmap)
 	reg1c = read32p(DEFAULT_EPBAR | 0x01c);	// = 0x8001 // OK
 	pci_read_config32(NORTHBRIDGE, 0x40);	// = DEFAULT_EPBAR | 0x001 // OK
 	write32p(DEFAULT_EPBAR | 0x01c, reg1c);	// OK
-	tmp8 = MCHBAR8(0xe08);	// = 0x0
+	MCHBAR8(0xe08);	// = 0x0
 	pci_read_config32(NORTHBRIDGE, 0xe4);	// = 0x316126
 	MCHBAR8_OR(0x1210, 2);
 	MCHBAR32(0x1200) = 0x8800440;
@@ -4784,7 +4778,6 @@ void raminit(const int s3resume, const u8 *spd_addrmap)
 		outl(reg32 & ~(7 << 10), DEFAULT_PMBASE + 0x04);
 
 		/* Failed S3 resume, reset to come up cleanly */
-		outb(0xe, 0xcf9);
-		halt();
+		full_reset();
 	}
 }

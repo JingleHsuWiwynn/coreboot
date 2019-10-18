@@ -15,10 +15,9 @@
 
 #include <arch/acpi.h>
 #include <arch/acpigen.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <arch/smp/mpspec.h>
 #include <cbmem.h>
-#include <chip.h>
 #include <ec/google/chromeec/ec.h>
 #include <intelblocks/cpulib.h>
 #include <intelblocks/pmclib.h>
@@ -28,6 +27,7 @@
 #include <soc/nvs.h>
 #include <soc/pci_devs.h>
 #include <soc/pm.h>
+#include <soc/soc_chip.h>
 #include <string.h>
 #include <vendorcode/google/chromeos/gnvs.h>
 #include <wrdd.h>
@@ -137,8 +137,9 @@ acpi_cstate_t *soc_get_cstate_map(size_t *entries)
 				ARRAY_SIZE(cstate_set_non_s0ix))];
 	int *set;
 	int i;
-	struct device *dev = SA_DEV_ROOT;
-	config_t *config = dev->chip_info;
+
+	config_t *config = config_of_soc();
+
 	int is_s0ix_enable = config->s0ix_enable;
 
 	if (is_s0ix_enable) {
@@ -158,8 +159,8 @@ acpi_cstate_t *soc_get_cstate_map(size_t *entries)
 
 void soc_power_states_generation(int core_id, int cores_per_package)
 {
-	struct device *dev = SA_DEV_ROOT;
-	config_t *config = dev->chip_info;
+	config_t *config = config_of_soc();
+
 	if (config->eist_enable)
 		/* Generate P-state tables */
 		generate_p_state_entries(core_id, cores_per_package);
@@ -168,8 +169,8 @@ void soc_power_states_generation(int core_id, int cores_per_package)
 void soc_fill_fadt(acpi_fadt_t *fadt)
 {
 	const uint16_t pmbase = ACPI_BASE_ADDRESS;
-	const struct device *dev = PCH_DEV_LPC;
-	const struct soc_intel_icelake_config *config = dev->chip_info;
+
+	config_t *config = config_of_soc();
 
 	if (!config->PmTimerDisabled) {
 		fadt->pm_tmr_blk = pmbase + PM1_TMR;
@@ -177,7 +178,7 @@ void soc_fill_fadt(acpi_fadt_t *fadt)
 		fadt->x_pm_tmr_blk.space_id = 1;
 		fadt->x_pm_tmr_blk.bit_width = fadt->pm_tmr_len * 8;
 		fadt->x_pm_tmr_blk.bit_offset = 0;
-		fadt->x_pm_tmr_blk.resv = 0;
+		fadt->x_pm_tmr_blk.access_size = 0;
 		fadt->x_pm_tmr_blk.addrl = pmbase + PM1_TMR;
 		fadt->x_pm_tmr_blk.addrh = 0x0;
 	}
@@ -193,8 +194,7 @@ uint32_t soc_read_sci_irq_select(void)
 
 void acpi_create_gnvs(struct global_nvs_t *gnvs)
 {
-	const struct device *dev = PCH_DEV_LPC;
-	const struct soc_intel_icelake_config *config = dev->chip_info;
+	config_t *config = config_of_soc();
 
 	/* Set unknown wake source */
 	gnvs->pm1i = -1;
@@ -202,14 +202,14 @@ void acpi_create_gnvs(struct global_nvs_t *gnvs)
 	/* CPU core count */
 	gnvs->pcnt = dev_count_cpu();
 
-	if (IS_ENABLED(CONFIG_CONSOLE_CBMEM))
+	if (CONFIG(CONSOLE_CBMEM))
 		/* Update the mem console pointer. */
 		gnvs->cbmc = (uintptr_t)cbmem_find(CBMEM_ID_CONSOLE);
 
-	if (IS_ENABLED(CONFIG_CHROMEOS)) {
+	if (CONFIG(CHROMEOS)) {
 		/* Initialize Verified Boot data */
 		chromeos_init_chromeos_acpi(&(gnvs->chromeos));
-		if (IS_ENABLED(CONFIG_EC_GOOGLE_CHROMEEC)) {
+		if (CONFIG(EC_GOOGLE_CHROMEEC)) {
 			gnvs->chromeos.vbt2 = google_ec_running_ro() ?
 				ACTIVE_ECFW_RO : ACTIVE_ECFW_RW;
 		} else

@@ -18,9 +18,11 @@
 
 #include <stdlib.h>
 #include <arch/io.h>
+#include <device/pci_ops.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <console/console.h>
+#include "chip.h"
 #include "i82801ix.h"
 
 typedef struct southbridge_intel_i82801ix_config config_t;
@@ -223,7 +225,7 @@ static void i82801ix_init(void *chip_info)
 	i82801ix_hide_functions();
 
 	/* Reset watchdog timer. */
-#if !IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)
+#if !CONFIG(HAVE_SMI_HANDLER)
 	outw(0x0008, DEFAULT_TCOBASE + 0x12); /* Set higher timer value. */
 #endif
 	outw(0x0000, DEFAULT_TCOBASE + 0x00); /* Update timer. */

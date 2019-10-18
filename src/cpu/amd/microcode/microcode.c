@@ -1,9 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2007 Advanced Micro Devices, Inc.
- * Copyright (C) 2015 Raptor Engineering
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -20,7 +17,7 @@
 #include <cpu/amd/msr.h>
 #include <cpu/amd/microcode.h>
 #include <cbfs.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <smp/spinlock.h>
 
 #define UCODE_DEBUG(fmt, args...)	\
@@ -200,7 +197,7 @@ void amd_update_microcode_from_cbfs(uint32_t equivalent_processor_rev_id)
 		}
 
 #ifdef __PRE_RAM__
-#if IS_ENABLED(CONFIG_HAVE_ROMSTAGE_MICROCODE_CBFS_SPINLOCK)
+#if CONFIG(HAVE_ROMSTAGE_MICROCODE_CBFS_SPINLOCK)
 		spin_lock(romstage_microcode_cbfs_lock());
 #endif
 #endif
@@ -210,7 +207,7 @@ void amd_update_microcode_from_cbfs(uint32_t equivalent_processor_rev_id)
 		if (!ucode) {
 			UCODE_DEBUG("microcode file not found. Skipping updates.\n");
 #ifdef __PRE_RAM__
-#if IS_ENABLED(CONFIG_HAVE_ROMSTAGE_MICROCODE_CBFS_SPINLOCK)
+#if CONFIG(HAVE_ROMSTAGE_MICROCODE_CBFS_SPINLOCK)
 			spin_unlock(romstage_microcode_cbfs_lock());
 #endif
 #endif
@@ -220,7 +217,7 @@ void amd_update_microcode_from_cbfs(uint32_t equivalent_processor_rev_id)
 		amd_update_microcode(ucode, ucode_len, equivalent_processor_rev_id);
 
 #ifdef __PRE_RAM__
-#if IS_ENABLED(CONFIG_HAVE_ROMSTAGE_MICROCODE_CBFS_SPINLOCK)
+#if CONFIG(HAVE_ROMSTAGE_MICROCODE_CBFS_SPINLOCK)
 		spin_unlock(romstage_microcode_cbfs_lock());
 #endif
 #endif

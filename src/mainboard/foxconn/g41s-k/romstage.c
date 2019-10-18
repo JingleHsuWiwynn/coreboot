@@ -16,11 +16,13 @@
  * GNU General Public License for more details.
  */
 
-#include <cpu/x86/bist.h>
-#include <cpu/intel/romstage.h>
+#include <console/console.h>
+#include <arch/romstage.h>
+#include <device/pci_ops.h>
 #include <northbridge/intel/x4x/iomap.h>
 #include <northbridge/intel/x4x/x4x.h>
 #include <southbridge/intel/common/gpio.h>
+#include <southbridge/intel/common/pmclib.h>
 #include <southbridge/intel/i82801gx/i82801gx.h>
 #include <superio/ite/common/ite.h>
 #include <superio/ite/it8720f/it8720f.h>
@@ -65,7 +67,8 @@ static void mb_lpc_setup(void)
 	RCBA8(OIC);
 
 	RCBA32(FD) |= FD_INTLAN;
-	RCBA32(CG) = 0x00000001;
+
+	ich7_setup_cir();
 }
 
 static void ich7_enable_lpc(void)
@@ -78,10 +81,10 @@ static void ich7_enable_lpc(void)
 	pci_write_config32(LPC_DEV, GEN1_DEC, 0x003c0a01);
 }
 
-void mainboard_romstage_entry(unsigned long bist)
+void mainboard_romstage_entry(void)
 {
 	//                          ch0      ch1
-#if IS_ENABLED(CONFIG_BOARD_FOXCONN_G41S_K)
+#if CONFIG(BOARD_FOXCONN_G41S_K)
 	const u8 spd_addrmap[4] = { 0x50, 0, 0, 0 };
 #else
 	/* TODO adapt raminit such that other slots can be used
@@ -98,7 +101,6 @@ void mainboard_romstage_entry(unsigned long bist)
 
 	console_init();
 
-	report_bist_failure(bist);
 	enable_smbus();
 
 	x4x_early_init();

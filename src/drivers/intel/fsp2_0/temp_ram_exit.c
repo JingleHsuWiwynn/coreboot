@@ -9,15 +9,13 @@
  * (at your option) any later version.
  */
 
-#include <arch/io.h>
-#include <arch/cpu.h>
+#include <arch/romstage.h>
 #include <console/console.h>
 #include <fsp/api.h>
 #include <fsp/util.h>
 #include <memrange.h>
-#include <string.h>
-#include <timestamp.h>
 #include <cbfs.h>
+#include <types.h>
 
 void fsp_temp_ram_exit(void)
 {

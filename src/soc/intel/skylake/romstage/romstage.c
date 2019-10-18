@@ -14,23 +14,16 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
 #include <arch/cbfs.h>
-#include <arch/early_variables.h>
 #include <assert.h>
-#include <chip.h>
 #include <console/console.h>
 #include <cpu/x86/mtrr.h>
 #include <device/device.h>
 #include <device/pci.h>
 #include <device/pci_def.h>
-#include <elog.h>
 #include <intelblocks/fast_spi.h>
 #include <intelblocks/pmclib.h>
-#include <reset.h>
-#include <romstage_handoff.h>
 #include <soc/pci_devs.h>
-#include <soc/pei_wrapper.h>
 #include <soc/pm.h>
 #include <soc/pmc.h>
 #include <soc/serialio.h>
@@ -38,29 +31,33 @@
 #include <stage_cache.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <timestamp.h>
 #include <vendorcode/google/chromeos/chromeos.h>
+
+#include "../chip.h"
 
 /* SOC initialization before RAM is enabled */
 void soc_pre_ram_init(struct romstage_params *params)
 {
+	const struct soc_intel_skylake_config *config;
+
 	/* Program MCHBAR and DMIBAR */
 	systemagent_early_init();
 
-	/* Prepare to initialize memory */
-	soc_fill_pei_data(params->pei_data);
+	config = config_of_soc();
+
+	/* Force a full memory train if RMT is enabled */
+	params->disable_saved_data = config->Rmt;
 }
 
 /* UPD parameters to be initialized before MemoryInit */
 void soc_memory_init_params(struct romstage_params *params,
 			    MEMORY_INIT_UPD *upd)
 {
-	const struct device *dev;
 	const struct soc_intel_skylake_config *config;
 
 	/* Set the parameters for MemoryInit */
-	dev = dev_find_slot(0, PCI_DEVFN(PCH_DEV_SLOT_LPC, 0));
-	config = dev->chip_info;
+
+	config = config_of_soc();
 
 	/*
 	 * Set IGD stolen size to 64MB.  The FBC hardware for skylake does not
@@ -90,7 +87,7 @@ void soc_update_memory_params_for_mma(MEMORY_INIT_UPD *memory_cfg,
 		struct mma_config_param *mma_cfg)
 {
 	/* Boot media is memory mapped for Skylake and Kabylake (SPI). */
-	assert(IS_ENABLED(CONFIG_BOOT_DEVICE_MEMORY_MAPPED));
+	assert(CONFIG(BOOT_DEVICE_MEMORY_MAPPED));
 
 	memory_cfg->MmaTestContentPtr =
 			(uintptr_t) rdev_mmap_full(&mma_cfg->test_content);

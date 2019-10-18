@@ -1,10 +1,6 @@
 /*
  * This file is part of the coreboot project.
  *
- * Copyright (C) 2004 Linux Networx
- * (Written by Eric Biederman <ebiederman@lnxi.com> for Linux Networx)
- * Copyright (C) 2009 coresystems GmbH
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
@@ -15,96 +11,81 @@
  * GNU General Public License for more details.
  */
 
+#include <stdint.h>
 #include <console/console.h>
 #include <device/pci.h>
+#include <device/pci_def.h>
 #include <device/pci_ops.h>
+#include <device/pci_type.h>
 
-static const struct pci_bus_operations *pci_bus_ops(struct bus *bus, struct device *dev)
-{
-	const struct pci_bus_operations *bops;
-	bops = NULL;
-	if (bus && bus->dev && bus->dev->ops && bus->dev->ops->ops_pci_bus) {
-		bops = bus->dev->ops->ops_pci_bus(dev);
-	}
-	if (!bops)
-		bops = pci_bus_default_ops(dev);
-	return bops;
-}
+u8 *const pci_mmconf = (void *)(uintptr_t)CONFIG_MMCONF_BASE_ADDRESS;
 
-/*
- * The only consumer of the return value of get_pbus() is pci_bus_ops().
- * pci_bus_ops() can handle being passed NULL and auto-picks working ops.
+/**
+ * Given a device, a capability type, and a last position, return the next
+ * matching capability. Always start at the head of the list.
+ *
+ * @param dev Pointer to the device structure.
+ * @param cap PCI_CAP_LIST_ID of the PCI capability we're looking for.
+ * @param last Location of the PCI capability register to start from.
+ * @return The next matching capability.
  */
-static struct bus *get_pbus(struct device *dev)
+u16 pci_s_find_next_capability(pci_devfn_t dev, u16 cap, u16 last)
 {
-	struct bus *pbus = NULL;
+	u16 pos = 0;
+	u16 status;
+	int reps = 48;
 
-	if (!dev)
-		die("get_pbus: dev is NULL!\n");
-	else
-		pbus = dev->bus;
+	status = pci_s_read_config16(dev, PCI_STATUS);
+	if (!(status & PCI_STATUS_CAP_LIST))
+		return 0;
 
-	while (pbus && pbus->dev && !pci_bus_ops(pbus, dev)) {
-		if (pbus == pbus->dev->bus) {
-			printk(BIOS_ALERT, "%s in endless loop looking for a "
-			       "parent bus with pci_bus_ops for %s, breaking "
-			       "out.\n", __func__, dev_path(dev));
+	u8 hdr_type = pci_s_read_config8(dev, PCI_HEADER_TYPE);
+	switch (hdr_type & 0x7f) {
+	case PCI_HEADER_TYPE_NORMAL:
+	case PCI_HEADER_TYPE_BRIDGE:
+		pos = PCI_CAPABILITY_LIST;
+		break;
+	case PCI_HEADER_TYPE_CARDBUS:
+		pos = PCI_CB_CAPABILITY_LIST;
+		break;
+	default:
+		return 0;
+	}
+
+	pos = pci_s_read_config8(dev, pos);
+	while (reps-- && (pos >= 0x40)) { /* Loop through the linked list. */
+		int this_cap;
+
+		pos &= ~3;
+		this_cap = pci_s_read_config8(dev, pos + PCI_CAP_LIST_ID);
+		if (this_cap == 0xff)
 			break;
-		}
-		pbus = pbus->dev->bus;
+
+		if (!last && (this_cap == cap))
+			return pos;
+
+		if (last == pos)
+			last = 0;
+
+		pos = pci_s_read_config8(dev, pos + PCI_CAP_LIST_NEXT);
 	}
-
-	if (!pbus || !pbus->dev || !pbus->dev->ops
-	    || !pbus->dev->ops->ops_pci_bus) {
-		/* This can happen before the device tree is fully set up. */
-
-		// printk(BIOS_EMERG, "%s: Cannot find PCI bus operations.\n",
-		// dev_path(dev));
-
-		pbus = NULL;
-	}
-
-	return pbus;
+	return 0;
 }
 
-u8 pci_read_config8(struct device *dev, unsigned int where)
+/**
+ * Given a device, and a capability type, return the next matching
+ * capability. Always start at the head of the list.
+ *
+ * @param dev Pointer to the device structure.
+ * @param cap PCI_CAP_LIST_ID of the PCI capability we're looking for.
+ * @return The next matching capability.
+ */
+u16 pci_s_find_capability(pci_devfn_t dev, u16 cap)
 {
-	struct bus *pbus = get_pbus(dev);
-	return pci_bus_ops(pbus, dev)->read8(pbus, dev->bus->secondary,
-					dev->path.pci.devfn, where);
+	return pci_s_find_next_capability(dev, cap, 0);
 }
 
-u16 pci_read_config16(struct device *dev, unsigned int where)
+void __noreturn pcidev_die(void)
 {
-	struct bus *pbus = get_pbus(dev);
-	return pci_bus_ops(pbus, dev)->read16(pbus, dev->bus->secondary,
-					 dev->path.pci.devfn, where);
-}
-
-u32 pci_read_config32(struct device *dev, unsigned int where)
-{
-	struct bus *pbus = get_pbus(dev);
-	return pci_bus_ops(pbus, dev)->read32(pbus, dev->bus->secondary,
-					 dev->path.pci.devfn, where);
-}
-
-void pci_write_config8(struct device *dev, unsigned int where, u8 val)
-{
-	struct bus *pbus = get_pbus(dev);
-	pci_bus_ops(pbus, dev)->write8(pbus, dev->bus->secondary,
-				  dev->path.pci.devfn, where, val);
-}
-
-void pci_write_config16(struct device *dev, unsigned int where, u16 val)
-{
-	struct bus *pbus = get_pbus(dev);
-	pci_bus_ops(pbus, dev)->write16(pbus, dev->bus->secondary,
-				   dev->path.pci.devfn, where, val);
-}
-
-void pci_write_config32(struct device *dev, unsigned int where, u32 val)
-{
-	struct bus *pbus = get_pbus(dev);
-	pci_bus_ops(pbus, dev)->write32(pbus, dev->bus->secondary,
-				   dev->path.pci.devfn, where, val);
+	die("PCI: dev is NULL!\n");
 }

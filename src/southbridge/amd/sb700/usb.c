@@ -19,8 +19,10 @@
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
 #include <device/pci_ehci.h>
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <option.h>
+#include <types.h>
+
 #include "sb700.h"
 
 static struct pci_operations lops_pci = {
@@ -181,7 +183,7 @@ static void usb_init2(struct device *dev)
 		dword |= 1 << 8;
 		dword &= ~(1 << 27); /* 6.23 */
 	}
-#if IS_ENABLED(CONFIG_SOUTHBRIDGE_AMD_SUBTYPE_SP5100)
+#if CONFIG(SOUTHBRIDGE_AMD_SUBTYPE_SP5100)
 	/* SP5100 Erratum 36 */
 	dword &= ~(1 << 26);
 	if (!ehci_async_data_cache)

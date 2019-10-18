@@ -25,9 +25,9 @@
 
 uint32_t board_id(void)
 {
-	MAYBE_STATIC int id = -1;
+	MAYBE_STATIC_NONZERO int id = -1;
 	if (id < 0) {
-		if (IS_ENABLED(CONFIG_EC_GOOGLE_CHROMEEC))
+		if (CONFIG(EC_GOOGLE_CHROMEEC))
 			id = variant_board_id();
 		else {
 			if (send_ec_command(EC_FAB_ID_CMD) == 0)

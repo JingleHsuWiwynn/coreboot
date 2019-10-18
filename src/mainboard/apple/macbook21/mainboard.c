@@ -16,15 +16,12 @@
  */
 
 #include <device/device.h>
-#include <arch/io.h>
-#include <delay.h>
 #include <device/pci_def.h>
-#include <device/pci_ops.h>
-#include <arch/interrupt.h>
 #include <northbridge/intel/i945/i945.h>
-#include <arch/x86/include/arch/acpigen.h>
+#include <arch/acpigen.h>
 #include <drivers/intel/gma/int15.h>
 #include <ec/acpi/ec.h>
+
 #define PANEL INT15_5F35_CL_DISPLAY_DEFAULT
 
 static acpi_cstate_t cst_entries[] = {
@@ -36,9 +33,7 @@ static acpi_cstate_t cst_entries[] = {
 			.space_id = ACPI_ADDRESS_SPACE_FIXED,
 			.bit_width = ACPI_FFIXEDHW_VENDOR_INTEL,
 			.bit_offset = ACPI_FFIXEDHW_CLASS_MWAIT,
-			{
-				.resv = 0,
-			},
+			.access_size = 0,
 			.addrl = 0,
 			.addrh = 0,
 		}
@@ -51,9 +46,7 @@ static acpi_cstate_t cst_entries[] = {
 			.space_id = ACPI_ADDRESS_SPACE_FIXED,
 			.bit_width = ACPI_FFIXEDHW_VENDOR_INTEL,
 			.bit_offset = ACPI_FFIXEDHW_CLASS_MWAIT,
-			{
-				.resv = 0,
-			},
+			.access_size = 0,
 			.addrl = 0x10,
 			.addrh = 0,
 		}

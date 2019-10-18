@@ -21,8 +21,7 @@
 #include <device/pci.h>
 #include <device/pci_ids.h>
 #include <device/pci_ops.h>
-#include <arch/io.h>
-#include <delay.h>
+#include <device/mmio.h>
 #include <soc/intel/common/hda_verb.h>
 #include <soc/pch.h>
 #include <soc/ramstage.h>

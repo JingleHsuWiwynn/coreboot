@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#include <arch/io.h>
+#include <device/mmio.h>
 #include <assert.h>
 #include <device/pci_def.h>
 #include <device/pci_ops.h>
@@ -26,7 +26,6 @@
 #include <spi_flash.h>
 #include <spi-generic.h>
 #include <stdlib.h>
-#include <string.h>
 
 /*
  * Get the FAST_SPIBAR.
@@ -157,7 +156,7 @@ void fast_spi_lock_bar(void)
 	void *spibar = fast_spi_get_bar();
 	uint16_t hsfs = SPIBAR_HSFSTS_FLOCKDN;
 
-	if (IS_ENABLED(CONFIG_FAST_SPI_DISABLE_WRITE_STATUS))
+	if (CONFIG(FAST_SPI_DISABLE_WRITE_STATUS))
 		hsfs |= SPIBAR_HSFSTS_WRSDIS;
 
 	write16(spibar + SPIBAR_HSFSTS_CTL, hsfs);
@@ -237,21 +236,20 @@ void fast_spi_cache_bios_region(void)
 	/* Only the IFD BIOS region is memory mapped (at top of 4G) */
 	fast_spi_get_bios_region(&bios_size);
 
-	if (!bios_size)
-		return;
-
 	/* LOCAL APIC default address is 0xFEE0000, bios_size over 16MB will
 	 * cause memory type conflict when setting memory type to write
 	 * protection, so limit the cached bios region to be no more than 16MB.
 	 * */
 	bios_size = MIN(bios_size, 16 * MiB);
+	if (bios_size <= 0)
+		return;
 
 	/* Round to power of two */
 	alignment = 1UL << (log2_ceil(bios_size));
 	bios_size = ALIGN_UP(bios_size, alignment);
 	base = 4ULL*GiB - bios_size;
 
-	if (ENV_RAMSTAGE) {
+	if (ENV_PAYLOAD_LOADER) {
 		mtrr_use_temp_range(base, bios_size, type);
 	} else {
 		int mtrr = get_free_var_mtrr();
