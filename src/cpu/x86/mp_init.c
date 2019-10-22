@@ -433,7 +433,7 @@ static int start_aps(struct bus *cpu_bus, int ap_count, atomic_t *num_aps)
 
 	/* The vector is sent as a 4k aligned address in one byte. */
 	sipi_vector = sipi_vector_location >> 12;
-	printk(BIOS_DEBUG, "max_vector_loc: 0x%x, sipi_vector: 0x%x, sipi_vector_location: 0x%x, sipi_vector_location_size: 0x%x\n", 
+	printk(BIOS_DEBUG, "max_vector_loc: 0x%x, sipi_vector: 0x%x, sipi_vector_location: 0x%x, sipi_vector_location_size: 0x%x\n",
 				 max_vector_loc, sipi_vector, sipi_vector_location, sipi_vector_location_size);
 
 	if (sipi_vector > max_vector_loc) {
@@ -455,7 +455,7 @@ static int start_aps(struct bus *cpu_bus, int ap_count, atomic_t *num_aps)
 		printk(BIOS_DEBUG, "done.\n");
 	}
 #endif
-	
+
 	uint32_t lowreg;
 	/* LAPIC_ICR_BUSY 0x01000 */
 	do {
@@ -468,7 +468,7 @@ static int start_aps(struct bus *cpu_bus, int ap_count, atomic_t *num_aps)
 	lapic_write_around(LAPIC_ICR2, SET_LAPIC_DEST_FIELD(0)); /* Reddy: LAPIC_ICR2: 0x310 (XAPIC_ICR_HIGH_OFFSET) */
 
 	/* 0xC0000|0x04000|0x00500 = C4500 */
-	printk(BIOS_DEBUG, "[INIT] lapic_write_around LAPIC_ICR: 0x%x, arg2: 0x%x\n", LAPIC_ICR, 
+	printk(BIOS_DEBUG, "[INIT] lapic_write_around LAPIC_ICR: 0x%x, arg2: 0x%x\n", LAPIC_ICR,
 				 (LAPIC_DEST_ALLBUT | LAPIC_INT_ASSERT | LAPIC_DM_INIT));
 	lapic_write_around(LAPIC_ICR, LAPIC_DEST_ALLBUT | LAPIC_INT_ASSERT | LAPIC_DM_INIT);
 
@@ -497,7 +497,7 @@ static int start_aps(struct bus *cpu_bus, int ap_count, atomic_t *num_aps)
 
 	printk(BIOS_DEBUG, "[1st SIPI] lapic_write_around LAPIC_ICR2: 0x%x, arg2: 0x%x\n", LAPIC_ICR2, SET_LAPIC_DEST_FIELD(0));
 	lapic_write_around(LAPIC_ICR2, SET_LAPIC_DEST_FIELD(0));
-	printk(BIOS_DEBUG, "[1st SIPI] lapic_write_around LAPIC_ICR: 0x%x, arg2: 0x%x\n", LAPIC_ICR, 
+	printk(BIOS_DEBUG, "[1st SIPI] lapic_write_around LAPIC_ICR: 0x%x, arg2: 0x%x\n", LAPIC_ICR,
 				 (LAPIC_DEST_ALLBUT | LAPIC_INT_ASSERT | LAPIC_DM_STARTUP | sipi_vector));
 	lapic_write_around(LAPIC_ICR, LAPIC_DEST_ALLBUT | LAPIC_INT_ASSERT |
 			   LAPIC_DM_STARTUP | sipi_vector);
@@ -1141,10 +1141,10 @@ int mp_init_with_smm(struct bus *cpu_bus, const struct mp_ops *mp_ops)
 		mp_state.ops.post_mp_init();
 
 	printk(BIOS_DEBUG, "BIOS_DEBUG mp_params.num_cpus: %d\n", mp_params.num_cpus);
-	for (int i=0; i < mp_params.num_cpus; ++i) {
-		printk(BIOS_DEBUG, "APIC cpu: %d, default_apic_id: 0x%x, apic_id: 0x%x\n", i, cpus[i].default_apic_id,
-					 cpus[i].dev->path.apic.apic_id);
-	}
+//	for (int i=0; i < mp_params.num_cpus; ++i) {
+//		printk(BIOS_DEBUG, "APIC cpu: %d, default_apic_id: 0x%x, apic_id: 0x%x\n", i, cpus[i].default_apic_id,
+//					 cpus[i].dev->path.apic.apic_id);
+//	}
 	printk(BIOS_DEBUG, "^^^ EXIT %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	return ret;
 }

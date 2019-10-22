@@ -14,6 +14,7 @@
  * GNU General Public License for more details.
  */
 
+#include <arch/romstage.h>
 #include <cbmem.h>
 #include <cf9_reset.h>
 #include <intelblocks/rtc.h>
@@ -100,7 +101,7 @@ asmlinkage void car_stage_entry(void)
 	struct postcar_frame pcf;
 	uintptr_t top_of_ram;
 
-#if IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)
+#if CONFIG(HAVE_SMI_HANDLER)
 	void *smm_base;
 	size_t smm_size;
 	uintptr_t tseg_base;
@@ -141,7 +142,7 @@ asmlinkage void car_stage_entry(void)
 	/* Cache the memory-mapped boot media. */
 	postcar_frame_add_romcache(&pcf, MTRR_TYPE_WRPROT);
 
-#if IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)
+#if CONFIG(HAVE_SMI_HANDLER)
 	/*
 	 * Cache the TSEG region at the top of ram. This region is
 	 * not restricted to SMM mode until SMM has been relocated.

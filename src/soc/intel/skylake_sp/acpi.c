@@ -17,6 +17,7 @@
  *
  */
 
+#include <assert.h>
 #include <arch/acpi.h>
 #include <arch/cpu.h>
 #include <arch/acpigen.h>
@@ -131,7 +132,7 @@ void acpi_init_gnvs(global_nvs_t *gnvs)
 	gnvs->pcnt = dev_count_cpu();
 	printk(BIOS_DEBUG, "%s gnvs->pcnt: %d\n", __func__, gnvs->pcnt);
 
-#if IS_ENABLED(CONFIG_CONSOLE_CBMEM)
+#if CONFIG(CONSOLE_CBMEM)
 	/* Update the mem console pointer. */
 	gnvs->cbmc = (u32)cbmem_find(CBMEM_ID_CONSOLE);
 #endif
@@ -228,10 +229,10 @@ unsigned long acpi_fill_madt(unsigned long current)
 			for (int stack=0; stack < MAX_IIO_STACK; ++stack) {
 				const STACK_RES *ri = &hob->PlatformData.IIO_resource[socket].StackRes[stack];
 				if (ri->BusBase != ri->BusLimit) { // TODO: do we have situation with only bux 0 and one stack?
-					printk(BIOS_DEBUG, "Adding MADT IOAPIC for socket: %d, stack: %d, id: 0x%x, base: 0x%x, gsi_base: 0x%x\n", 
+					printk(BIOS_DEBUG, "Adding MADT IOAPIC for socket: %d, stack: %d, id: 0x%x, base: 0x%x, gsi_base: 0x%x\n",
 								 socket, stack,  (i+8), ri->IoApicBase, (8*i)+0x18);
 					/* acpi_create_madt_ioapic implementation in src/arch/x86/acpi.c */
-					current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current, (i+8), 
+					current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current, (i+8),
 																						 ri->IoApicBase, (i == 0) ? 0 : ((8*i)+0x18));
 					++i;
 				}
@@ -402,10 +403,10 @@ void generate_cpu_entries(struct device *device)
                           fsp_hob_iio_universal_data_guid,
                           &hob_size);
   assert(hob != NULL && hob_size != 0);
-	printk(BIOS_DEBUG, "numCpus: %d, socketPresentBitMap: 0x%x\n", hob->SystemStatus.numCpus, 
+	printk(BIOS_DEBUG, "numCpus: %d, socketPresentBitMap: 0x%x\n", hob->SystemStatus.numCpus,
 				 hob->SystemStatus.socketPresentBitMap);
 	for (int i=0; i < MAX_SOCKET; ++i) {
-		printk(BIOS_DEBUG, "Socket %d FusedCores: 0x%x, ActiveCores: 0x%x\n", i, 
+		printk(BIOS_DEBUG, "Socket %d FusedCores: 0x%x, ActiveCores: 0x%x\n", i,
 					 hob->SystemStatus.FusedCores[i], hob->SystemStatus.ActiveCores[i]);
 	}
 
@@ -446,7 +447,7 @@ void soc_fill_fadt(acpi_fadt_t *fadt)
 	u16 pmbase = ACPI_BASE_ADDRESS;
 
 	/* System Management */
-	if (!IS_ENABLED(CONFIG_HAVE_SMI_HANDLER)) {
+	if (!CONFIG(HAVE_SMI_HANDLER)) {
 		fadt->smi_cmd = 0x00;
 		fadt->acpi_enable = 0x00;
 		fadt->acpi_disable = 0x00;
@@ -599,7 +600,7 @@ void acpi_fill_fadt(acpi_fadt_t *fadt)
 	fadt->mon_alrm = 0x00;
 	fadt->century = 0x00;
 	fadt->iapc_boot_arch = ACPI_FADT_LEGACY_FREE;
-	if (!IS_ENABLED(CONFIG_NO_FADT_8042))
+	if (!CONFIG(NO_FADT_8042))
 		fadt->iapc_boot_arch |= ACPI_FADT_8042;
 
 	fadt->flags = ACPI_FADT_WBINVD | ACPI_FADT_C1_SUPPORTED |
@@ -615,7 +616,7 @@ void acpi_fill_fadt(acpi_fadt_t *fadt)
 	fadt->reset_reg.space_id = 1;
 	fadt->reset_reg.bit_width = 8;
 	fadt->reset_reg.bit_offset = 0;
-	fadt->reset_reg.resv = 0;
+	fadt->reset_reg.access_size = 0;
 	fadt->reset_reg.addrl = 0xcf9;
 	fadt->reset_reg.addrh = 0;
 	fadt->reset_value = 6;
@@ -623,56 +624,56 @@ void acpi_fill_fadt(acpi_fadt_t *fadt)
 	fadt->x_pm1a_evt_blk.space_id = 1;
 	fadt->x_pm1a_evt_blk.bit_width = fadt->pm1_evt_len * 8;
 	fadt->x_pm1a_evt_blk.bit_offset = 0;
-	fadt->x_pm1a_evt_blk.resv = 0;
+	fadt->x_pm1a_evt_blk.access_size = 0;
 	fadt->x_pm1a_evt_blk.addrl = pmbase + PM1_STS;
 	fadt->x_pm1a_evt_blk.addrh = 0x0;
 
 	fadt->x_pm1b_evt_blk.space_id = 1;
 	fadt->x_pm1b_evt_blk.bit_width = 0;
 	fadt->x_pm1b_evt_blk.bit_offset = 0;
-	fadt->x_pm1b_evt_blk.resv = 0;
+	fadt->x_pm1b_evt_blk.access_size = 0;
 	fadt->x_pm1b_evt_blk.addrl = 0x0;
 	fadt->x_pm1b_evt_blk.addrh = 0x0;
 
 	fadt->x_pm1a_cnt_blk.space_id = 1;
 	fadt->x_pm1a_cnt_blk.bit_width = fadt->pm1_cnt_len * 8;
 	fadt->x_pm1a_cnt_blk.bit_offset = 0;
-	fadt->x_pm1a_cnt_blk.resv = 0;
+	fadt->x_pm1a_cnt_blk.access_size = 0;
 	fadt->x_pm1a_cnt_blk.addrl = pmbase + PM1_CNT;
 	fadt->x_pm1a_cnt_blk.addrh = 0x0;
 
 	fadt->x_pm1b_cnt_blk.space_id = 1;
 	fadt->x_pm1b_cnt_blk.bit_width = 0;
 	fadt->x_pm1b_cnt_blk.bit_offset = 0;
-	fadt->x_pm1b_cnt_blk.resv = 0;
+	fadt->x_pm1b_cnt_blk.access_size = 0;
 	fadt->x_pm1b_cnt_blk.addrl = 0x0;
 	fadt->x_pm1b_cnt_blk.addrh = 0x0;
 
 	fadt->x_pm2_cnt_blk.space_id = 1;
 	fadt->x_pm2_cnt_blk.bit_width = fadt->pm2_cnt_len * 8;
 	fadt->x_pm2_cnt_blk.bit_offset = 0;
-	fadt->x_pm2_cnt_blk.resv = 0;
+	fadt->x_pm2_cnt_blk.access_size = 0;
 	fadt->x_pm2_cnt_blk.addrl = pmbase + PM2_CNT;
 	fadt->x_pm2_cnt_blk.addrh = 0x0;
 
 	fadt->x_pm_tmr_blk.space_id = 1;
 	fadt->x_pm_tmr_blk.bit_width = fadt->pm_tmr_len * 8;
 	fadt->x_pm_tmr_blk.bit_offset = 0;
-	fadt->x_pm_tmr_blk.resv = 0;
+	fadt->x_pm_tmr_blk.access_size = 0;
 	fadt->x_pm_tmr_blk.addrl = pmbase + PM1_TMR;
 	fadt->x_pm_tmr_blk.addrh = 0x0;
 
 	fadt->x_gpe0_blk.space_id = 0;
 	fadt->x_gpe0_blk.bit_width = 0;
 	fadt->x_gpe0_blk.bit_offset = 0;
-	fadt->x_gpe0_blk.resv = 0;
+	fadt->x_gpe0_blk.access_size = 0;
 	fadt->x_gpe0_blk.addrl = 0;
 	fadt->x_gpe0_blk.addrh = 0;
 
 	fadt->x_gpe1_blk.space_id = 1;
 	fadt->x_gpe1_blk.bit_width = 0;
 	fadt->x_gpe1_blk.bit_offset = 0;
-	fadt->x_gpe1_blk.resv = 0;
+	fadt->x_gpe1_blk.access_size = 0;
 	fadt->x_gpe1_blk.addrl = 0x0;
 	fadt->x_gpe1_blk.addrh = 0x0;
 

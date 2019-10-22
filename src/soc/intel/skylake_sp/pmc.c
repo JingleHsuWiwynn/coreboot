@@ -49,7 +49,7 @@ static void pch_power_options(struct device *dev) { /* TODO */ }
 
 static void pch_set_acpi_mode(void)
 {
-	if (IS_ENABLED(CONFIG_HAVE_SMI_HANDLER) && !acpi_is_wakeup_s3()) {
+	if (CONFIG(HAVE_SMI_HANDLER) && !acpi_is_wakeup_s3()) {
 		printk(BIOS_DEBUG, "Disabling ACPI via APMC:\n");
 		outb(APM_CNT_ACPI_DISABLE, APM_CNT);
 		printk(BIOS_DEBUG, "done.\n");
@@ -65,11 +65,11 @@ static void pmc_init(struct device *dev)
 	/* Get the base address */
 	acpi_base = pci_read_config16(dev, PMC_ACPI_BASE) & MASK_PMC_ACPI_BASE;
 	pwrm_base = pci_read_config32(dev, PMC_PWRMBASE) & MASK_PMC_PWRMBASE;
-	printk(BIOS_DEBUG, "pmc_init acpi_base (reg - 0x%x): 0x%x, pwrm_base (reg - 0x%x): 0x%x\n", 
+	printk(BIOS_DEBUG, "pmc_init acpi_base (reg - 0x%x): 0x%x, pwrm_base (reg - 0x%x): 0x%x\n",
 				 PMC_ACPI_BASE, acpi_base, PMC_PWRMBASE, pwrm_base);
 
 	actl = pci_read_config32(dev, ACTL);
-	printk(BIOS_DEBUG, "pmc_init ACTL csr: 0x%x, ACPI: %s, PWRM: %s, SCI IRQ Select: %d\n", actl, 
+	printk(BIOS_DEBUG, "pmc_init ACTL csr: 0x%x, ACPI: %s, PWRM: %s, SCI IRQ Select: %d\n", actl,
 				 (actl & ACPI_EN) ? "enabled" : "NOT enabled",
 				 (actl & PWRM_EN) ? "enabled" : "NOT enabled", (actl & 0x3));
 

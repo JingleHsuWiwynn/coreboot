@@ -20,6 +20,7 @@
 #define _SKYLAKESP_HOB_MEM_H
 
 #include <fsp/util.h>
+#include <console/console.h>
 
 #pragma pack(1)
 

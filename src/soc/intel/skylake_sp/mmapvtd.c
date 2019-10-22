@@ -134,9 +134,9 @@ static void mc_report_map_entries(struct device *dev, uint64_t *values)
  *
  * +--------------------------+ TOCM (2 pow 46 - 1)
  * |     Reserved             |
- * +--------------------------+ 
+ * +--------------------------+
  * |     MMIOH (relocatable)  |
- * +--------------------------+ 
+ * +--------------------------+
  * |     PCISeg               |
  * +--------------------------+ TOHM
  * |    High DRAM Memory      | (0x100000000 - 0x107fffffff, 0x3e00000)
@@ -144,7 +144,7 @@ static void mc_report_map_entries(struct device *dev, uint64_t *values)
  * +--------------------------+ 0xFFFF_FFFF
  * |     Firmware             | (0xff000000 - 0xffffffff, 0x4000)
  * +--------------------------+ 0xFF00_0000
- * |     Reserved             | 
+ * |     Reserved             |
  * +--------------------------+ 0xFEF0_0000
  * |     Local xAPIC          | (0xfee00000 - 0xfee00fff, 0x4) ** wrong?
  * |     Local xAPIC          | (0xfee00000 - 0xfeefffff, 0x400)
@@ -179,11 +179,11 @@ static void mc_report_map_entries(struct device *dev, uint64_t *values)
  * |PCIe MMCFG (relocatable)  | CONFIG_MMCONF_BASE_ADDRESS 64 or 256MB (0x80000000 - 0x8fffffff, 0x40000)
  * +--------------------------+ TOLM
  * |     MEseg (relocatable)  | 32, 64, 128 or 256 MB (0x78000000 - 0x7fffffff, 0x20000)
- * +--------------------------+ 
+ * +--------------------------+
  * |     Tseg (relocatable)   | N x 8MB (0x70000000 - 0x77ffffff, 0x20000)
- * +--------------------------+ 
+ * +--------------------------+
  * |     Reserved - CBMEM     | (0x6fffe000 - 0x6fffffff, 0x2000)
- * +--------------------------+ 
+ * +--------------------------+
  * |     Reserved - FSP       | (0x6fbfe000 - 0x6fffdfff, 0x400000)
  * +--------------------------+ top_of_ram (0x6fbfdfff)
  * |     Low DRAM Memory      | (0x100000 - 0x6fbfdfff, 0x1bebf8)
@@ -213,7 +213,7 @@ static void mc_add_dram_resources(struct device *dev, int *res_count)
   uint64_t mc_values[NUM_MAP_ENTRIES];
 	struct resource *resource;
 	int index = *res_count;
-	
+
 	if (fsp_find_reserved_memory(&fsp_mem))
     die("Failed to find FSP_RESERVED_MEMORY_RESOURCE_HOB!\n");
 
@@ -222,7 +222,7 @@ static void mc_add_dram_resources(struct device *dev, int *res_count)
   mc_report_map_entries(dev, &mc_values[0]);
 
 	top_of_ram = range_entry_base(&fsp_mem) - 1;
-	printk(BIOS_SPEW, "cbmem_top: 0x%lx, fsp range: [0x%llx - 0x%llx], top_of_ram: 0x%llx\n", (uintptr_t) cbmem_top(), 
+	printk(BIOS_SPEW, "cbmem_top: 0x%lx, fsp range: [0x%llx - 0x%llx], top_of_ram: 0x%llx\n", (uintptr_t) cbmem_top(),
 				 range_entry_base(&fsp_mem), range_entry_end(&fsp_mem), top_of_ram);
 
 #if 0
@@ -243,14 +243,14 @@ static void mc_add_dram_resources(struct device *dev, int *res_count)
   size_kb = (0xa0000 >> 10);
 	LOG_MEM_RESOURCE("legacy_ram", dev, index, base_kb, size_kb);
   ram_resource(dev, index++, base_kb, size_kb);
-				 
+
   /* 1MB -> top_of_ram i.e., fsp_mem_base+1*/
   base_kb = (0x100000 >> 10);
   size_kb = (top_of_ram - 0xfffff) >> 10;
 	LOG_MEM_RESOURCE("low_ram", dev, index, base_kb, size_kb);
   ram_resource(dev, index++, base_kb, size_kb);
 
-	/* 
+	/*
    * Add CBMem, FSP Memory, TSEG/MESEG Regions as reserved memory
    * src/drivers/intel/fsp2_0/memory_init.c sets CBMEM resered size
 	 * 	  arch_upd->BootLoaderTolumSize = cbmem_overhead_size(); == 2 * CBMEM_ROOT_MIN_SIZE
@@ -275,7 +275,7 @@ static void mc_add_dram_resources(struct device *dev, int *res_count)
 	size_kb = (mc_values[TSEG_BASE_REG] - (base_kb << 10)) >> 10;
   LOG_MEM_RESOURCE("mmio_coreboot", dev, index, base_kb, size_kb);
   mmio_resource(dev, index++, base_kb, size_kb);
-	
+
 	/* Mark TSEG/SMM region */
 	base_kb = (mc_values[TSEG_BASE_REG] >> 10);
 	size_kb = (mc_values[TSEG_LIMIT_REG] - mc_values[TSEG_BASE_REG] + 1) >> 10;
@@ -319,7 +319,7 @@ static void mc_add_dram_resources(struct device *dev, int *res_count)
 	size_kb = (0x100000 - 0xa0000) >> 10;
   LOG_MEM_RESOURCE("legacy_mmio", dev, index, base_kb, size_kb);
 	mmio_resource(dev, index++, base_kb, size_kb);
-	
+
 	/* add APEI_ERST reserved region */
   /*
 		 Error Record Serialization Table (ERST) support is initialized
@@ -362,7 +362,7 @@ static struct device_operations mmapvtd_ops = {
 	.enable_resources  = pci_dev_enable_resources,
 	.init              = mmapvtd_init,
 	.ops_pci           = &soc_pci_ops,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
   // TODO: .write_acpi_tables = mmapvtd_write_acpi_tables,
 #endif
 };

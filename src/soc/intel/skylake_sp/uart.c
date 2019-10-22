@@ -59,6 +59,8 @@ const struct uart_gpio_pad_config uart_gpio_pads[] = {
 
 const int uart_max_index = ARRAY_SIZE(uart_gpio_pads);
 
+#if 0
+// This call was dropped from 8bbad6c818 soc/intel/common/uart: Drop dead call to soc_uart_set_legacy_mode()
 void soc_uart_set_legacy_mode(void)
 {
 	pcr_write32(PID_SERIALIO, PCR_SERIAL_IO_GPPRVRW7,
@@ -67,10 +69,11 @@ void soc_uart_set_legacy_mode(void)
 	 * Dummy read after setting any of GPPRVRW7.
 	 * Required for UART 16550 8-bit Legacy mode to become active
 	 */
-	lpss_clk_read(UART_BASE(CONFIG_UART_FOR_CONSOLE));
+	lpss_is_controller_in_reset(UART_BASE(CONFIG_UART_FOR_CONSOLE));
 }
+#endif
 
-struct device *soc_uart_console_to_device(int uart_console)
+DEVTREE_CONST struct device *soc_uart_console_to_device(int uart_console)
 {
 	/*
 	 * if index is valid, this function will return corresponding structure

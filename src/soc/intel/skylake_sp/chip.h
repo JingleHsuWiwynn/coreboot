@@ -19,7 +19,7 @@
 
 #include <stdint.h>
 #include <commonlib/helpers.h>
-#include <intelblocks/chip.h>
+#include <intelblocks/cfg.h>
 #include <intelblocks/gspi.h>
 #include <soc/gpe.h>
 #include <soc/gpio.h>

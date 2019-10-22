@@ -48,7 +48,7 @@ struct pci_resource {
 
 struct stack_dev_resource {
 	u8                        align;
-	struct pci_resource       *children;	
+	struct pci_resource       *children;
 	struct stack_dev_resource *next;
 };
 
@@ -82,7 +82,7 @@ static void skxsp_pci_domain_scan_bus(struct device *dev)
 	DEV_FUNC_EXIT(dev);
 }
 
-static void skxsp_pci_dev_iterator(struct bus *bus, 
+static void skxsp_pci_dev_iterator(struct bus *bus,
 		void (*dev_iterator)(struct device *, void *),
 		void (*res_iterator)(struct device *, struct resource *, void *),
 		void *data)
@@ -135,7 +135,7 @@ static bool need_assignment(struct resource *res)
 
 static void skxsp_dump_pci_resources(struct device *dev, struct resource *res, void *data)
 {
-	if (need_assignment(res)) 
+	if (need_assignment(res))
 		printk(BIOS_DEBUG, "%s%s resource base %llx size %llx "
 					"align %d gran %d limit %llx flags %lx type %s%s%s%s%s%s index %lx\n",
 					"\t", dev_path(dev), res->base, res->size,
@@ -206,7 +206,7 @@ static void build_stack_info(struct stack_pci_res_info *info)
 		}
 	}
 	assert(info->no_of_stacks > 0);
-	
+
 	// allocate and copy stack info from FSP HOB
 	info->sres = malloc(info->no_of_stacks * sizeof(STACK_RES));
 	if (info->sres == 0)
@@ -238,7 +238,7 @@ static void add_res_to_stack(struct stack_dev_resource **root, struct device *de
 			break;
 		}
 	}
-	
+
 	struct stack_dev_resource *nr;
 	if (!cur || cur->align != res->align) { /* need to add new record */
 		nr = malloc(sizeof(struct stack_dev_resource));
@@ -247,7 +247,7 @@ static void add_res_to_stack(struct stack_dev_resource **root, struct device *de
 		memset(nr, 0, sizeof(struct stack_dev_resource));
 		nr->align = res->align;
 		/*
-		printk(BIOS_DEBUG, "Stack [0x%x - 0x%x] Adding new dev resource for align %d\n", 
+		printk(BIOS_DEBUG, "Stack [0x%x - 0x%x] Adding new dev resource for align %d\n",
 			stack->sres.BusBase, stack->sres.BusLimit, nr->align);
 		*/
 		if (!cur) {
@@ -280,7 +280,7 @@ static void add_res_to_stack(struct stack_dev_resource **root, struct device *de
 	npr->dev = dev;
 	npr->next = NULL;
 	/*
-	printk(BIOS_DEBUG, "\tStack [0x%x - 0x%x] Adding pci resource for dev %s align %d base 0x%llx size 0x%llx align %d\n", 
+	printk(BIOS_DEBUG, "\tStack [0x%x - 0x%x] Adding pci resource for dev %s align %d base 0x%llx size 0x%llx align %d\n",
 		stack->sres.BusBase, stack->sres.BusLimit, dev_path(npr->dev), nr->align, npr->res->base, npr->res->size, npr->res->align);
 	*/
 
@@ -319,12 +319,12 @@ static void reserve_dev_resources(STACK_RES *stack, unsigned long res_type, stru
 
 	if (res_type & IORESOURCE_IO)
 		orig_base = stack->PciResourceIoBase;
-	else if ((res_type & IORESOURCE_MEM) && ((res_type & IORESOURCE_PCI64) || 
+	else if ((res_type & IORESOURCE_MEM) && ((res_type & IORESOURCE_PCI64) ||
 		(!res_root && bridge && (bridge->flags & IORESOURCE_PREFETCH))))
 		orig_base = stack->PciResourceMem64Base;
 	else
 		orig_base = stack->PciResourceMem32Base;
-	printk(BIOS_DEBUG, "orig_base: 0x%llx\n", orig_base);	
+	printk(BIOS_DEBUG, "orig_base: 0x%llx\n", orig_base);
 
 	align = 0;
 	base = orig_base;
@@ -342,12 +342,12 @@ static void reserve_dev_resources(STACK_RES *stack, unsigned long res_type, stru
 					orig_base = round(orig_base, pr->res->align);
 				}
 				base = orig_base;
-				
+
 				if (bridge)
-					bridge->base = base;	
+					bridge->base = base;
 				pr->res->base = base;
 				first = 0;
-			}	
+			}
 			else {
 				pr->res->base = round(base, pr->res->align);
 				printk(BIOS_DEBUG, "\t\t dev %s base 0x%llx align %d res_base 0x%llx\n",
@@ -357,7 +357,7 @@ static void reserve_dev_resources(STACK_RES *stack, unsigned long res_type, stru
 			base = pr->res->limit + 1;
       pr->res->flags |= (IORESOURCE_ASSIGNED);
       printk(BIOS_DEBUG, "\t[align %d] %s resource base 0x%llx size 0x%llx limit 0x%llx align %d type %s\n",
-            pr->res->align, dev_path(pr->dev), pr->res->base, pr->res->size, pr->res->limit, 
+            pr->res->align, dev_path(pr->dev), pr->res->base, pr->res->size, pr->res->limit,
 						pr->res->align, resource_type(pr->res));
       pr = pr->next;
     }
@@ -374,7 +374,7 @@ static void reserve_dev_resources(STACK_RES *stack, unsigned long res_type, stru
 		}
 
 		/*
-		printk(BIOS_DEBUG, "\tBridge before change res %s base 0x%llx size 0x%llx limit 0x%llx align %d gran %d\n", 
+		printk(BIOS_DEBUG, "\tBridge before change res %s base 0x%llx size 0x%llx limit 0x%llx align %d gran %d\n",
 					 resource_type(bridge), bridge->base, bridge->size, bridge->limit, bridge->align, bridge->gran);
 		*/
 
@@ -389,7 +389,7 @@ static void reserve_dev_resources(STACK_RES *stack, unsigned long res_type, stru
 		bridge->flags |= (IORESOURCE_ASSIGNED);
 		base = bridge->limit + 1;
 		/*
-		printk(BIOS_DEBUG, "\tBridge after change res %s base 0x%llx size 0x%llx limit 0x%llx align %d new_base 0x%llx\n", 
+		printk(BIOS_DEBUG, "\tBridge after change res %s base 0x%llx size 0x%llx limit 0x%llx align %d new_base 0x%llx\n",
 					 resource_type(bridge), bridge->base, bridge->size, bridge->limit, bridge->align, base);
 		*/
 	}
@@ -397,7 +397,7 @@ static void reserve_dev_resources(STACK_RES *stack, unsigned long res_type, stru
 	/* update new limits */
 	if (res_type & IORESOURCE_IO)
     stack->PciResourceIoBase = base;
-	else if ((res_type & IORESOURCE_MEM) && ((res_type & IORESOURCE_PCI64) || 
+	else if ((res_type & IORESOURCE_MEM) && ((res_type & IORESOURCE_PCI64) ||
 		(!res_root && bridge && (bridge->flags & IORESOURCE_PREFETCH))))
     stack->PciResourceMem64Base = base;
   else
@@ -444,13 +444,13 @@ static void assign_stack_resources(struct stack_pci_res_info *stack_list, struct
 				continue;
 
 			for (res = curdev->resource_list; res; res = res->next) {
-				if ((res->flags & IORESOURCE_BRIDGE) && 
-						(!bridge || 
+				if ((res->flags & IORESOURCE_BRIDGE) &&
+						(!bridge ||
 						 ((bridge->flags & (IORESOURCE_IO | IORESOURCE_MEM | IORESOURCE_PREFETCH | IORESOURCE_PCI64)) ==
               (res->flags & (IORESOURCE_IO | IORESOURCE_MEM | IORESOURCE_PREFETCH | IORESOURCE_PCI64))))) {
 					//printk(BIOS_DEBUG, "%s: dev %s res %s is a bridge\n", __func__, dev_path(curdev), resource_type(res));
 					assign_stack_resources(stack_list, curdev, res);
-					printk(BIOS_DEBUG, "%s: dev %s res %s bridge window base 0x%llx limit 0x%llx (parent res: %s)\n", 
+					printk(BIOS_DEBUG, "%s: dev %s res %s bridge window base 0x%llx limit 0x%llx (parent res: %s)\n",
 								 __func__, dev_path(curdev), resource_type(res), res->base, res->limit, (bridge ? resource_type(res) : ""));
 					if (bridge) {
 						if (!(bridge->flags & IORESOURCE_ASSIGNED)) { /* for 1st time update, overlading IORESOURCE_ASSIGNED */
@@ -466,7 +466,7 @@ static void assign_stack_resources(struct stack_pci_res_info *stack_list, struct
 								bridge->limit = res->limit;
 						}
 						bridge->size = (bridge->limit - bridge->base + 1);
-						printk(BIOS_DEBUG, "%s: Parent bridge %s base 0x%llx size 0x%llx limit 0x%llx\n", 
+						printk(BIOS_DEBUG, "%s: Parent bridge %s base 0x%llx size 0x%llx limit 0x%llx\n",
 									 __func__, resource_type(res), bridge->base, bridge->size, bridge->limit);
 					}
 				}
@@ -484,7 +484,7 @@ static void assign_stack_resources(struct stack_pci_res_info *stack_list, struct
 			no_res_types = 1;
 		}
 		#endif
-		unsigned long flags[5] = {IORESOURCE_IO, IORESOURCE_MEM, (IORESOURCE_PCI64|IORESOURCE_MEM), 
+		unsigned long flags[5] = {IORESOURCE_IO, IORESOURCE_MEM, (IORESOURCE_PCI64|IORESOURCE_MEM),
 					(IORESOURCE_MEM|IORESOURCE_PREFETCH), (IORESOURCE_PCI64|IORESOURCE_MEM|IORESOURCE_PREFETCH)};
 		u8 no_res_types = 5;
 		if (bridge) {
@@ -493,7 +493,7 @@ static void assign_stack_resources(struct stack_pci_res_info *stack_list, struct
 				flags[0] |= IORESOURCE_PCI64;
 			no_res_types = 1;
 		}
-		
+
 		/* Process each resource type */
 		for (int rt=0; rt < no_res_types; ++rt) {
 			struct stack_dev_resource *res_root = NULL;
@@ -554,7 +554,7 @@ static void skxsp_constrain_pci_resources(struct device *dev, struct resource *r
 		limit = res->base - 1;
 	else
 		base = res->base + res->size;
-		
+
 	if (res->flags & IORESOURCE_IO) {
     stack->PciResourceIoBase = base;
     stack->PciResourceIoLimit = limit;
@@ -577,7 +577,7 @@ static void skxsp_pci_domain_read_resources(struct device *dev)
 
 	pci_domain_read_resources(dev);
 
-	/* 
+	/*
 	 * Walk through all devices in this domain and read resources.
 	 * Since there is no callback when read resource operation is
 	 * complete for all devices, domain read resource function initiates
@@ -585,7 +585,7 @@ static void skxsp_pci_domain_read_resources(struct device *dev)
 	 * with dummy function to avoid warning.
 	 */
 	for (link = dev->link_list; link; link = link->next)
-		skxsp_pci_dev_iterator(link, skxsp_pci_dev_read_resources, NULL, NULL);	
+		skxsp_pci_dev_iterator(link, skxsp_pci_dev_read_resources, NULL, NULL);
 
 	for (link = dev->link_list; link; link = link->next)
 		skxsp_pci_dev_iterator(link, skxsp_reset_pci_op, NULL, NULL);
@@ -597,7 +597,7 @@ static void skxsp_pci_domain_read_resources(struct device *dev)
 
 
 	/*
-	 * 1. group devices, resources for each stack 
+	 * 1. group devices, resources for each stack
 	 * 2. order resources in descending order of requested resource allocation sizes
    */
 	struct stack_pci_res_info stack_info;
@@ -613,14 +613,14 @@ static void skxsp_pci_domain_read_resources(struct device *dev)
     assert(stack != 0);
 		printk(BIOS_DEBUG, "Before Constrain Resources bus 0x%x bus_base 0x%x bus_limit 0x%x IoBase 0x%x IoLimit 0x%x "
 					 "Mem32Base 0x%x Mem32Limit 0x%x Mem64Base 0x%llx Mem64Limit 0x%llx\n",
-					 link->secondary, stack->BusBase, stack->BusLimit, stack->PciResourceIoBase, stack->PciResourceIoLimit, 
-					 stack->PciResourceMem32Base, stack->PciResourceMem32Limit, stack->PciResourceMem64Base, 
+					 link->secondary, stack->BusBase, stack->BusLimit, stack->PciResourceIoBase, stack->PciResourceIoLimit,
+					 stack->PciResourceMem32Base, stack->PciResourceMem32Limit, stack->PciResourceMem64Base,
 					 stack->PciResourceMem64Limit);
     skxsp_pci_dev_iterator(link, NULL, skxsp_constrain_pci_resources, stack);
 		printk(BIOS_DEBUG, "After Constrain Resources bus 0x%x bus_base 0x%x bus_limit 0x%x IoBase 0x%x IoLimit 0x%x "
 					 "Mem32Base 0x%x Mem32Limit 0x%x Mem64Base 0x%llx Mem64Limit 0x%llx\n",
-					 link->secondary, stack->BusBase, stack->BusLimit, stack->PciResourceIoBase, stack->PciResourceIoLimit, 
-					 stack->PciResourceMem32Base, stack->PciResourceMem32Limit, stack->PciResourceMem64Base, 
+					 link->secondary, stack->BusBase, stack->BusLimit, stack->PciResourceIoBase, stack->PciResourceIoLimit,
+					 stack->PciResourceMem32Base, stack->PciResourceMem32Limit, stack->PciResourceMem64Base,
 					 stack->PciResourceMem64Limit);
 	}
 
@@ -656,7 +656,7 @@ static struct device_operations cpu_bus_ops = {
 	.enable_resources = DEVICE_NOOP,
 	.init = skylake_sp_init_cpus,
 	.scan_bus = NULL,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.acpi_fill_ssdt_generator = generate_cpu_entries, /* defined in src/soc/intel/common/block/acpi/acpi.c */
 #endif
 };
@@ -786,7 +786,7 @@ static void soc_init(void *data)
 	FUNC_EXIT();
 }
 
-static void soc_final(void *data) 
+static void soc_final(void *data)
 {
 	FUNC_ENTER();
 	dump_iio_stack_basic();

@@ -114,7 +114,7 @@ static struct device_operations device_ops = {
 	.read_resources			= pch_lpc_read_resources,
 	.set_resources			= pch_lpc_set_resources,
 	.enable_resources		= pci_dev_enable_resources,
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
 	.write_acpi_tables		= southbridge_write_acpi_tables,
 	.acpi_inject_dsdt_generator	= southbridge_inject_dsdt,
 #endif
@@ -194,13 +194,13 @@ static const unsigned short pci_device_ids[] = {
 	PCI_DEVICE_ID_INTEL_CMP_PREMIUM_U_LPC,
 	PCI_DEVICE_ID_INTEL_CMP_BASE_U_LPC,
 	PCI_DEVICE_ID_INTEL_CMP_SUPER_Y_LPC,
-	PCI_DEVICE_ID_INTEL_ICL_BASE_U_LPC,
-	PCI_DEVICE_ID_INTEL_ICL_BASE_Y_LPC,
-	PCI_DEVICE_ID_INTEL_ICL_U_PREMIUM_LPC,
-	PCI_DEVICE_ID_INTEL_ICL_U_SUPER_U_LPC,
-	PCI_DEVICE_ID_INTEL_ICL_U_SUPER_U_LPC_REV0,
-	PCI_DEVICE_ID_INTEL_ICL_SUPER_Y_LPC,
-	PCI_DEVICE_ID_INTEL_ICL_Y_PREMIUM_LPC,
+//	PCI_DEVICE_ID_INTEL_ICL_BASE_U_LPC,
+//	PCI_DEVICE_ID_INTEL_ICL_BASE_Y_LPC,
+//	PCI_DEVICE_ID_INTEL_ICL_U_PREMIUM_LPC,
+//	PCI_DEVICE_ID_INTEL_ICL_U_SUPER_U_LPC,
+//	PCI_DEVICE_ID_INTEL_ICL_U_SUPER_U_LPC_REV0,
+//	PCI_DEVICE_ID_INTEL_ICL_SUPER_Y_LPC,
+//	PCI_DEVICE_ID_INTEL_ICL_Y_PREMIUM_LPC,
   PCI_DEVICE_ID_INTEL_C620_LPC,
 	0
 };

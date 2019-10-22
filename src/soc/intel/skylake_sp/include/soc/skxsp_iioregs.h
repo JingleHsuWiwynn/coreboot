@@ -1,9 +1,9 @@
 //
-// This file contains an 'Intel Peripheral Driver' and is      
+// This file contains an 'Intel Peripheral Driver' and is
 // licensed for Intel CPUs and chipsets under the terms of your
-// license agreement with Intel or your vendor.  This file may 
-// be modified by the user, subject to additional terms of the 
-// license agreement                                           
+// license agreement with Intel or your vendor.  This file may
+// be modified by the user, subject to additional terms of the
+// license agreement
 //
 /**
 
@@ -28,7 +28,7 @@ Revision History:
 #ifndef _SKXSP_IIO_REGS_H_
 #define _SKXSP_IIO_REGS_H_
 
-#if (IS_ENABLED(CONFIG_MAX_SOCKET))
+#if (CONFIG(MAX_SOCKET))
 	#define MAX_SOCKET CONFIG_MAX_SOCKET
 #else
 	#define MAX_SOCKET 2
@@ -412,7 +412,7 @@ typedef enum {
 #define R_PCIE_PORT_DMIRCBAR                      0x50            // DMI Root Complex Block Base Address
 #define   V_DMIRCBA_SIZE                            (4*1024)      // DMI RCBA size is 4KB with Natural Alignment
 #define   B_PCIE_PORT_DMIRCBAR_EN_SET              BIT0           // Enable changing for DMI Bar, must unset before LT Lock
-#define R_PCIE_PORT_LNKCON2                       0xFC            // PCI Express Link Control 2 Register  
+#define R_PCIE_PORT_LNKCON2                       0xFC            // PCI Express Link Control 2 Register
 
 #define R_DMI_PORT_PXPLNKCTRL                    0x1B0
 #define   B_DMI_PORT_PXPLNKCTRL_EXT_SYNCH          BIT7
@@ -471,7 +471,7 @@ typedef enum {
 ==================================================================================================
 **/
 
-// NOTE: Although not really applicaple for most UP/DP configuration the DMI port could be configured 
+// NOTE: Although not really applicaple for most UP/DP configuration the DMI port could be configured
 //       as a PCIE port.  In that configuration.
 
 #define PCI_EXPRESS_BASE_ADDRESS  ((VOID *) (UINTN) 0x80000000)
@@ -627,11 +627,11 @@ typedef enum {
 #define     V_PCIE_PORT_PXPLNKCAP2_LNKSPDVEC_3G    BIT3
 #define     V_PCIE_PORT_PXPLNKCAP2_LNKSPDVEC_2G    BIT2
 #define     V_PCIE_PORT_PXPLNKCAP2_LNKSPDVEC_1G    BIT1
-// LINK supports G3, G2 and G1 
+// LINK supports G3, G2 and G1
 #define     V_PCIE_PORT_PXPLNKCAP2_LNKSPDVEC_3G_TOP    ( BIT3 | BIT2 | BIT1)
-// LINK supports G2 and G1 
+// LINK supports G2 and G1
 #define     V_PCIE_PORT_PXPLNKCAP2_LNKSPDVEC_2G_TOP    ( BIT2 | BIT1 )
-// LINK only supports G1   
+// LINK only supports G1
 #define     V_PCIE_PORT_PXPLNKCAP2_LNKSPDVEC_1G_TOP    BIT1
 
 #define R_PCIE_PORT_PXPLNKCTRL2                   0xC0
@@ -750,7 +750,7 @@ typedef enum {
 
 #define R_NTB_PPD                               0xD4
 #define   B_NTB_PORT_DEF                          (BIT0 | BIT1)
-                                             
+
 #define R_NTB_PORT_PXPLNKSTS                    0x1A2
 #define   B_NTB_PORT_PXPLNKSTS_DLLA               BIT13
 #define   B_NTB_PORT_PXPLNKSTS_SCCON              BIT12
@@ -768,10 +768,10 @@ typedef enum {
 #define NTB_PORT_DEF_TRANSPARENT                0
 #define NTB_PORT_DEF_NTB_NTB                    1
 #define NTB_PORT_DEF_NTB_RP                     2
-                                                
+
 #define NTB_PB01_POW2_ALIGNMENT                 16
 #define NTB_PB01_SIZE                           0x10000
-                                                
+
 #define R_SB23BASE_SB45BASE_OFF                 0x500
 #define R_NTBCNTL                               0x58
 #define   B_SECLNK_DIS                          BIT1
@@ -908,7 +908,7 @@ typedef enum {
 #define APIC_DEV_NUM                              CORE05_DEV_NUM
 #define APIC_FUNC_NUM                             CORE05_FUNC4_NUM
 
-#define R_APIC_MBAR                                    0x10          // IOxAPIC Base Address  
+#define R_APIC_MBAR                                    0x10          // IOxAPIC Base Address
 #define R_APIC_ABAR                                    0x40          // I/OxAPIC Alternate BAR
 #define   B_APIC_ABAR_ABAR_EN                            BIT15       // ABAR Enable
 #define R_APIC_PMCAP                                   0xE0          // Power Management Capabilities
@@ -945,8 +945,8 @@ typedef enum {
 
 #define PCU22_DEV_NUM                          30
 #define PCU22_FUNC_NUM                         06
-#define NUM_DEVHIDE_REGS                              8 
-// Hide all 8 Devices for every Stack 
+#define NUM_DEVHIDE_REGS                              8
+// Hide all 8 Devices for every Stack
 #define MAX_DEVHIDE_REGS                             (MAX_IIO_STACK * NUM_DEVHIDE_REGS)
 #if MaxIIO > 4
 #define MAX_DEVHIDE_REGS_PER_SYSTEM                  384 //(MAX_DEVHIDE_REGS * MaxIIO)

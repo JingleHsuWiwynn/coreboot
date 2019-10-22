@@ -48,7 +48,7 @@
 #include <soc/msr.h>
 #include <soc/cpu.h>
 #include <soc/iomap.h>
-#include <soc/smm.h>
+//#include <soc/smm.h>
 #include <soc/soc_util.h>
 #include <soc/skxsp_util.h>
 #include <soc/pci_devs.h>
@@ -157,7 +157,7 @@ void debug_pci_scan_buses(void)
       for (int fun=0; fun < 8; ++fun) {
         uintptr_t loc = DEFAULT_PCIEXBAR + (bus*32*8*0x1000) + (dev*8*0x1000) + (fun * 0x1000);
         if ((u32) *((u32 *)loc) != 0xffffffff)
-          printk(BIOS_DEBUG, "[bus: %d, device: %d, func: %d], addr: 0x%lx, val: 0x%x\n", 
+          printk(BIOS_DEBUG, "[bus: %d, device: %d, func: %d], addr: 0x%lx, val: 0x%x\n",
 								 bus, dev, fun, loc, (u32) *((u32 *)loc));
       }
     }
@@ -181,9 +181,9 @@ void get_stack_busnos(u32 *bus)
 void dump_iio_stack_basic(void)
 {
 	u32 bus[MAX_IIO_STACK];
-	
+
 	get_stack_busnos(bus);
-	for (int i=0; i < MAX_IIO_STACK; ++i) 
+	for (int i=0; i < MAX_IIO_STACK; ++i)
 		printk(BIOS_DEBUG, "IIO STACK %i bus 0x%x\n", i, bus[i]);
 
 	u32 r = pci_mmio_read_config32(PCI_DEV(UBOX_DECS_BUS, UBOX_DECS_DEV, UBOX_DECS_FUNC), 0xd4);
@@ -196,11 +196,11 @@ void dump_iio_stack_basic(void)
 		if (i > 1)
 			stack_id = i-1;
 		printk(BIOS_DEBUG, "IIO Stack %d Bus Limit 0x%x\n", stack_id, (r >> (i * 8)) & 0xff);
-	}			
+	}
 
 	/* MMCFG_LOCAL_RULE_ADDRESS_1 */
 	r = pci_mmio_read_config32(PCI_DEV(bus[1], CHA_UTIL_ALL_DEV, CHA_UTIL_ALL_FUNC), 0xcc);
-	for (int i=0; i<4; ++i) 
+	for (int i=0; i<4; ++i)
 		printk(BIOS_DEBUG, "IIO Stack %d Bus Limit 0x%x\n", i+3, (r >> (i * 8)) & 0xff);
 }
 
@@ -231,7 +231,7 @@ void dump_iio_stack_detailed(void)
 	/* MMCFG_LOCAL_RULE */
 	r = pci_mmio_read_config32(PCI_DEV(bus1, 29, 1), 0xe4);
 	for (int i=0; i<6; ++i) {
-    printk(BIOS_DEBUG, "MMCFG LOCAL RULE for  Target physical stack ID for logical IIO Stack%d: 0x%x,", 
+    printk(BIOS_DEBUG, "MMCFG LOCAL RULE for  Target physical stack ID for logical IIO Stack%d: 0x%x,",
 					 i, (r >> (i * 4)) & 0xf);
 		if ((r >> (24 + i) & 0x1) == 0)
 			printk(BIOS_DEBUG, "Send Root BUS with Device ID < 16 to the UBOX\n");
@@ -246,11 +246,11 @@ void dump_iio_stack_detailed(void)
 		if (i > 1)
 			stack_id = i-1;
 		printk(BIOS_DEBUG, "IIO Stack %d Bus Limit 0x%x\n", stack_id, (r >> (i * 8)) & 0xff);
-	}			
+	}
 
 	/* MMCFG_LOCAL_RULE_ADDRESS_1 */
 	r = pci_mmio_read_config32(PCI_DEV(bus1, 29, 1), 0xcc);
-	for (int i=0; i<4; ++i) 
+	for (int i=0; i<4; ++i)
 		printk(BIOS_DEBUG, "IIO Stack %d Bus Limit 0x%x\n", i+3, (r >> (i * 8)) & 0xff);
 
 	/* MMCFG_RULE */
@@ -304,7 +304,7 @@ void dump_iio_stack_detailed(void)
 	u64 addr = r2;
 	addr = (addr << 32) | (r & 0xfc000000);
 	printk(BIOS_DEBUG, "[r: 0x%x, r2: 0x%x] MMCFG_Rule Base Address: 0x%llx\n", r, r2, addr);
-	
+
 	/* MMIO_RULE_CFG_ */
 	for (int i=0; i < 16; ++i) {
 		r =  pci_mmio_read_config32(PCI_DEV(bus1, 29, 1), (0x40+(i*4)));
@@ -427,7 +427,7 @@ void dump_iio_stack_detailed(void)
 					 *		nodeid from (B: <above bus>, D:8, F:0, 0:0xc0)
 					 *    cpubusnos from (B: <above bus>, D:8, F:2, O:0xcc, 0xd0)
 					 *    get this nodeid stack limits [0-5] (B:<CPUBUSNO1 above>, D:29, F:1, 0:0xc8, 0xcc)
-					 * 
+					 *
 					 */
 					b1 = pci_mmio_read_config32(PCI_DEV(bus_no, 8, 2), 0xcc);
 					b2 = pci_mmio_read_config32(PCI_DEV(bus_no, 8, 2), 0xd0);
@@ -447,8 +447,8 @@ void dump_iio_stack_detailed(void)
 					for (int i=0; i<4; ++i) {
 						u32 stack_id = i+3;
 						u32 start_busno;
-						if (i == 0) 
-							start_busno = ((b1 >> (stack_id * 8)) & 0xff);	
+						if (i == 0)
+							start_busno = ((b1 >> (stack_id * 8)) & 0xff);
 						else
 							start_busno = ((b2 >> ((i-1) * 8)) & 0xff);
 						printk(BIOS_DEBUG, "IIO Stack %d Bus [0x%x : 0x%x]\n", stack_id, start_busno, (r >> (i * 8)) & 0xff);
@@ -501,7 +501,7 @@ static int detect_num_cpus_via_cpuid(void)
 	/* get apic mode */
   msr = rdmsr(LAPIC_BASE_MSR); /* LAPIC_BASE_MSR 0x1B */
 	apic_base = (((uint64_t)msr.hi & 0x00003fff) << 32) | (msr.lo & 0xfffff000);
-	printk(BIOS_DEBUG, "LAPIC_BASE_MSR hi: 0x%x, lo: 0x%x, apic_base: 0x%llx, LAPIC_DEFAULT_BASE: 0x%x\n", 
+	printk(BIOS_DEBUG, "LAPIC_BASE_MSR hi: 0x%x, lo: 0x%x, apic_base: 0x%llx, LAPIC_DEFAULT_BASE: 0x%x\n",
 				 msr.hi, msr.lo, apic_base, LAPIC_DEFAULT_BASE);
 	printk(BIOS_DEBUG, "LAPICID: 0x%lx\n", lapicid());
 
@@ -515,7 +515,7 @@ static int detect_num_cpus_via_cpuid(void)
 		leaf_b = cpuid_ext(0xb, ecx);
 		printk(BIOS_DEBUG, "ApicIdShift - EAX[4:0]: 0x%x, LogicalProcessors - EBX[15:0]: 0x%x, "
 					 "LevelNumber - ECX[7:0]: 0x%x, LevelType - ECX[15:8]: 0x%x, x2APIC_ID - EDX[31:0]: 0x%x\n",
-					 (leaf_b.eax & 0x1f), (leaf_b.ebx & 0xffff), (leaf_b.ecx & 0xff), ((leaf_b.ecx >> 8) & 0xff), 
+					 (leaf_b.eax & 0x1f), (leaf_b.ebx & 0xffff), (leaf_b.ecx & 0xff), ((leaf_b.ecx >> 8) & 0xff),
 					 (leaf_b.edx & 0xffffffff));
 		if (ecx == 0) {
 			if ((leaf_b.ebx & 0xffff) != 0)
@@ -562,7 +562,7 @@ int get_cpu_count(void)
 void dump_pch_int_regs(const char *header)
 {
 	/*
-   * Refer to C620 P2SB for PID_ITSS Table 36-10.Private Configuration Space Register Target Port IDs 
+   * Refer to C620 P2SB for PID_ITSS Table 36-10.Private Configuration Space Register Target Port IDs
    * Processor Interface, 8254 Timer, HPET, APIC 0xC4
    * PID_ITSS is 0xC4
    */

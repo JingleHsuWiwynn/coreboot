@@ -40,7 +40,7 @@
 #include <soc/msr.h>
 #include <soc/cpu.h>
 #include <soc/iomap.h>
-#include <soc/smm.h>
+//#include <soc/smm.h>
 #include <soc/soc_util.h>
 #include <soc/skxsp_util.h>
 #include <assert.h>
@@ -72,7 +72,7 @@ static void skx_configure_mca(void)
 	/* TODO(adurbin): This should only be done on a cold boot. Also, some
 	   of these banks are core vs package scope. For now every CPU clears
 	   every bank. */
-	mca_configure(NULL);
+	mca_configure();
 }
 
 static void skylake_sp_core_init(struct device *cpu)
@@ -248,7 +248,7 @@ static void post_mp_init(void)
 	 * start flowing.
 	 */
 	//southcluster_smm_enable_smi();
-	FUNC_EXIT();	
+	FUNC_EXIT();
 }
 
 /*
@@ -308,7 +308,7 @@ static void allocate_cpu_devices(struct bus *cpu_bus)
 
 void skylake_sp_init_cpus(struct device *dev)
 {
-	FUNC_ENTER();	
+	FUNC_ENTER();
 
 #if 0
 	fill_processor_name(processor_name); /* ./src/cpu/x86/name/name.c */

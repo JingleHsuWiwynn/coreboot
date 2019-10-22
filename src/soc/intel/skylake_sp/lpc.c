@@ -54,7 +54,7 @@ static void pch_enable_ioapic(struct device *dev)
 {
 	/* Configured via FSP */
 	/* PCH_IOAPIC_ID                   0x08 */
-	printk(BIOS_DEBUG, "IOAPICID 0x%x, 0x%x\n", io_apic_read((void *)IO_APIC_ADDR, 0x00), 
+	printk(BIOS_DEBUG, "IOAPICID 0x%x, 0x%x\n", io_apic_read((void *)IO_APIC_ADDR, 0x00),
 			   ((io_apic_read((void *)IO_APIC_ADDR, 0x00) & 0x0f000000) >> 24));
 #if 0
 	u32 reg32;
@@ -131,9 +131,9 @@ void soc_pch_pirq_init(const struct device *dev)
 	pch_interrupt_routing[6] = config->pirqg_routing;
 	pch_interrupt_routing[7] = config->pirqh_routing;
 
-	/* 
-		Programming Interrupt Registers in LPC via P2SB interface 
-	  Refer to C620 EDS 20.11 document for details 
+	/*
+		Programming Interrupt Registers in LPC via P2SB interface
+	  Refer to C620 EDS 20.11 document for details
 		Interrupt PCR Registers Summary
 		These registers are within the PCH Private Configuration Space which is accessible
 		through the PCH Sideband Interface. They can be accessed via (SBREG_BAR + PortID
@@ -196,8 +196,8 @@ void soc_pch_pirq_init(const struct device *dev)
 		}
 
 		printk(BIOS_DEBUG, "irq_dev: %s, PCI_INTERRUPT_PIN: 0x%x, int_pin: 0x%x, "
-					 "PCI_INTERRUPT_LINE: 0x%x, int_line: [0x%x => 0x%x]\n", 
-					 dev_path(irq_dev), PCI_INTERRUPT_PIN, int_pin, PCI_INTERRUPT_LINE, 
+					 "PCI_INTERRUPT_LINE: 0x%x, int_line: [0x%x => 0x%x]\n",
+					 dev_path(irq_dev), PCI_INTERRUPT_PIN, int_pin, PCI_INTERRUPT_LINE,
 					 pci_read_config8(irq_dev, PCI_INTERRUPT_LINE), int_line);
 		pci_write_config8(irq_dev, PCI_INTERRUPT_LINE, int_line);
 	}
@@ -233,7 +233,7 @@ static void pch_enable_serial_irqs(struct device *dev)
 	/* Set packet length and toggle silent mode bit for one frame. */
 	pci_write_config8(dev, SERIRQ_CNTL,
 			  (1 << 7) | (1 << 6) | ((21 - 17) << 2) | (0 << 0));
-#if !IS_ENABLED(CONFIG_SERIRQ_CONTINUOUS_MODE)
+#if !CONFIG(SERIRQ_CONTINUOUS_MODE)
 	pci_write_config8(dev, SERIRQ_CNTL,
 			  (1 << 7) | (0 << 6) | ((21 - 17) << 2) | (0 << 0));
 #endif
@@ -270,7 +270,7 @@ const struct lpc_mmio_range *soc_get_fixed_mmio_ranges(void)
   return skx_lpc_fixed_mmio_ranges;
 }
 
-static void pch_lpc_add_mmio_resources(struct device *dev) 
+static void pch_lpc_add_mmio_resources(struct device *dev)
 {
   ADD_MMIO_RESOURCE(dev, 0xfd00, PCH_PRESERVED_BASE_ADDRESS, PCH_PRESERVED_BASE_SIZE);
   //ADD_MMIO_RESOURCE(dev, 0xfec0, IOXAPIC_BASE_ADDRESS, IOAPIC_SIZE);

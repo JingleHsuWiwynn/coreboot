@@ -19,6 +19,7 @@
 
 #include <arch/acpi.h>
 #include <arch/io.h>
+#include <device/mmio.h>
 #include <soc/gpe.h>
 #include <soc/iomap.h>
 #include <soc/pmc.h>
@@ -178,12 +179,12 @@ struct chipset_power_state {
  * This is used only in FSP1_1 as we wanted to keep the flow unchanged.
  * Internally fill_power_state calls the new pmc_fill_power_state now
  */
-#if IS_ENABLED(CONFIG_PLATFORM_USES_FSP1_1)
+#if CONFIG(PLATFORM_USES_FSP1_1)
 struct chipset_power_state *fill_power_state(void);
 #endif
 
 /* Return the selected ACPI SCI IRQ */
-/* TODO - delete this 
+/* TODO - delete this
   int acpi_sci_irq(void); */
 
 /* Get base address PMC memory mapped registers. */
