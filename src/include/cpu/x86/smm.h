@@ -158,7 +158,7 @@ enum {
 
 /* Fills in the start and size for the requested SMM subregion. Returns
  * 0 on success, < 0 on failure. */
-int smm_subregion(int sub, uintptr_t *start, size_t *size);
+__weak int smm_subregion(int sub, uintptr_t *start, size_t *size);
 
 /* Print the SMM memory layout on console. */
 void smm_list_regions(void);

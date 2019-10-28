@@ -18,6 +18,7 @@
 #include <arch/io.h>
 #include <cbmem.h>
 #include <assert.h>
+#include <cpu/x86/smm.h>
 #include <device/device.h>
 #include <device/pci_def.h>
 #include <device/pci_ops.h>
@@ -131,13 +132,13 @@ static inline size_t smm_region_size(void)
 	return system_agent_region_base(SKXSP_VTD_TOLM_CSR) - smm_region_start();
 }
 
-void smm_region(void **start, size_t *size)
+void smm_region(uintptr_t *start, size_t *size)
 {
-	*start = (void *)smm_region_start();
+	*start = smm_region_start();
 	*size = smm_region_size();
 }
 
-int smm_subregion(int sub, void **start, size_t *size)
+int smm_subregion(int sub, uintptr_t *start, size_t *size)
 {
 	uintptr_t sub_base;
 	size_t sub_size;
@@ -164,7 +165,7 @@ int smm_subregion(int sub, void **start, size_t *size)
 		return -1;
 	}
 
-	*start = (void *)sub_base;
+	*start = sub_base;
 	*size = sub_size;
 
 	return 0;
