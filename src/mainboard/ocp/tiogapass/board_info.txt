@@ -1,6 +1,5 @@
-Vendor name: OCP
 Board name: TiogaPass
-Category: eval
+Category: server
 ROM protocol: SPI
-ROM socketed: n
-Flashrom support: y
+ROM socketed: yes
+Release year: 2018
