@@ -1,6 +1,9 @@
 #
 # Automatically generated file; DO NOT EDIT.
 # Linux/x86 4.16.18 Kernel Configuration
+# This config supports XFS and DM/LVM, thus able to boot
+# disk with RootOS on XFS partition with LVM.
+# It builds Linuxboot OS image, eg. initramfs is included.
 #
 CONFIG_64BIT=y
 CONFIG_X86_64=y
@@ -482,7 +485,7 @@ CONFIG_PHYSICAL_ALIGN=0x200000
 CONFIG_LEGACY_VSYSCALL_EMULATE=y
 # CONFIG_LEGACY_VSYSCALL_NONE is not set
 CONFIG_CMDLINE_BOOL=y
-CONFIG_CMDLINE="console=uart8250,io,0x2f8,57600n1 acpi.debug_layer=0xffffffff acpi.debug_level=0xffffffff"
+CONFIG_CMDLINE="console=uart8250,io,0x2f8,57600n1 console=ttyS0,57600n1 console=ttyS1,57600n1"
 # CONFIG_CMDLINE_OVERRIDE is not set
 # CONFIG_MODIFY_LDT_SYSCALL is not set
 CONFIG_HAVE_LIVEPATCH=y
