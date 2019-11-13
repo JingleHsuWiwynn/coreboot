@@ -47,8 +47,10 @@ void mainboard_config_iio(FSPM_UPD *mupd)
 	mupd->FspmConfig.IioPciConfig.ConfigurationTable = (UPD_PCI_PORT_CONFIG *) tp_iio_pci_port_skt0;
 	mupd->FspmConfig.IioPciConfig.NumberOfEntries = sizeof(tp_iio_pci_port_skt0)/sizeof(UPD_PCI_PORT_CONFIG);
 
+#if 0
 	mupd->FspmConfig.PchPciConfig.PciPortConfig = (UPD_PCH_PCIE_PORT *) tp_pch_pci_port_skt0;
 	mupd->FspmConfig.PchPciConfig.NumberOfEntries = sizeof(tp_pch_pci_port_skt0)/sizeof(UPD_PCH_PCIE_PORT);
+#endif
 	mupd->FspmConfig.PchPciConfig.RootPortFunctionSwapping = 0x00;
 	mupd->FspmConfig.PchPciConfig.PciePllSsc = 0x00;
 }

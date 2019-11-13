@@ -24,8 +24,13 @@
  *
  * https://bugs.acpica.org/show_bug.cgi?id=1201
  */
-/* CONFIG_PCR_BASE_ADDRESS 0xfd000000 0x3100
-C620 Interrupt PCR Registers Summary  */
+
+/* 
+   Refer to Intel® C620 Series Chipset Platform Controller Hub section 20.11
+   CONFIG_PCR_BASE_ADDRESS 0xfd000000 0x3100
+   (0xfd000000 | ((uint8_t)(0xC4) << 16) | (uint16_t)(0x3100) = 0xFDC43100
+*/
+
 OperationRegion (ITSS, SystemMemory,
 		 Add (PCR_ITSS_PIRQA_ROUT,
 		      Add (CONFIG_PCR_BASE_ADDRESS,

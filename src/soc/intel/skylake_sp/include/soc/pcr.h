@@ -24,14 +24,4 @@
 #define PCH_PCR_ADDRESS(Pid, Offset) \
 	(P2SB_BAR | ((uint8_t)(Pid) << 16) | (uint16_t)(Offset))
 
-#if 0
-/* PID for PCR and SBI */
-typedef enum {
-	PID_SMB = 0xCF,
-	PID_ITSS = 0xD0,
-	PID_GPIOCOM0 = 0xC2,
-	PID_GPIOCOM1 = 0xC5,
-} PCH_SBI_PID;
-#endif
-
 #endif /* _SKYLAKESP_PCR_H_ */

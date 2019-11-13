@@ -285,32 +285,28 @@ void cpu_initialize(unsigned int index)
 		c.x86, c.x86_model, c.x86_mask);
 
 	/* Lookup the cpu's operations */
-	printk(BIOS_DEBUG, "^^^ %s:%s:%d set_cpu_ops\n", __FILE__, __func__, __LINE__);
 	set_cpu_ops(cpu);
 
 	if (!cpu->ops) {
 		/* mask out the stepping and try again */
 		cpu->device -= c.x86_mask;
-		printk(BIOS_DEBUG, "^^^ %s:%s:%d set_cpu_ops\n", __FILE__, __func__, __LINE__);
 		set_cpu_ops(cpu);
-		printk(BIOS_DEBUG, "^^^ %s:%s:%d cpu->device: 0x%x\n", __FILE__, __func__, __LINE__, cpu->device);
 		cpu->device += c.x86_mask;
-		printk(BIOS_DEBUG, "^^^ %s:%s:%d cpu->device: 0x%x\n", __FILE__, __func__, __LINE__, cpu->device);
 		if (!cpu->ops)
 			die("Unknown cpu");
 		printk(BIOS_DEBUG, "Using generic CPU ops (good)\n");
 	}
 
+
 	/* Initialize the CPU */
 	if (cpu->ops && cpu->ops->init) {
 		cpu->enabled = 1;
 		cpu->initialized = 1;
-		printk(BIOS_DEBUG, "^^^ %s:%s:%d init\n", __FILE__, __func__, __LINE__);
 		cpu->ops->init(cpu);
 	}
 	post_log_clear();
 
-	printk(BIOS_DEBUG, "CPU #%d initialized\n", index);
+	printk(BIOS_INFO, "CPU #%d initialized\n", index);
 }
 
 void lb_arch_add_records(struct lb_header *header)

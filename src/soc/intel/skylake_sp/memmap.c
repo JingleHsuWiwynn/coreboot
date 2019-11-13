@@ -50,13 +50,15 @@ static inline u32 power_of_2(u32 size)
 
 u32 top_of_32bit_ram(void)
 {
+	uintptr_t mmcfg, tolm;
 	u32 bus0 = 0, bus1 = 0;
+	u32 base = 0, limit = 0;
+
 	get_cpubusnos(&bus0, &bus1, NULL, NULL);
 
-	uintptr_t mmcfg = get_cha_mmcfg_base(bus1);
-	uintptr_t tolm = get_tolm(bus0);
+	mmcfg = get_cha_mmcfg_base(bus1);
+	tolm = get_tolm(bus0);
 	printk(BIOS_DEBUG, "bus0: 0x%x, bus1: 0x%x, mmcfg: 0x%lx, tolm: 0x%lx\n", bus0, bus1, mmcfg, tolm);
-	u32 base = 0, limit = 0;
 	get_tseg_base_lim(bus0, &base, &limit);
 	printk(BIOS_DEBUG, "tseg base: 0x%x, limit: 0x%x\n", base, limit);
 

@@ -206,7 +206,7 @@ static void asmlinkage ap_init(unsigned int cpu)
 	/* Fix up APIC id with reality. */
 	info->cpu->path.apic.apic_id = lapicid();
 
-	printk(BIOS_INFO, "AP: slot %d apic_id %x.\n", cpu,
+	printk(BIOS_INFO, "AP: slot %d apic_id 0x%x.\n", cpu,
 		info->cpu->path.apic.apic_id);
 
 	/* Walk the flight plan */
@@ -430,11 +430,8 @@ static int start_aps(struct bus *cpu_bus, int ap_count, atomic_t *num_aps)
 	if (ap_count == 0)
 		return 0;
 
-
 	/* The vector is sent as a 4k aligned address in one byte. */
 	sipi_vector = sipi_vector_location >> 12;
-	printk(BIOS_DEBUG, "max_vector_loc: 0x%x, sipi_vector: 0x%x, sipi_vector_location: 0x%x, sipi_vector_location_size: 0x%x\n",
-				 max_vector_loc, sipi_vector, sipi_vector_location, sipi_vector_location_size);
 
 	if (sipi_vector > max_vector_loc) {
 		printk(BIOS_CRIT, "SIPI vector too large! 0x%08x\n",
@@ -444,44 +441,6 @@ static int start_aps(struct bus *cpu_bus, int ap_count, atomic_t *num_aps)
 
 	printk(BIOS_DEBUG, "Attempting to start %d APs\n", ap_count);
 
-	printk(BIOS_DEBUG, "lapic_read LAPIC_ICR: 0x%x\n", LAPIC_ICR);
-#if 0
-	if ((lapic_read(LAPIC_ICR) & LAPIC_ICR_BUSY)) { /* Reddy: LAPIC_ICR = 0x300 */
-		printk(BIOS_DEBUG, "Waiting for ICR not to be busy...");
-		if (apic_wait_timeout(1000 /* 1 ms */, 50)) {
-			printk(BIOS_DEBUG, "timed out. Aborting.\n");
-			return -1;
-		}
-		printk(BIOS_DEBUG, "done.\n");
-	}
-#endif
-
-	uint32_t lowreg;
-	/* LAPIC_ICR_BUSY 0x01000 */
-	do {
-		lowreg = lapic_read(LAPIC_ICR);
-	} while ((lowreg & LAPIC_ICR_BUSY) != 0);
-
-	/* Send INIT IPI to all but self. */
-  /* Reddy: SET_LAPIC_DEST_FIELD(x) ((x)<<24) */
-	printk(BIOS_DEBUG, "[INIT] lapic_write_around LAPIC_ICR2: 0x%x, arg2: 0x%x\n", LAPIC_ICR2, (SET_LAPIC_DEST_FIELD(0)));
-	lapic_write_around(LAPIC_ICR2, SET_LAPIC_DEST_FIELD(0)); /* Reddy: LAPIC_ICR2: 0x310 (XAPIC_ICR_HIGH_OFFSET) */
-
-	/* 0xC0000|0x04000|0x00500 = C4500 */
-	printk(BIOS_DEBUG, "[INIT] lapic_write_around LAPIC_ICR: 0x%x, arg2: 0x%x\n", LAPIC_ICR,
-				 (LAPIC_DEST_ALLBUT | LAPIC_INT_ASSERT | LAPIC_DM_INIT));
-	lapic_write_around(LAPIC_ICR, LAPIC_DEST_ALLBUT | LAPIC_INT_ASSERT | LAPIC_DM_INIT);
-
-  do {
-    lowreg = lapic_read(LAPIC_ICR);
-  } while ((lowreg & LAPIC_ICR_BUSY) != 0);
-
-	printk(BIOS_DEBUG, "Waiting for 10ms after sending INIT.\n");
-	mdelay(10);
-
-	/* Send 1st SIPI */
-#if 0
-	printk(BIOS_DEBUG, "[1st SIPI] lapic_read LAPIC_ICR: 0x%x\n", LAPIC_ICR);
 	if ((lapic_read(LAPIC_ICR) & LAPIC_ICR_BUSY)) {
 		printk(BIOS_DEBUG, "Waiting for ICR not to be busy...");
 		if (apic_wait_timeout(1000 /* 1 ms */, 50)) {
@@ -490,15 +449,25 @@ static int start_aps(struct bus *cpu_bus, int ap_count, atomic_t *num_aps)
 		}
 		printk(BIOS_DEBUG, "done.\n");
 	}
-#endif
-  do {
-    lowreg = lapic_read(LAPIC_ICR);
-  } while ((lowreg & LAPIC_ICR_BUSY) != 0);
 
-	printk(BIOS_DEBUG, "[1st SIPI] lapic_write_around LAPIC_ICR2: 0x%x, arg2: 0x%x\n", LAPIC_ICR2, SET_LAPIC_DEST_FIELD(0));
+	/* Send INIT IPI to all but self. */
 	lapic_write_around(LAPIC_ICR2, SET_LAPIC_DEST_FIELD(0));
-	printk(BIOS_DEBUG, "[1st SIPI] lapic_write_around LAPIC_ICR: 0x%x, arg2: 0x%x\n", LAPIC_ICR,
-				 (LAPIC_DEST_ALLBUT | LAPIC_INT_ASSERT | LAPIC_DM_STARTUP | sipi_vector));
+	lapic_write_around(LAPIC_ICR, LAPIC_DEST_ALLBUT | LAPIC_INT_ASSERT |
+			   LAPIC_DM_INIT);
+	printk(BIOS_DEBUG, "Waiting for 10ms after sending INIT.\n");
+	mdelay(10);
+
+	/* Send 1st SIPI */
+	if ((lapic_read(LAPIC_ICR) & LAPIC_ICR_BUSY)) {
+		printk(BIOS_DEBUG, "Waiting for ICR not to be busy...");
+		if (apic_wait_timeout(1000 /* 1 ms */, 50)) {
+			printk(BIOS_DEBUG, "timed out. Aborting.\n");
+			return -1;
+		}
+		printk(BIOS_DEBUG, "done.\n");
+	}
+
+	lapic_write_around(LAPIC_ICR2, SET_LAPIC_DEST_FIELD(0));
 	lapic_write_around(LAPIC_ICR, LAPIC_DEST_ALLBUT | LAPIC_INT_ASSERT |
 			   LAPIC_DM_STARTUP | sipi_vector);
 	printk(BIOS_DEBUG, "Waiting for 1st SIPI to complete...");
@@ -507,9 +476,6 @@ static int start_aps(struct bus *cpu_bus, int ap_count, atomic_t *num_aps)
 		return -1;
 	}
 	printk(BIOS_DEBUG, "done.\n");
-  do {
-    lowreg = lapic_read(LAPIC_ICR);
-  } while ((lowreg & LAPIC_ICR_BUSY) != 0);
 
 	/* Wait for CPUs to check in up to 200 us. */
 	wait_for_aps(num_aps, ap_count, 200 /* us */, 15 /* us */);
@@ -518,8 +484,6 @@ static int start_aps(struct bus *cpu_bus, int ap_count, atomic_t *num_aps)
 		return 0;
 
 	/* Send 2nd SIPI */
-#if 0
-	printk(BIOS_DEBUG, "[2nd SIPI] lapic_read LAPIC_ICR: 0x%x\n", LAPIC_ICR);
 	if ((lapic_read(LAPIC_ICR) & LAPIC_ICR_BUSY)) {
 		printk(BIOS_DEBUG, "Waiting for ICR not to be busy...");
 		if (apic_wait_timeout(1000 /* 1 ms */, 50)) {
@@ -528,22 +492,10 @@ static int start_aps(struct bus *cpu_bus, int ap_count, atomic_t *num_aps)
 		}
 		printk(BIOS_DEBUG, "done.\n");
 	}
-#endif
-  do {
-    lowreg = lapic_read(LAPIC_ICR);
-  } while ((lowreg & LAPIC_ICR_BUSY) != 0);
 
-	printk(BIOS_DEBUG, "[2nd SIPI] lapic_write_around LAPIC_ICR2: 0x%x, arg2: 0x%x\n", LAPIC_ICR2, SET_LAPIC_DEST_FIELD(0));
 	lapic_write_around(LAPIC_ICR2, SET_LAPIC_DEST_FIELD(0));
-	printk(BIOS_DEBUG, "[2nd SIPI] lapic_write_around LAPIC_ICR: 0x%x, arg2: 0x%x\n", LAPIC_ICR,
-         (LAPIC_DEST_ALLBUT | LAPIC_INT_ASSERT | LAPIC_DM_STARTUP | sipi_vector));
 	lapic_write_around(LAPIC_ICR, LAPIC_DEST_ALLBUT | LAPIC_INT_ASSERT |
 			   LAPIC_DM_STARTUP | sipi_vector);
-
-  do {
-    lowreg = lapic_read(LAPIC_ICR);
-  } while ((lowreg & LAPIC_ICR_BUSY) != 0);
-
 	printk(BIOS_DEBUG, "Waiting for 2nd SIPI to complete...");
 	if (apic_wait_timeout(10000 /* 10 ms */, 50 /* us */)) {
 		printk(BIOS_DEBUG, "timed out.\n");
@@ -575,15 +527,12 @@ static int bsp_do_flight_plan(struct mp_params *mp_params)
 	int num_aps = mp_params->num_cpus - 1;
 	struct stopwatch sw;
 
-	printk(BIOS_DEBUG, "^^^ %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	stopwatch_init(&sw);
 
 	for (i = 0; i < mp_params->num_records; i++) {
-		printk(BIOS_DEBUG, "^^^ %s:%d:%s record: %d\n", __FILE__, __LINE__, __func__, i);
 		struct mp_flight_record *rec = &mp_params->flight_plan[i];
 
 		/* Wait for APs if the record is not released. */
-		printk(BIOS_DEBUG, "^^^ %s:%d:%s\n", __FILE__, __LINE__, __func__);
 		if (atomic_read(&rec->barrier) == 0) {
 			/* Wait for the APs to check in. */
 			if (wait_for_aps(&rec->cpus_entered, num_aps,
@@ -593,13 +542,10 @@ static int bsp_do_flight_plan(struct mp_params *mp_params)
 			}
 		}
 
-		printk(BIOS_DEBUG, "^^^ %s:%d:%s\n", __FILE__, __LINE__, __func__);
 		if (rec->bsp_call != NULL)
 			rec->bsp_call();
-		printk(BIOS_DEBUG, "^^^ %s:%d:%s\n", __FILE__, __LINE__, __func__);
 
 		release_barrier(&rec->barrier);
-		printk(BIOS_DEBUG, "^^^ %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	}
 
 	printk(BIOS_INFO, "%s done after %ld msecs.\n", __func__,
@@ -668,7 +614,6 @@ static int mp_init(struct bus *cpu_bus, struct mp_params *p)
 
 	/* Default to currently running CPU. */
 	num_cpus = allocate_cpu_devices(cpu_bus, p);
-	printk(BIOS_DEBUG, "num_cpus: %d\n", num_cpus);
 
 	if (num_cpus < p->num_cpus) {
 		printk(BIOS_CRIT,
@@ -685,7 +630,6 @@ static int mp_init(struct bus *cpu_bus, struct mp_params *p)
 	ap_count = load_sipi_vector(p);
 	if (ap_count == NULL)
 		return -1;
-	printk(BIOS_DEBUG, "ap_count: %d\n", atomic_read(ap_count));
 
 	/* Make sure SIPI data hits RAM so the APs that come up will see
 	 * the startup code even if the caches are disabled.  */
@@ -693,7 +637,6 @@ static int mp_init(struct bus *cpu_bus, struct mp_params *p)
 
 	/* Start the APs providing number of APs and the cpus_entered field. */
 	global_num_aps = p->num_cpus - 1;
-	printk(BIOS_DEBUG, "global_num_aps: %d\n", global_num_aps);
 	if (start_aps(cpu_bus, global_num_aps, ap_count) < 0) {
 		mdelay(1000);
 		printk(BIOS_DEBUG, "%d/%d eventually checked in?\n",
@@ -702,7 +645,6 @@ static int mp_init(struct bus *cpu_bus, struct mp_params *p)
 	}
 
 	/* Walk the flight plan for the BSP. */
-	printk(BIOS_DEBUG, "^^^ %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	return bsp_do_flight_plan(p);
 }
 
@@ -711,10 +653,7 @@ static void mp_initialize_cpu(void)
 {
 	/* Call back into driver infrastructure for the AP initialization.   */
 	struct cpu_info *info = cpu_info();
-	printk(BIOS_DEBUG, "^^^ ENTER %s:%d:%s index: %d\n", __FILE__, __LINE__, __func__, info->index);
-	/* ./src/arch/x86/cpu.c */
 	cpu_initialize(info->index);
-	printk(BIOS_DEBUG, "^^^ EXIT %s:%d:%s\n", __FILE__, __LINE__, __func__);
 }
 
 void smm_initiate_relocation_parallel(void)
@@ -986,7 +925,6 @@ static void ap_wait_for_instruction(void)
 	if (!CONFIG(PARALLEL_MP_AP_WORK))
 		return;
 
-	printk(BIOS_DEBUG, "^^^ ENTER %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	cur_cpu = cpu_index();
 
 	if (cur_cpu < 0) {
@@ -1014,7 +952,6 @@ static void ap_wait_for_instruction(void)
 		else
 			lcb.func(lcb.arg);
 	}
-	printk(BIOS_DEBUG, "^^^ EXIT %s:%d:%s\n", __FILE__, __LINE__, __func__);
 }
 
 int mp_run_on_aps(void (*func)(void *), void *arg, int logical_cpu_num,
@@ -1098,7 +1035,6 @@ int mp_init_with_smm(struct bus *cpu_bus, const struct mp_ops *mp_ops)
 	void *default_smm_area;
 	struct mp_params mp_params;
 
-	printk(BIOS_DEBUG, "^^^ ENTER %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	if (mp_ops->pre_mp_init != NULL)
 		mp_ops->pre_mp_init();
 
@@ -1130,9 +1066,7 @@ int mp_init_with_smm(struct bus *cpu_bus, const struct mp_ops *mp_ops)
 	/* Perform backup of default SMM area. */
 	default_smm_area = backup_default_smm_area();
 
-	printk(BIOS_DEBUG, "^^^ %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	ret = mp_init(cpu_bus, &mp_params);
-	printk(BIOS_DEBUG, "^^^ %s:%d:%s\n", __FILE__, __LINE__, __func__);
 
 	restore_default_smm_area(default_smm_area);
 
@@ -1140,11 +1074,5 @@ int mp_init_with_smm(struct bus *cpu_bus, const struct mp_ops *mp_ops)
 	if (ret == 0 && mp_state.ops.post_mp_init != NULL)
 		mp_state.ops.post_mp_init();
 
-	printk(BIOS_DEBUG, "BIOS_DEBUG mp_params.num_cpus: %d\n", mp_params.num_cpus);
-//	for (int i=0; i < mp_params.num_cpus; ++i) {
-//		printk(BIOS_DEBUG, "APIC cpu: %d, default_apic_id: 0x%x, apic_id: 0x%x\n", i, cpus[i].default_apic_id,
-//					 cpus[i].dev->path.apic.apic_id);
-//	}
-	printk(BIOS_DEBUG, "^^^ EXIT %s:%d:%s\n", __FILE__, __LINE__, __func__);
 	return ret;
 }

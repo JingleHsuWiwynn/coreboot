@@ -26,6 +26,7 @@
 #include <fsp/util.h>
 #include <intelblocks/rtc.h>
 #include <intelblocks/fast_spi.h>
+#include <soc/acpi.h>
 #include <soc/iomap.h>
 #include <soc/intel/common/vbt.h>
 #include <soc/pci_devs.h>
@@ -50,11 +51,6 @@ struct stack_dev_resource {
 	u8                        align;
 	struct pci_resource       *children;
 	struct stack_dev_resource *next;
-};
-
-struct stack_pci_res_info {
-	u8                  no_of_stacks;
-	STACK_RES           *sres;
 };
 
 static void skxsp_pci_domain_set_resources(struct device *dev)
@@ -174,52 +170,13 @@ static void skxsp_reset_pci_op(struct device *dev, void *data)
 		dev->ops->read_resources = skxsp_pci_dev_dummy_func;
 }
 
-static STACK_RES *find_stack_for_bus(struct stack_pci_res_info *info, u8 bus)
+static STACK_RES *find_stack_for_bus(struct iiostack_resource *info, u8 bus)
 {
 	for (int i=0; i < info->no_of_stacks; ++i) {
 		if (bus >= info->sres[i].BusBase && bus <= info->sres[i].BusLimit)
 			return &info->sres[i];
 	}
 	return NULL;
-}
-
-static void build_stack_info(struct stack_pci_res_info *info)
-{
-	size_t hob_size;
-	u8 stack_no;
-	const uint8_t fsp_hob_iio_universal_data_guid[16] = FSP_HOB_IIO_UNIVERSAL_DATA_GUID;
-
-  const IIO_UDS *hob = fsp_find_extension_hob_by_guid(
-                          fsp_hob_iio_universal_data_guid,
-                          &hob_size);
-  assert(hob != NULL && hob_size != 0);
-  //assert(hob != NULL && hob_size != 0 && hob_size == sizeof(IIO_UDS));
-
-	// find out total number of stacks
-	info->no_of_stacks = 0;
-	info->sres = NULL;
-	for (int s=0; s < hob->PlatformData.numofIIO; ++s) {
-		for (int x=0; x < MAX_IIO_STACK; ++x) {
-			const STACK_RES *ri = &hob->PlatformData.IIO_resource[s].StackRes[x];
-			if (ri->BusBase < ri->BusLimit) // TODO: do we have situation with only bux 0 and one stack?
-				++info->no_of_stacks;
-		}
-	}
-	assert(info->no_of_stacks > 0);
-
-	// allocate and copy stack info from FSP HOB
-	info->sres = malloc(info->no_of_stacks * sizeof(STACK_RES));
-	if (info->sres == 0)
-		die("build_stack_info(): out of memory.\n");
-	memset(info->sres, 0, info->no_of_stacks * sizeof(STACK_RES));
-
-	stack_no = 0;
-  for (int s=0; s < hob->PlatformData.numofIIO; ++s) {
-    for (int x=0; x < MAX_IIO_STACK; ++x) {
-      const STACK_RES *ri = &hob->PlatformData.IIO_resource[s].StackRes[x];
-			memcpy(&info->sres[stack_no++], ri, sizeof(STACK_RES));
-    }
-  }
 }
 
 static void add_res_to_stack(struct stack_dev_resource **root, struct device *dev, struct resource *res)
@@ -422,7 +379,7 @@ static void reclaim_resource_mem(struct stack_dev_resource *res_root)
   }
 }
 
-static void assign_stack_resources(struct stack_pci_res_info *stack_list, struct device *dev, struct resource *bridge)
+static void assign_stack_resources(struct iiostack_resource *stack_list, struct device *dev, struct resource *bridge)
 {
 	struct bus *bus;
 
@@ -600,9 +557,8 @@ static void skxsp_pci_domain_read_resources(struct device *dev)
 	 * 1. group devices, resources for each stack
 	 * 2. order resources in descending order of requested resource allocation sizes
    */
-	struct stack_pci_res_info stack_info;
-	memset(&stack_info, 0, sizeof(struct stack_pci_res_info));
-	build_stack_info(&stack_info);
+	struct iiostack_resource stack_info;
+	get_iiostack_info(&stack_info);
 	printk(BIOS_DEBUG, "No of IIO Stacks %d\n", stack_info.no_of_stacks);
 	for (int s=0; s < stack_info.no_of_stacks; ++s)
     printk(BIOS_DEBUG, "\t[Stack %d] [Bus 0x%x - 0x%x]\n", s, stack_info.sres[s].BusBase, stack_info.sres[s].BusLimit);
@@ -638,15 +594,21 @@ static void skxsp_pci_domain_read_resources(struct device *dev)
 	DEV_FUNC_EXIT(dev);
 }
 
+#if CONFIG(HAVE_ACPI_TABLES)
+static const char *soc_acpi_name(const struct device *dev)
+{
+  return "";
+}
+#endif
+
 static struct device_operations pci_domain_ops = {
 	.read_resources = &skxsp_pci_domain_read_resources,
 	.set_resources = &skxsp_pci_domain_set_resources,
 	.scan_bus = &skxsp_pci_domain_scan_bus,
-#if 0 //TODO
-#if IS_ENABLED(CONFIG_HAVE_ACPI_TABLES)
+#if CONFIG(HAVE_ACPI_TABLES)
   .write_acpi_tables  = &northbridge_write_acpi_tables,
+	//.acpi_fill_ssdt_generator = northbridge_acpi_write_vars,
   .acpi_name    = &soc_acpi_name,
-#endif
 #endif
 };
 
@@ -666,15 +628,14 @@ static void attach_iio_stacks(struct device *dev)
 {
 	struct bus *iiostack_bus;
 	struct device dummy;
-	u32 bus[MAX_IIO_STACK];
+	struct iiostack_resource stack_info;
 
 	DEV_FUNC_ENTER(dev);
 
-  get_stack_busnos(bus);
-
-  for (int i=0; i < MAX_IIO_STACK; ++i) {
-		printk(BIOS_DEBUG, "Attaching stack 0x%x to device %s\n", bus[i], dev_path(dev));
-		if (bus[i] == 0) /* only non zero bus no. needs to be enumerated */
+	get_iiostack_info(&stack_info);
+	for (int s=0; s < stack_info.no_of_stacks; ++s) {
+		printk(BIOS_DEBUG, "Attaching stack 0x%x to device %s\n", stack_info.sres[s].BusBase, dev_path(dev));
+		if (stack_info.sres[s].BusBase == 0) /* only non zero bus no. needs to be enumerated */
 			continue;
 
 		iiostack_bus = malloc(sizeof(struct bus));
@@ -682,8 +643,8 @@ static void attach_iio_stacks(struct device *dev)
 			die("attach_iio_stacks(): out of memory.\n");
 		memset(iiostack_bus, 0, sizeof(struct bus));
 		memcpy(iiostack_bus, dev->bus, sizeof(struct bus));
-		iiostack_bus->secondary = bus[i];
-		iiostack_bus->subordinate = bus[i];
+		iiostack_bus->secondary = stack_info.sres[s].BusBase;
+		iiostack_bus->subordinate = stack_info.sres[s].BusBase;
 		iiostack_bus->dev = NULL;
 		iiostack_bus->children = NULL;
 		iiostack_bus->next = NULL;
@@ -724,35 +685,9 @@ static void soc_enable_dev(struct device *dev)
 	DEV_FUNC_EXIT(dev);
 }
 
-static int detect_num_cpus_via_cpuid(void)
-{
-  register int ecx = 0;
-  struct cpuid_result leaf_b;
-
-  while (1) {
-    leaf_b = cpuid_ext(0xb, ecx);
-
-    /* Processor doesn't have hyperthreading so just determine the
-    * number of cores by from level type (ecx[15:8] == * 2). */
-    if ((leaf_b.ecx & 0xff00) == 0x0200)
-      break;
-    ecx++;
-  }
-  return (leaf_b.ebx & 0xffff);
-}
-
-/* Find CPU topology */
-int xget_cpu_count(void);
-int xget_cpu_count(void)
-{
-  int num_cpus = detect_num_cpus_via_cpuid();
-  printk(BIOS_DEBUG, "Number of Cores (CPUID): %d.\n", num_cpus);
-  return num_cpus;
-}
-
 static const struct mp_ops mp_ops = {
   .pre_mp_init = NULL,
-  .get_cpu_count = xget_cpu_count,
+  .get_cpu_count = get_platform_thread_count,
   .get_smm_info = NULL,
   .pre_mp_smm_init = NULL,
   .relocation_handler = NULL,
@@ -789,7 +724,7 @@ static void soc_init(void *data)
 static void soc_final(void *data)
 {
 	FUNC_ENTER();
-	dump_iio_stack_basic();
+	//dump_iio_stack_basic();
 	FUNC_EXIT();
 }
 

@@ -172,13 +172,14 @@ void platform_fsp_memory_init_params_cb(FSPM_UPD *mupd, uint32_t version)
 	FSPM_CONFIG *m_cfg = &mupd->FspmConfig;
 
 	mupd->FspmUpdVersion = FSP_UPD_VERSION;
+	// NOTE - this setting doesn't work
+	// m_cfg->PcdHsuartDevice = 2;
 	m_cfg->SafetyConfig.disable_SNI_BIOS_flc = 1;
 	m_cfg->BoardId = AndersonLakeRvp48G;
 	//m_cfg->BoardId = UnknownBoardType;
-	m_cfg->PcdFspMrcDebugPrintErrorLevel = 8;
-	m_cfg->PcdFspKtiDebugPrintErrorLevel = 8;
-	//m_cfg->PcdFspMrcDebugPrintErrorLevel = 0;
-	//m_cfg->PcdFspKtiDebugPrintErrorLevel = 0;
+  // ErrorLevel - 0 (disable) to 8 (verbose)
+	m_cfg->PcdFspMrcDebugPrintErrorLevel = 0;
+	m_cfg->PcdFspKtiDebugPrintErrorLevel = 0;
 
 	soc_memory_init_params(m_cfg);
 

@@ -97,39 +97,8 @@ unsigned long acpi_fill_madt(unsigned long current)
 	/* Local APICs */
 	current = acpi_create_madt_lapics(current);
 
-#if 0
 	/* IOAPIC */
 	current += acpi_create_madt_ioapic((void *)current, 2, IO_APIC_ADDR, 0);
-#endif
-   /*
-    IOAPIC
-    PCH I/O APIC is on LPC
-    The IIO I/O APIC is fixed on PCI <bus bridge>:05.4
-    fec00000-fec003ff : IOAPIC 0 [Stack 0]
-      00:05.4 PIC: Intel Corporation Device 2026 (rev 04) (prog-if 20 [IO(X)-APIC])
-    fec01000-fec013ff : IOAPIC 1 [Stack 0]
-      00:1f.0 ISA bridge: Intel Corporation Lewisburg LPC Controller (rev 09)
-    fec08000-fec083ff : IOAPIC 2 [Stack 1]
-      16:05.4 PIC: Intel Corporation Device 2036 (rev 04) (prog-if 20 [IO(X)-APIC])
-    fec10000-fec103ff : IOAPIC 3 [Stack 2]
-      64:05.4 PIC: Intel Corporation Device 2036 (rev 04) (prog-if 20 [IO(X)-APIC])
-    fec18000-fec183ff : IOAPIC 4 [Stack 3]
-      b2:05.4 PIC: Intel Corporation Device 2036 (rev 04) (prog-if 20 [IO(X)-APIC])
-
-    // TODO - this needs to come from FSP IIOStack
-   */
-
-  current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current,
-                                     8, 0xfec00000, 0);
-  current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current,
-                                     9, 0xfec01000, 0x18);
-  current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current,
-                                     0xa, 0xfec08000, 0x20);
-  current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current,
-                                     0xb, 0xfec10000, 0x28);
-  current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current,
-                                     0xc, 0xfec18000, 0x30);
-
 
 	return acpi_madt_irq_overrides(current);
 }
@@ -466,7 +435,6 @@ void generate_cpu_entries(struct device *device)
 			}
 
 			/* Generate processor \_PR.CPUx */
-			printk(BIOS_DEBUG, "^^^ acpigen_write_processor cpu_id: 0x%x, core_id: 0x%x\n", cpu_id, core_id);
 			acpigen_write_processor((cpu_id) * cores_per_package +
 						core_id, pcontrol_blk, plen);
 

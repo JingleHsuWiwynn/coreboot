@@ -35,6 +35,9 @@ Intel Corporation.
 #define CONFIG_TDP_MAX_LEVEL          5
 #define MAX_IMC                       2
 #define MC_MAX_NODE                   (MAX_SOCKET * MAX_IMC)
+#define MAX_TAD_RULES                 20
+#define MAX_TAD_WAYS                  3
+#define SAD_RULES                     24
 
 #define FSP_HOB_IIO_UNIVERSAL_DATA_GUID { \
   0xa1, 0x96, 0xf3, 0x7f, 0x7d, 0xee, 0x1e, 0x43, \

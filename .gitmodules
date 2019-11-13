@@ -35,5 +35,5 @@
 	update = none
 	ignore = dirty
 [submodule "3rdparty/ffs"]
-	path = 3rdparty/ffs
-	url = ../ffs.git
+  path = 3rdparty/ffs
+  url = ../ffs.git

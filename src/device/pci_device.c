@@ -432,7 +432,6 @@ static void pci_bridge_read_bases(struct device *dev)
 
 void pci_dev_read_resources(struct device *dev)
 {
-  printk(BIOS_SPEW, "^^^ pci_dev_read_resources for dev: %s\n", dev_path(dev));
 	pci_read_bases(dev, 6);
 	pci_get_rom_resource(dev, PCI_ROM_ADDRESS);
 }
@@ -630,7 +629,6 @@ void pci_dev_enable_resources(struct device *dev)
 			dev->subsystem_device);
 	}
 	command = pci_read_config16(dev, PCI_COMMAND);
-	printk(BIOS_DEBUG, "^^^ %s cmd <- %02x | %02x\n", dev_path(dev), command, dev->command);
 	command |= dev->command;
 
 	/* v3 has

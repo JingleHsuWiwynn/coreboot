@@ -17,6 +17,11 @@
 #ifndef _SKXSP_UTIL_H_
 #define _SKXSP_UTIL_H_
 
+#include <soc/hob_mem.h>
+#include <soc/hob_iiouds.h>
+#include <soc/hob_memorymapdata.h>
+#include <arch/acpi.h>
+
 #define LOG_MEM_RESOURCE(type, dev, index, base_kb, size_kb) \
  printk(BIOS_SPEW, "%s:%d res: %s, dev: %s, index: 0x%x, base: 0x%llx, end: 0x%llx, size_kb: 0x%llx\n", \
         __func__, __LINE__, type, dev_path(dev), index, (base_kb << 10), (base_kb << 10) + (size_kb << 10) - 1, size_kb)
@@ -41,6 +46,11 @@
 #define FUNC_EXIT() \
 	printk(BIOS_SPEW, "%s:%s:%d: EXIT\n", __FILE__, __func__, __LINE__)
 
+struct iiostack_resource {
+  u8                  no_of_stacks;
+  STACK_RES           *sres;
+};
+
 uintptr_t get_tolm(u32 bus);
 void get_tseg_base_lim(u32 bus, u32 *base, u32 *limit);
 uintptr_t get_cha_mmcfg_base(u32 bus);
@@ -53,7 +63,14 @@ void get_stack_busnos(u32 *bus);
 void dump_iio_stack_basic(void);
 void dump_iio_stack_detailed(void);
 void unlock_pam_regions(void);
-int get_cores_per_package(void);
+int get_threads_per_package(void);
+int get_platform_thread_count(void);
 void dump_pch_int_regs(const char *header);
+void get_iiostack_info(struct iiostack_resource *info);
+void xeonsp_init_cpu_config(void);
+unsigned int get_srat_memory_entries(acpi_srat_mem_t *srat_mem);
+void get_core_thread_bits(uint32_t *core_bits, uint32_t *thread_bits);
+void get_cpu_info_from_apicid(uint32_t apicid, uint32_t core_bits, uint32_t thread_bits,
+                              uint8_t *package, uint8_t *core, uint8_t *thread);
 
 #endif /* _SKXSP_UTIL_H_ */

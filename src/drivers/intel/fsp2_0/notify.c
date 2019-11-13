@@ -24,9 +24,6 @@ static void fsp_notify(enum fsp_notify_phase phase)
 	fsp_notify_fn fspnotify;
 	struct fsp_notify_params notify_params = { .phase = phase };
 
-	outb(0xa, 0x70);
-	printk(BIOS_DEBUG, "^^^ %s:%s:%d CMOS read: 0x%x\n", __FILE__, __func__, __LINE__, inb(0x71));
-
 	if (!fsps_hdr.notify_phase_entry_offset)
 		die("Notify_phase_entry_offset is zero!\n");
 
@@ -68,9 +65,6 @@ static void fsp_notify(enum fsp_notify_phase phase)
 
 	/* Allow the platform to run something after FspNotify */
 	platform_fsp_notify_status(phase);
-
-	outb(0xa, 0x70);
-	printk(BIOS_DEBUG, "^^^ %s:%s:%d CMOS read: 0x%x\n", __FILE__, __func__, __LINE__, inb(0x71));
 }
 
 static void fsp_notify_dummy(void *arg)

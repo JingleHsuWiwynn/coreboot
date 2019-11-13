@@ -49,6 +49,9 @@
 #include <soc/cpu.h>
 #include <soc/iomap.h>
 //#include <soc/smm.h>
+#include <soc/hob_mem.h>
+#include <soc/hob_iiouds.h>
+#include <soc/hob_memorymapdata.h>
 #include <soc/soc_util.h>
 #include <soc/skxsp_util.h>
 #include <soc/pci_devs.h>
@@ -57,6 +60,8 @@
 #include <soc/p2sb.h>
 #include <soc/acpi.h>
 #include <soc/irq.h>
+#include <commonlib/sort.h>
+
 
 #define DRV_IS_PCI_VENDOR_ID_INTEL 0x8086
 #define VENDOR_ID_MSASK 0x0000FFFF
@@ -474,7 +479,7 @@ void unlock_pam_regions(void)
 	printk(BIOS_DEBUG, "%s:%s pam0123_csr: 0x%x, pam456_csr: 0x%x\n", __FILE__, __func__, reg1, reg2);
 }
 
-static int detect_num_cpus_via_cpuid(void)
+static void get_cpu_info(unsigned int *core_count, unsigned int *thread_count)
 {
 	register int ecx = 0;
 	struct cpuid_result leaf_b;
@@ -507,13 +512,13 @@ static int detect_num_cpus_via_cpuid(void)
 
 	/*
 		CPUID.(EAX=0Bh, ECX=0h):EAX[4:0] = 1, shift 1 bit to get Core level of APIC ID
-		from Thread level (ECX input =0).
+		from Thread level (ECX input =0). (ThreatBits = 1)
 		CPUID.(EAX=0Bh, ECX=1h):EAX[4:0] = 6, shift 6 bits to get Socket level of APIC
-		ID from Core level (ECX input =1)
+		ID from Core level (ECX input =1) (CoreBits = 6 - 1 = 5)
 	*/
 	while (1) {
 		leaf_b = cpuid_ext(0xb, ecx);
-		printk(BIOS_DEBUG, "ApicIdShift - EAX[4:0]: 0x%x, LogicalProcessors - EBX[15:0]: 0x%x, "
+		printk(BIOS_DEBUG, "APICIdShift - EAX[4:0]: 0x%x, LogicalProcessors - EBX[15:0]: 0x%x, "
 					 "LevelNumber - ECX[7:0]: 0x%x, LevelType - ECX[15:8]: 0x%x, x2APIC_ID - EDX[31:0]: 0x%x\n",
 					 (leaf_b.eax & 0x1f), (leaf_b.ebx & 0xffff), (leaf_b.ecx & 0xff), ((leaf_b.ecx >> 8) & 0xff),
 					 (leaf_b.edx & 0xffffffff));
@@ -528,35 +533,68 @@ static int detect_num_cpus_via_cpuid(void)
 			break;
 		ecx++;
 	}
-	//return (leaf_b.ebx & 0xffff);
-	return num_virt_cores;
+
+	*core_count = num_phys_cores;
+	*thread_count = num_virt_cores;
 }
 
-int get_cores_per_package(void)
+void get_core_thread_bits(uint32_t *core_bits, uint32_t *thread_bits)
 {
-#if 0
-  struct cpuinfo_x86 c;
-  struct cpuid_result result;
-  int cores = 1;
+	register int ecx;
+	struct cpuid_result cpuid_regs;
 
-  get_fms(&c, cpuid_eax(1));
-  if (c.x86 != 6)
-    return 1;
+	/* get max index of CPUID */
+  cpuid_regs = cpuid(0);
+	assert (cpuid_regs.eax >= 0xb); /* cpuid_regs.eax is max input value for cpuid */
 
-  result = cpuid_ext(0xb, 1);
-  cores = result.ebx & 0xff;
-  return cores;
-#endif
-
-	return get_cpu_count();
+	*thread_bits = *core_bits = 0;
+	ecx = 0;
+	while (1) {
+		cpuid_regs = cpuid_ext(0xb, ecx);
+		if (ecx == 0) {
+			*thread_bits = (cpuid_regs.eax & 0x1f);
+		}
+		else {
+			*core_bits = (cpuid_regs.eax & 0x1f) - *thread_bits;
+			break;
+		}
+		ecx++;
+	}
 }
 
-/* Find CPU topology */
+void get_cpu_info_from_apicid(uint32_t apicid, uint32_t core_bits, uint32_t thread_bits,
+ 														  uint8_t *package, uint8_t *core, uint8_t *thread)
+{
+	if (package != NULL)
+		*package = (apicid >> (thread_bits + core_bits));
+	if (core != NULL)
+		*core = (uint32_t)((apicid >> thread_bits) & ~((~0) << core_bits));
+	if (thread != NULL)
+		*thread = (uint32_t)(apicid & ~((~0) << thread_bits));
+}
+
 int get_cpu_count(void)
 {
-	int num_cpus = detect_num_cpus_via_cpuid();
-	printk(BIOS_DEBUG, "Number of Cores (CPUID): %d.\n", num_cpus);
-	return num_cpus;
+  size_t hob_size;
+  const uint8_t fsp_hob_iio_universal_data_guid[16] = FSP_HOB_IIO_UNIVERSAL_DATA_GUID;
+  const IIO_UDS *hob;
+
+	/* these fields are incorrect - need debugging */
+  hob = fsp_find_extension_hob_by_guid(fsp_hob_iio_universal_data_guid, &hob_size);
+  assert(hob != NULL && hob_size != 0);
+	return hob->SystemStatus.numCpus;
+}
+
+int get_threads_per_package(void)
+{
+	unsigned int core_count, thread_count;
+	get_cpu_info(&core_count, &thread_count);
+	return thread_count;
+}
+
+int get_platform_thread_count(void)
+{
+	return get_cpu_count() * get_threads_per_package();
 }
 
 void dump_pch_int_regs(const char *header)
@@ -601,3 +639,168 @@ void dump_pch_int_regs(const char *header)
 	}
 }
 
+void get_iiostack_info(struct iiostack_resource *info)
+{
+	size_t hob_size;
+	u8 stack_no;
+	const uint8_t fsp_hob_iio_universal_data_guid[16] = FSP_HOB_IIO_UNIVERSAL_DATA_GUID;
+  const IIO_UDS *hob;
+
+	memset(info, 0, sizeof(struct iiostack_resource));
+
+	hob = fsp_find_extension_hob_by_guid(
+                          fsp_hob_iio_universal_data_guid,
+                          &hob_size);
+  assert(hob != NULL && hob_size != 0);
+  //assert(hob != NULL && hob_size != 0 && hob_size == sizeof(IIO_UDS));
+
+	// find out total number of stacks
+	info->no_of_stacks = 0;
+	info->sres = NULL;
+	for (int s=0; s < hob->PlatformData.numofIIO; ++s) {
+		for (int x=0; x < MAX_IIO_STACK; ++x) {
+			const STACK_RES *ri = &hob->PlatformData.IIO_resource[s].StackRes[x];
+			if (ri->BusBase < ri->BusLimit) // TODO: do we have situation with only bux 0 and one stack?
+				++info->no_of_stacks;
+		}
+	}
+	assert(info->no_of_stacks > 0);
+
+	// allocate and copy stack info from FSP HOB
+	info->sres = malloc(info->no_of_stacks * sizeof(STACK_RES));
+	if (info->sres == 0)
+		die("build_stack_info(): out of memory.\n");
+	memset(info->sres, 0, info->no_of_stacks * sizeof(STACK_RES));
+
+	stack_no = 0;
+  for (int s=0; s < hob->PlatformData.numofIIO; ++s) {
+    for (int x=0; x < MAX_IIO_STACK; ++x) {
+      const STACK_RES *ri = &hob->PlatformData.IIO_resource[s].StackRes[x];
+			if (ri->BusBase < ri->BusLimit) // TODO: do we have situation with only bux 0 and one stack?
+				memcpy(&info->sres[stack_no++], ri, sizeof(STACK_RES));
+    }
+  }
+}
+
+#if ENV_RAMSTAGE
+
+void xeonsp_init_cpu_config(void)
+{
+	struct device *dev;
+	int apic_ids[CONFIG_MAX_CPUS] = {0}, apic_ids_by_thread[CONFIG_MAX_CPUS] = {0}, num_apics = 0;
+	uint32_t core_bits, thread_bits;
+	unsigned int core_count, thread_count;
+	unsigned int num_cpus;
+
+	/* sort APIC ids in asending order to identify apicid ranges for 
+     each numa domain 
+   */
+  for (dev = all_devices; dev; dev = dev->next) {
+    if ((dev->path.type != DEVICE_PATH_APIC) ||
+      (dev->bus->dev->path.type != DEVICE_PATH_CPU_CLUSTER)) {
+      continue;
+    }
+    if (!dev->enabled)
+      continue;
+    if (num_apics >= ARRAY_SIZE(apic_ids))
+      break;
+    apic_ids[num_apics++] = dev->path.apic.apic_id;
+  }
+  if (num_apics > 1)
+    bubblesort(apic_ids, num_apics, NUM_ASCENDING);
+
+  num_cpus = get_cpu_count();
+  get_cpu_info(&core_count, &thread_count);
+	assert (num_apics == (num_cpus * thread_count));
+
+	/* sort them by thread i.e., all cores with thread 0 and then thread 1 */
+	int index = 0;
+	for (int id=0; id < num_apics; ++id) {
+		int apic_id = apic_ids[id];
+		if (apic_id & 0x1) { /* 2nd thread */
+			apic_ids_by_thread[index + (num_apics/2) - 1] = apic_id;
+		}
+		else { /* 1st thread */
+			apic_ids_by_thread[index++] = apic_id;
+		}
+	}
+	
+	/* update apic_id, node_id in sorted order */
+	num_apics = 0;
+  get_core_thread_bits(&core_bits, &thread_bits);
+  for (dev = all_devices; dev; dev = dev->next) {
+		uint8_t package;
+
+    if ((dev->path.type != DEVICE_PATH_APIC) ||
+      (dev->bus->dev->path.type != DEVICE_PATH_CPU_CLUSTER)) {
+      continue;
+    }
+    if (!dev->enabled)
+      continue;
+    if (num_apics >= ARRAY_SIZE(apic_ids))
+      break;
+		dev->path.apic.apic_id = apic_ids_by_thread[num_apics];
+		get_cpu_info_from_apicid(dev->path.apic.apic_id, core_bits, thread_bits, &package, NULL, NULL);
+		dev->path.apic.node_id = package;
+		printk(BIOS_DEBUG, "CPU %d apic_id: 0x%x, node_id: 0x%x\n", num_apics, dev->path.apic.apic_id, dev->path.apic.node_id);
+
+		++num_apics;
+  }
+}
+
+unsigned int get_srat_memory_entries(acpi_srat_mem_t *srat_mem)
+{
+	const struct SystemMemoryMapHob *memory_map;
+  size_t hob_size;
+  const uint8_t mem_hob_guid[16] = FSP_SYSTEM_MEMORYMAP_HOB_GUID;
+	unsigned int mmap_index;
+
+  /* these fields are incorrect - need debugging */
+  memory_map = fsp_find_extension_hob_by_guid(mem_hob_guid, &hob_size);
+  assert(memory_map != NULL && hob_size != 0);
+	printk(BIOS_DEBUG, "FSP_SYSTEM_MEMORYMAP_HOB_GUID hob_size: %ld\n", hob_size);
+
+	mmap_index = 0;
+	for (int e = 0; e < memory_map->numberEntries; ++e) {
+		const struct SystemMemoryMapElement *mem_element = &memory_map->Element[e];
+		uint64_t addr = (uint64_t) ((uint64_t)mem_element->BaseAddress << MEM_ADDR_64MB_SHIFT_BITS);
+		uint64_t size = (uint64_t) ((uint64_t)mem_element->ElementSize << MEM_ADDR_64MB_SHIFT_BITS);
+
+		printk(BIOS_DEBUG, "memory_map %d addr: 0x%llx, BaseAddress: 0x%x, size: 0x%llx, ElementSize: 0x%x, reserved: %d\n", 
+					 e, addr, mem_element->BaseAddress, size, mem_element->ElementSize, (mem_element->Type & MEM_TYPE_RESERVED));
+
+		assert(mmap_index < MAX_ACPI_MEMORY_AFFINITY_COUNT);
+
+		/* skip reserved memory region */
+		if (mem_element->Type & MEM_TYPE_RESERVED)
+			continue;
+
+		/* skip if this address is already added */
+		bool skip = false;
+		for (int idx = 0; idx < mmap_index; ++idx) {
+			uint64_t base_addr = ((uint64_t)srat_mem[idx].base_address_high << 32) + srat_mem[idx].base_address_low;
+			if (addr == base_addr) {
+				skip = true;
+				break;
+			}
+		}
+		if (skip) 
+			continue;
+
+		srat_mem[mmap_index].type = 1; /* Memory affinity structure */
+		srat_mem[mmap_index].length = sizeof(acpi_srat_mem_t);
+		srat_mem[mmap_index].base_address_low = (uint32_t) (addr & 0xffffffff);
+		srat_mem[mmap_index].base_address_high = (uint32_t) (addr >> 32);
+		srat_mem[mmap_index].length_low = (uint32_t) (size & 0xffffffff);
+		srat_mem[mmap_index].length_high = (uint32_t) (size >> 32);
+		srat_mem[mmap_index].proximity_domain = mem_element->SocketId;
+		srat_mem[mmap_index].flags = SRAT_ACPI_MEMORY_ENABLED;
+		if ((mem_element->Type & MEMTYPE_VOLATILE_MASK) == 0)
+			srat_mem[mmap_index].flags |= SRAT_ACPI_MEMORY_NONVOLATILE;
+		++mmap_index;
+	}
+
+	return mmap_index;
+}
+
+#endif

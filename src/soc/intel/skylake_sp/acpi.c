@@ -174,8 +174,26 @@ unsigned long acpi_madt_irq_overrides(unsigned long current)
   flags |= soc_madt_sci_irq_polarity(sci);
 
   /* SCI */
-  current +=
-      acpi_create_madt_irqoverride((void *)current, 0, sci, sci, flags);
+  current += acpi_create_madt_irqoverride((void *)current, 0, sci, sci, flags);
+
+  return current;
+}
+
+static unsigned long xeonsp_acpi_create_madt_lapics(unsigned long current)
+{
+  struct device *cpu;
+  int num_cpus = 0;
+
+  for (cpu = all_devices; cpu; cpu = cpu->next) {
+    if ((cpu->path.type != DEVICE_PATH_APIC) ||
+      (cpu->bus->dev->path.type != DEVICE_PATH_CPU_CLUSTER)) {
+      continue;
+    }
+    if (!cpu->enabled)
+      continue;
+    current += acpi_create_madt_lapic((acpi_madt_lapic_t *)current,
+        num_cpus, cpu->path.apic.apic_id);
+  }
 
   return current;
 }
@@ -185,9 +203,13 @@ unsigned long acpi_fill_madt(unsigned long current)
   size_t hob_size;
   const uint8_t fsp_hob_iio_universal_data_guid[16] = FSP_HOB_IIO_UNIVERSAL_DATA_GUID;
   const IIO_UDS *hob;
+	int cur_stack;
+
+	int gsi_bases[] = {0, 0x18, 0x20, 0x28, 0x30, 0x48, 0x50, 0x58, 0x60};
+	int ioapic_ids[] = {0x8, 0x9, 0xa, 0xb, 0xc, 0xf, 0x10, 0x11, 0x12};
 
   /* Local APICs */
-  current = acpi_create_madt_lapics(current);
+  current = xeonsp_acpi_create_madt_lapics(current);
 
   /* IOAPIC */
    /*
@@ -206,35 +228,32 @@ unsigned long acpi_fill_madt(unsigned long current)
       b2:05.4 PIC: Intel Corporation Device 2036 (rev 04) (prog-if 20 [IO(X)-APIC])
    */
 
-  current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current,
-                                     8, 0xfec00000, 0);
-  current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current,
-                                     9, 0xfec01000, 0x18);
-  current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current,
-                                     0xa, 0xfec08000, 0x20);
-  current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current,
-                                     0xb, 0xfec10000, 0x28);
-  current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current,
-                                     0xc, 0xfec18000, 0x30);
+	hob = fsp_find_extension_hob_by_guid( fsp_hob_iio_universal_data_guid, &hob_size);
+	assert(hob != NULL && hob_size != 0);
 
-	if (0) {
-		hob = fsp_find_extension_hob_by_guid(
-														fsp_hob_iio_universal_data_guid,
-														&hob_size);
-		assert(hob != NULL && hob_size != 0);
+	cur_stack = 0;
+	for (int socket=0; socket < hob->PlatformData.numofIIO; ++socket) {
+		for (int stack=0; stack < MAX_IIO_STACK; ++stack) {
+			const STACK_RES *ri = &hob->PlatformData.IIO_resource[socket].StackRes[stack];
+			if (ri->BusBase != ri->BusLimit) { // TODO: do we have situation with only bux 0 and one stack?
+				assert (cur_stack < sizeof(ioapic_ids)/sizeof(int));
+				assert (cur_stack < sizeof(gsi_bases)/sizeof(int));
+				int ioapic_id = ioapic_ids[cur_stack];
+				int gsi_base = gsi_bases[cur_stack];
+				printk(BIOS_DEBUG, "Adding MADT IOAPIC for socket: %d, stack: %d, ioapic_id: 0x%x, ioapic_base: 0x%x, gsi_base: 0x%x\n",
+							 socket, stack,  ioapic_id, ri->IoApicBase, gsi_base);
+				current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current, ioapic_id, ri->IoApicBase, gsi_base);
+				++cur_stack;
 
-		// find out total number of stacks
-		int i = 0;
-		for (int socket=0; socket < hob->PlatformData.numofIIO; ++socket) {
-			for (int stack=0; stack < MAX_IIO_STACK; ++stack) {
-				const STACK_RES *ri = &hob->PlatformData.IIO_resource[socket].StackRes[stack];
-				if (ri->BusBase != ri->BusLimit) { // TODO: do we have situation with only bux 0 and one stack?
-					printk(BIOS_DEBUG, "Adding MADT IOAPIC for socket: %d, stack: %d, id: 0x%x, base: 0x%x, gsi_base: 0x%x\n",
-								 socket, stack,  (i+8), ri->IoApicBase, (8*i)+0x18);
-					/* acpi_create_madt_ioapic implementation in src/arch/x86/acpi.c */
-					current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current, (i+8),
-																						 ri->IoApicBase, (i == 0) ? 0 : ((8*i)+0x18));
-					++i;
+				if (socket == 0 && stack == 0) {
+					assert (cur_stack < sizeof(ioapic_ids)/sizeof(int));
+					assert (cur_stack < sizeof(gsi_bases)/sizeof(int));
+					ioapic_id = ioapic_ids[cur_stack];
+					gsi_base = gsi_bases[cur_stack];
+					printk(BIOS_DEBUG, "Adding MADT IOAPIC for socket: %d, stack: %d, ioapic_id: 0x%x, ioapic_base: 0x%x, gsi_base: 0x%x\n",
+								 socket, stack,  ioapic_id, ri->IoApicBase + 0x1000, gsi_base);
+					current += acpi_create_madt_ioapic((acpi_madt_ioapic_t *) current, ioapic_id, ri->IoApicBase + 0x1000, gsi_base);
+					++cur_stack;
 				}
 			}
 		}
@@ -388,41 +407,24 @@ void generate_p_state_entries(int core, int cores_per_package)
 
 void generate_cpu_entries(struct device *device)
 {
-  size_t hob_size;
-  const uint8_t fsp_hob_iio_universal_data_guid[16] = FSP_HOB_IIO_UNIVERSAL_DATA_GUID;
-  const IIO_UDS *hob;
-
 	int core_id, cpu_id, pcontrol_blk = ACPI_BASE_ADDRESS;
 	int plen = 6;
-	int totalcores = dev_count_cpu();
-	int cores_per_package = get_cores_per_package();
-	int numcpus = totalcores / cores_per_package;
-
-	/* these fields are incorrect - need debugging */
-  hob = fsp_find_extension_hob_by_guid(
-                          fsp_hob_iio_universal_data_guid,
-                          &hob_size);
-  assert(hob != NULL && hob_size != 0);
-	printk(BIOS_DEBUG, "numCpus: %d, socketPresentBitMap: 0x%x\n", hob->SystemStatus.numCpus,
-				 hob->SystemStatus.socketPresentBitMap);
-	for (int i=0; i < MAX_SOCKET; ++i) {
-		printk(BIOS_DEBUG, "Socket %d FusedCores: 0x%x, ActiveCores: 0x%x\n", i,
-					 hob->SystemStatus.FusedCores[i], hob->SystemStatus.ActiveCores[i]);
-	}
+	int total_threads = dev_count_cpu();
+	int threads_per_package = get_threads_per_package();
+	int numcpus = total_threads / threads_per_package;
 
 	printk(BIOS_DEBUG, "Found %d CPU(s) with %d core(s) each, totalcores: %d.\n",
-	       numcpus, cores_per_package, totalcores);
+	       numcpus, threads_per_package, total_threads);
 
 	for (cpu_id = 0; cpu_id < numcpus; cpu_id++) {
-		for (core_id = 0; core_id < cores_per_package; core_id++) {
+		for (core_id = 0; core_id < threads_per_package; core_id++) {
 			if (core_id > 0) {
 				pcontrol_blk = 0;
 				plen = 0;
 			}
 
 			/* Generate processor \_PR.CPUx */
-			printk(BIOS_DEBUG, "^^^ acpigen_write_processor cpu_id: 0x%x, core_id: 0x%x\n", cpu_id, core_id);
-			acpigen_write_processor((cpu_id) * cores_per_package +
+			acpigen_write_processor((cpu_id) * threads_per_package +
 						core_id, pcontrol_blk, plen);
 
 			/* Generate C-state tables */
@@ -436,10 +438,10 @@ void generate_cpu_entries(struct device *device)
 	}
 	/* PPKG is usually used for thermal management
 	   of the first and only package. */
-	acpigen_write_processor_package("PPKG", 0, cores_per_package);
+	acpigen_write_processor_package("PPKG", 0, threads_per_package);
 
 	/* Add a method to notify processor nodes */
-	acpigen_write_processor_cnot(cores_per_package);
+	acpigen_write_processor_cnot(threads_per_package);
 }
 
 void soc_fill_fadt(acpi_fadt_t *fadt)
@@ -735,6 +737,97 @@ unsigned long southbridge_write_acpi_tables(struct device *device,
 	}
 
 	printk(BIOS_DEBUG, "current = %lx\n", current);
+
+	return current;
+}
+
+unsigned long acpi_create_srat_lapics(unsigned long current)
+{
+	struct device *cpu;
+	int cpu_index = 0;
+
+	for (cpu = all_devices; cpu; cpu = cpu->next) {
+		if ((cpu->path.type != DEVICE_PATH_APIC) ||
+		   (cpu->bus->dev->path.type != DEVICE_PATH_CPU_CLUSTER)) {
+			continue;
+		}
+		if (!cpu->enabled) {
+			continue;
+		}
+		printk(BIOS_DEBUG, "SRAT: lapic cpu_index=%02x, node_id=%02x, apic_id=%02x\n", cpu_index, cpu->path.apic.node_id, cpu->path.apic.apic_id);
+		current += acpi_create_srat_lapic((acpi_srat_lapic_t *)current, cpu->path.apic.node_id, cpu->path.apic.apic_id);
+		cpu_index++;
+	}
+	return current;
+}
+
+static unsigned long acpi_fill_srat(unsigned long current)
+{
+	acpi_srat_mem_t srat_mem[MAX_ACPI_MEMORY_AFFINITY_COUNT];
+	unsigned int mem_count;
+
+	/* create all subtables for processors */
+	current = acpi_create_srat_lapics(current);
+
+	mem_count = get_srat_memory_entries(srat_mem);
+	for (int i=0; i < mem_count; ++i) {
+	 printk(BIOS_DEBUG, "adding srat memory %d entry length: %d, addr: 0x%x%x, length: 0x%x%x, proximity_domain: %d, flags: %x\n",
+           i, srat_mem[i].length, srat_mem[i].base_address_high, srat_mem[i].base_address_low,
+           srat_mem[i].length_high, srat_mem[i].length_low,
+           srat_mem[i].proximity_domain, srat_mem[i].flags);
+		memcpy((acpi_srat_mem_t *)current, &srat_mem[i], sizeof(srat_mem[i]));
+		current += srat_mem[i].length;
+	}
+
+	return current;
+}
+
+static unsigned long acpi_fill_slit(unsigned long current)
+{
+	int nodes = get_cpu_count();
+
+	u8 *p = (u8 *)current;
+	memset(p, 0, 8+nodes*nodes);
+  *p = (u8) nodes;
+  p += 8;
+
+	/* this assumes fully connected socket topology */
+  for (int i = 0; i < nodes; i++) {
+    for (int j = 0; j < nodes; j++) {
+      if (i == j)
+        p[i*nodes+j] = 10;
+      else
+        p[i*nodes+j] = 16;
+    }
+  }
+
+  current += 8+nodes*nodes;
+  return current;
+}
+
+unsigned long northbridge_write_acpi_tables(struct device *device,
+					    unsigned long current,
+					    struct acpi_rsdp *rsdp)
+{
+	acpi_srat_t *srat;
+	acpi_slit_t *slit;
+
+	/* SRAT */
+	current = ALIGN(current, 8);
+	printk(BIOS_DEBUG, "ACPI:    * SRAT at %lx\n", current);
+	srat = (acpi_srat_t *) current;
+	acpi_create_srat(srat, acpi_fill_srat);
+	current += srat->header.length;
+	acpi_add_table(rsdp, srat);
+
+	
+	/* SLIT */
+	current = ALIGN(current, 8);
+	printk(BIOS_DEBUG, "ACPI:   * SLIT at %lx\n", current);
+	slit = (acpi_slit_t *) current;
+	acpi_create_slit(slit, acpi_fill_slit);
+	current += slit->header.length;
+	acpi_add_table(rsdp, slit);
 
 	return current;
 }
