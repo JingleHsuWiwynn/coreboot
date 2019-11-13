@@ -29,7 +29,7 @@
  *     |         (TSEG)          |
  *     +-------------------------+ TSEG
  */
-int smm_subregion(int sub, uintptr_t *start, size_t *size)
+__weak int smm_subregion(int sub, uintptr_t *start, size_t *size)
 {
 	uintptr_t sub_base;
 	size_t sub_size;

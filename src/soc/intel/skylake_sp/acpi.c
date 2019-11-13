@@ -568,9 +568,19 @@ void acpi_fill_fadt(acpi_fadt_t *fadt)
 	fadt->header.revision = get_acpi_table_revision(FADT);
 
 	fadt->sci_int = acpi_sci_irq();
+	fadt->smi_cmd = 0x00;
+	fadt->acpi_enable = 0x00;
+	fadt->acpi_disable = 0x00;
+/* Following are the values taken from production system
+	fadt->smi_cmd = 0xB2;
+	fadt->acpi_enable = 0xA0;
+	fadt->acpi_disable = 0xA1;
+*/
+/*
 	fadt->smi_cmd = APM_CNT;
 	fadt->acpi_enable = APM_CNT_ACPI_ENABLE;
 	fadt->acpi_disable = APM_CNT_ACPI_DISABLE;
+*/
 	fadt->s4bios_req = 0x0;
 	fadt->pstate_cnt = 0;
 
