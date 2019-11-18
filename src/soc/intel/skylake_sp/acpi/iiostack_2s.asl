@@ -45,6 +45,416 @@ Scope (_SB)
 {
 	#include "pirq_irqs.asl"
 
+Name (P12E, Package (0x04)
+{
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x00, 
+				LNKB, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x01, 
+				LNKC, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x02, 
+				LNKD, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x03, 
+				LNKA, 
+				0x00
+		}
+})
+Name (G12E, Package (0x04)
+{
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x00, 
+				0x00, 
+				0x11
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x01, 
+				0x00, 
+				0x12
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x02, 
+				0x00, 
+				0x13
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x03, 
+				0x00, 
+				0x10
+		}
+})
+Name (P14C, Package (0x04)
+{
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x00, 
+				LNKA, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x01, 
+				LNKB, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x02, 
+				LNKC, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x03, 
+				LNKD, 
+				0x00
+		}
+})
+Name (G14C, Package (0x04)
+{
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x00, 
+				0x00, 
+				0x10
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x01, 
+				0x00, 
+				0x11
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x02, 
+				0x00, 
+				0x12
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x03, 
+				0x00, 
+				0x13
+		}
+})
+Name (P022, Package (0x04)
+{
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x00, 
+				LNKA, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x01, 
+				LNKB, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x02, 
+				LNKC, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x03, 
+				LNKD, 
+				0x00
+		}
+})
+Name (G022, Package (0x04)
+{
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x00, 
+				0x00, 
+				0x10
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x01, 
+				0x00, 
+				0x11
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x02, 
+				0x00, 
+				0x12
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x03, 
+				0x00, 
+				0x13
+		}
+})
+Name (P026, Package (0x04)
+{
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x00, 
+				LNKA, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x01, 
+				LNKB, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x02, 
+				LNKC, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x03, 
+				LNKD, 
+				0x00
+		}
+})
+Name (G026, Package (0x04)
+{
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x00, 
+				0x00, 
+				0x10
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x01, 
+				0x00, 
+				0x11
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x02, 
+				0x00, 
+				0x12
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x03, 
+				0x00, 
+				0x13
+		}
+})
+Name (P027, Package (0x04)
+{
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x00, 
+				LNKB, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x01, 
+				LNKC, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x02, 
+				LNKD, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x03, 
+				LNKA, 
+				0x00
+		}
+})
+Name (G027, Package (0x04)
+{
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x00, 
+				0x00, 
+				0x11
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x01, 
+				0x00, 
+				0x12
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x02, 
+				0x00, 
+				0x13
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x03, 
+				0x00, 
+				0x10
+		}
+})
+Name (P02C, Package (0x04)
+{
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x00, 
+				LNKC, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x01, 
+				LNKD, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x02, 
+				LNKA, 
+				0x00
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x03, 
+				LNKB, 
+				0x00
+		}
+})
+
+Name (G02C, Package (0x04)
+{
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x00, 
+				0x00, 
+				0x12
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x01, 
+				0x00, 
+				0x13
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x02, 
+				0x00, 
+				0x10
+		}, 
+
+		Package (0x04)
+		{
+				0xFFFF, 
+				0x03, 
+				0x00, 
+				0x11
+		}
+})
+
 	Name (PR00, Package (0x28)
 	{
 			Package (0x04)
@@ -10897,6 +11307,7 @@ Device (PC00)
 	Name (SUPP, 0x00)
 	Name (CTRL, 0x00)
 	Name (_PXM, 0x00)  // _PXM: Device Proximity
+  #include "pcie_osc.asl"
 
 	Device (APIC)
 	{
@@ -11220,6 +11631,7 @@ Device (PC01)
 	Name (SUPP, 0x00)
 	Name (CTRL, 0x00)
 	Name (_PXM, 0x00)  // _PXM: Device Proximity
+  #include "pcie_osc.asl"
 
 	Name (PR01, ResourceTemplate ()
 	{
@@ -11287,6 +11699,7 @@ Device (PC02)
 	Name (SUPP, 0x00)
 	Name (CTRL, 0x00)
 	Name (_PXM, 0x00)  // _PXM: Device Proximity
+  #include "pcie_osc.asl"
 
 	Name (PR02, ResourceTemplate ()
 	{
@@ -11350,6 +11763,7 @@ Device (PC03)
 
 			Return (PR28) /* \_SB_.PR28 */
 	}
+  #include "pcie_osc.asl"
 
 	Name (SUPP, 0x00)
 	Name (CTRL, 0x00)
@@ -11419,6 +11833,7 @@ Device (PC06)
 
 	Name (SUPP, 0x00)
 	Name (CTRL, 0x00)
+  #include "pcie_osc.asl"
 
 	Name (PR06, ResourceTemplate ()
 	{
@@ -11485,6 +11900,7 @@ Device (PC07)
 
 	Name (SUPP, 0x00)
 	Name (CTRL, 0x00)
+  #include "pcie_osc.asl"
 
 	Name (PR07, ResourceTemplate ()
 	{
@@ -11551,6 +11967,7 @@ Device (PC08)
 
 	Name (SUPP, 0x00)
 	Name (CTRL, 0x00)
+  #include "pcie_osc.asl"
 
 	Name (PR08, ResourceTemplate ()
 	{
@@ -11617,6 +12034,7 @@ Device (PC09)
 
 	Name (SUPP, 0x00)
 	Name (CTRL, 0x00)
+  #include "pcie_osc.asl"
 
 	Name (PR09, ResourceTemplate ()
 	{

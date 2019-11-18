@@ -24,7 +24,6 @@
 #include <soc/pcr_ids.h>
 
 	#include "pch_pciedev_irqs.asl"
-//#include "pchdev_irqs.asl"
 
 	/* IRQ assignment is mainboard specific. Get it from mainboard ACPI code */
 	//#include "acpi/mainboard_pci_irqs.asl"
