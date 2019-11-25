@@ -18,7 +18,6 @@
 #include <arch/ebda.h>
 #include <commonlib/endian.h>
 #include <console/console.h>
-#include <lib.h>
 
 static void *get_ebda_start(void)
 {
@@ -54,31 +53,8 @@ void write_ebda_data(const void *data, size_t length)
 		die("Input data length is > EBDA default size (1KiB)!");
 
 	ebda = get_ebda_start();
-	printk(BIOS_DEBUG, "^^^ write_ebda_data ebda: %p, data: %p, length: 0x%lx\n", ebda, data, length);
-	memcpy(ebda, data, length);
 
-#if 0
-	hexdump(data, length);
-	for (int i=0; i < length; ++i)
-		((u8*) data)[i] = i;
-	hexdump(data, length);
 	memcpy(ebda, data, length);
-	for (int i=0; i < length; ++i)
-		((u8*) ebda)[i] = i;
-	hexdump(ebda, length);
-
-	ebda = (void *) 0xe0000;
-	for (int i=0; i < length; ++i)
-		((u8*) ebda)[i] = i;
-	hexdump(ebda, length);
-#endif
-#if 0
-  u8 *pa = (u8 *) 0xf6000;
-  hexdump(pa, 32);
-  for (int i=0; i < 32; ++i)
-    *(pa + i) = i;
-  hexdump(pa, 32);
-#endif
 }
 
 /*

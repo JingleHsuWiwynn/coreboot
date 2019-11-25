@@ -375,6 +375,8 @@ void x86_setup_fixed_mtrrs_no_enable(void)
 void x86_setup_fixed_mtrrs(void)
 {
 	x86_setup_fixed_mtrrs_no_enable();
+
+	printk(BIOS_SPEW, "call enable_fixed_mtrr()\n");
 	enable_fixed_mtrr();
 }
 
@@ -456,7 +458,6 @@ static void prep_var_mtrr(struct var_mtrr_state *var_state,
 static void calc_var_mtrr_range(struct var_mtrr_state *var_state,
 				uint32_t base, uint32_t size, int mtrr_type)
 {
-	//printk(BIOS_DEBUG, "%s:%s:%d base: 0x%x, size: 0x%x, mtrr_type: %d\n", __FILE__, __func__, __LINE__, base, size, mtrr_type);
 	while (size != 0) {
 		uint32_t addr_lsb;
 		uint32_t size_msb;
@@ -473,12 +474,8 @@ static void calc_var_mtrr_range(struct var_mtrr_state *var_state,
 		else
 			mtrr_size = 1 << addr_lsb;
 
-		//printk(BIOS_DEBUG, "%s:%s:%d addr_lsb: 0x%x size_msb: 0x%x, mtrr_size: 0x%x\n", __FILE__, __func__, __LINE__, 
-		//			 addr_lsb, size_msb, mtrr_size);
-		if (var_state->prepare_msrs) {
-			//printk(BIOS_DEBUG, "%s:%s:%d prep_var_mtrr\n", __FILE__, __func__, __LINE__);
+		if (var_state->prepare_msrs)
 			prep_var_mtrr(var_state, base, mtrr_size, mtrr_type);
-		}
 
 		size -= mtrr_size;
 		base += mtrr_size;
@@ -548,7 +545,6 @@ static void calc_var_mtrrs_with_hole(struct var_mtrr_state *var_state,
 	uint32_t a1, a2, b1, b2;
 	int mtrr_type, carve_hole;
 
-	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	/*
 	 * Determine MTRRs based on the following algorithm for the given entry:
 	 * +------------------+ b2 = ALIGN_UP(end)
@@ -563,7 +559,6 @@ static void calc_var_mtrrs_with_hole(struct var_mtrr_state *var_state,
 
 	a1 = range_entry_base_mtrr_addr(r);
 	a2 = range_entry_end_mtrr_addr(r);
-	//printk(BIOS_DEBUG, "[1] mtrr_type: %d, a1: 0x%x, a2: 0x%x\n", mtrr_type, a1, a2);
 
 	/* The end address is within the first 1MiB. The fixed MTRRs take
 	 * precedence over the variable ones. Therefore this range
@@ -577,7 +572,6 @@ static void calc_var_mtrrs_with_hole(struct var_mtrr_state *var_state,
 		a1 = 0;
 
 	/* If the range starts above 4GiB the processing is done. */
-	//printk(BIOS_DEBUG, "[2] mtrr_type: %d, a1: 0x%x, a2: 0x%x\n", mtrr_type, a1, a2);
 	if (!var_state->above4gb && a1 >= RANGE_4GB)
 		return;
 
@@ -589,7 +583,6 @@ static void calc_var_mtrrs_with_hole(struct var_mtrr_state *var_state,
 	b1 = a2;
 	b2 = a2;
 	carve_hole = 0;
-	//printk(BIOS_DEBUG, "[3] mtrr_type: %d, a1: 0x%x, a2: 0x%x, b1: 0x%x, b2: 0x%x\n", mtrr_type, a1, a2, b1, b2);
 
 	/* We only consider WB type ranges for hole-carving. */
 	if (mtrr_type == MTRR_TYPE_WRBACK) {
@@ -615,13 +608,6 @@ static void calc_var_mtrrs_with_hole(struct var_mtrr_state *var_state,
 		 *    the ranges.
 		 */
 		next = memranges_next_entry(var_state->addr_space, r);
-#if 0
-		printk(BIOS_DEBUG,
-           "0x%016llx - 0x%016llx size 0x%08llx type %ld\n",
-           range_entry_base(next), range_entry_end(next),
-           range_entry_size(next), range_entry_tag(next));
-#endif
-
 		if (next == NULL) {
 			b2_limit = ALIGN_UP((uint64_t)b1, 1 << fms(b1));
 			/* If it's the last range above 4GiB, we won't carve
@@ -637,7 +623,6 @@ static void calc_var_mtrrs_with_hole(struct var_mtrr_state *var_state,
 			b2_limit = range_entry_base_mtrr_addr(next);
 			carve_hole = 1;
 		}
-		//printk(BIOS_DEBUG, "[3] b2_limit: 0x%llx\n", b2_limit);
 		b2 = optimize_var_mtrr_hole(a1, b1, b2_limit, carve_hole);
 	}
 
@@ -738,18 +723,6 @@ static void prepare_var_mtrrs(struct memranges *addr_space, int def_type,
 	struct range_entry *r;
 	struct var_mtrr_state var_state;
 
-/*
-struct var_mtrr_regs {
-  msr_t base;
-  msr_t mask;
-};
-
-struct var_mtrr_solution {
-  int mtrr_default_type;
-  int num_used;
-  struct var_mtrr_regs regs[NUM_MTRR_STATIC_STORAGE];
-};
-*/
 	var_state.addr_space = addr_space;
 	var_state.above4gb = above4gb;
 	var_state.address_bits = address_bits;
@@ -799,23 +772,17 @@ void x86_setup_var_mtrrs(unsigned int address_bits, unsigned int above4gb)
 	static struct var_mtrr_solution *sol = NULL;
 	struct memranges *addr_space;
 
-	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	addr_space = get_physical_address_space();
 
 	if (sol == NULL) {
 		sol = &mtrr_global_solution;
-		printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 		sol->mtrr_default_type =
 			calc_var_mtrrs(addr_space, !!above4gb, address_bits);
-		printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 		prepare_var_mtrrs(addr_space, sol->mtrr_default_type,
 				  !!above4gb, address_bits, sol);
-		printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	}
 
-	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 	commit_var_mtrrs(sol);
-	printk(BIOS_DEBUG, "%s:%s:%d\n", __FILE__, __func__, __LINE__);
 }
 
 void x86_setup_mtrrs(void)

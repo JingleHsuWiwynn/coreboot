@@ -129,6 +129,7 @@ static int load_one_segment(uint8_t *dest,
 		 */
 		prog_segment_loaded((uintptr_t)dest, memsz, flags);
 
+
 	return 1;
 }
 
@@ -153,7 +154,6 @@ static int check_payload_segments(struct cbfs_payload_segment *cbfssegs,
 		cbfs_decode_payload_segment(&segment, seg);
 		dest = (uint8_t *)(uintptr_t)segment.load_addr;
 		memsz = segment.mem_len;
-		printk(BIOS_DEBUG, "Segment details: type: %d, 0x%p, memsz: 0x%lx\n", segment.type, dest, memsz);
 		if (segment.type == PAYLOAD_SEGMENT_ENTRY)
 			break;
 		if (!segment_targets_type(dest, memsz, dest_type))

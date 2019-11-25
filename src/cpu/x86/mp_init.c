@@ -206,7 +206,7 @@ static void asmlinkage ap_init(unsigned int cpu)
 	/* Fix up APIC id with reality. */
 	info->cpu->path.apic.apic_id = lapicid();
 
-	printk(BIOS_INFO, "AP: slot %d apic_id 0x%x.\n", cpu,
+	printk(BIOS_INFO, "AP: slot %d apic_id %x.\n", cpu,
 		info->cpu->path.apic.apic_id);
 
 	/* Walk the flight plan */

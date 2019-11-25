@@ -19,7 +19,6 @@
 
 int payload_arch_usable_ram_quirk(uint64_t start, uint64_t size)
 {
-	printk(BIOS_DEBUG, "payload_arch_usable_ram_quirk start: 0x%llx, size: 0x%llx\n", start, size);
 	if (start < 1 * MiB && (start + size) <= 1 * MiB) {
 		printk(BIOS_DEBUG,
 			"Payload being loaded at below 1MiB without region being marked as RAM usable.\n");
@@ -31,8 +30,6 @@ int payload_arch_usable_ram_quirk(uint64_t start, uint64_t size)
 
 void arch_prog_run(struct prog *prog)
 {
-		printk(BIOS_DEBUG, "arch_prog_run prog: 0x%p, prog_entry: 0x%p\n", prog, prog_entry(prog));
-
 	__asm__ volatile (
 #ifdef __x86_64__
 		"jmp  *%%rdi\n"
