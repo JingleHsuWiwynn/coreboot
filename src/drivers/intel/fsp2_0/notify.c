@@ -12,8 +12,6 @@
 
 #include <bootstate.h>
 #include <console/console.h>
-#include <device/device.h>
-#include <device/pci.h>
 #include <cpu/x86/mtrr.h>
 #include <fsp/util.h>
 #include <timestamp.h>

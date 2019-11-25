@@ -57,8 +57,6 @@ static void pch_pmc_add_mmio_resources(struct device *dev,
 			cfg->pwrmbase_addr, cfg->pwrmbase_size,
 			IORESOURCE_MEM | IORESOURCE_ASSIGNED |
 			IORESOURCE_FIXED | IORESOURCE_RESERVE);
-	printk(BIOS_DEBUG, "Adding mmio resource for dev: %s, offset: 0x%x, addr: 0x%lx, size: 0x%lx\n", dev_path(dev),
-				cfg->pwrmbase_offset, cfg->pwrmbase_addr, cfg->pwrmbase_size);
 }
 
 static void pch_pmc_add_io_resources(struct device *dev,
@@ -68,8 +66,6 @@ static void pch_pmc_add_io_resources(struct device *dev,
 			cfg->abase_addr, cfg->abase_size,
 			 IORESOURCE_IO | IORESOURCE_ASSIGNED |
 			 IORESOURCE_FIXED);
-	printk(BIOS_DEBUG, "Adding io resource for dev: %s, offset: 0x%x, addr: 0x%lx, size: 0x%lx\n", dev_path(dev),
-				 cfg->abase_offset, cfg->abase_addr, cfg->abase_size);
 	if (CONFIG(PMC_INVALID_READ_AFTER_WRITE)) {
 		/*
 		 * The ACPI IO BAR (offset 0x20) is not PCI compliant. We've
