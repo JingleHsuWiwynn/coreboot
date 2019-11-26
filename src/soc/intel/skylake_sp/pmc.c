@@ -38,24 +38,6 @@
 static u16 acpi_base = ACPI_BASE_ADDRESS;
 static u32 pwrm_base = PCH_PWRM_BASE_ADDRESS;
 
-static const struct reg_script pch_pmc_misc_init_script[] = {
-  /* Enable SCI and clear SLP requests. */
-  REG_IO_RMW32(ACPI_BASE_ADDRESS + PM1_CNT, ~SLP_TYP, SCI_EN),
-  REG_SCRIPT_END
-};
-
-
-static void pch_power_options(struct device *dev) { /* TODO */ }
-
-static void pch_set_acpi_mode(void)
-{
-	if (CONFIG(HAVE_SMI_HANDLER) && !acpi_is_wakeup_s3()) {
-		printk(BIOS_DEBUG, "Disabling ACPI via APMC:\n");
-		outb(APM_CNT_ACPI_DISABLE, APM_CNT);
-		printk(BIOS_DEBUG, "done.\n");
-	}
-}
-
 static void pmc_init(struct device *dev)
 {
 	FUNC_ENTER();
@@ -73,20 +55,9 @@ static void pmc_init(struct device *dev)
 				 (actl & ACPI_EN) ? "enabled" : "NOT enabled",
 				 (actl & PWRM_EN) ? "enabled" : "NOT enabled", (actl & 0x3));
 
-	if (0) {
-	/* Set the value for PCI command register. */
-	pci_write_config16(dev, PCI_COMMAND, PCI_COMMAND_MASTER |
-						     PCI_COMMAND_MEMORY |
-						     PCI_COMMAND_IO);
 
-	/* Setup power options. */
-	pch_power_options(dev);
+	/* TODO: set PCI command register, power option and ACPI mode*/
 
-	reg_script_run_on_dev(dev, pch_pmc_misc_init_script);
-
-	/* Configure ACPI mode. */
-	pch_set_acpi_mode();
-	}
 	FUNC_EXIT();
 }
 

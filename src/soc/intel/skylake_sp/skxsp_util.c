@@ -48,7 +48,6 @@
 #include <soc/msr.h>
 #include <soc/cpu.h>
 #include <soc/iomap.h>
-//#include <soc/smm.h>
 #include <soc/hob_mem.h>
 #include <soc/hob_iiouds.h>
 #include <soc/hob_memorymapdata.h>
@@ -128,7 +127,6 @@ void get_cpubusnos(u32 *bus0, u32 *bus1, u32 *bus2, u32 *bus3)
 
 u32 pci_read_csr32(u32 bus, u32 dev, u32 func, u32 reg)
 {
-  //outl(0x80000000 | bus << 16 | dev << 11 | func << 8 | (reg & 0xfc), 0xcf8);
   outl(CONFIG_MMCONF_BASE_ADDRESS | bus << 16 | dev << 11 | func << 8 | (reg & 0xfc), 0xcf8);
   return inl(0xcfc);
 }
@@ -141,12 +139,6 @@ void pci_write_csr32(u32 bus, u32 dev, u32 func, u32 reg, u32 val)
 
 u32 pci_read_mmio_reg(int bus, u32 dev, u32 func, int offset)
 {
-	/*
-		uintptr_t loc = DEFAULT_PCIEXBAR + (bus*32*8*0x1000) + (dev*8*0x1000) + (func * 0x1000);
-		printk(BIOS_DEBUG, "map for [bus: %d, device: %d, func: %d] => loc: %p\n", bus, dev, func, (void *)loc);
-		u32 val = *((u32 *)(loc + offset));
-		printk(BIOS_DEBUG, "\tvalue for offset 0x%x is 0x%x\n", offset, val);
-	*/
 	return pci_mmio_read_config32(PCI_DEV(bus, dev, func), offset);
 }
 
@@ -652,7 +644,6 @@ void get_iiostack_info(struct iiostack_resource *info)
                           fsp_hob_iio_universal_data_guid,
                           &hob_size);
   assert(hob != NULL && hob_size != 0);
-  //assert(hob != NULL && hob_size != 0 && hob_size == sizeof(IIO_UDS));
 
 	// find out total number of stacks
 	info->no_of_stacks = 0;
@@ -692,8 +683,8 @@ void xeonsp_init_cpu_config(void)
 	unsigned int core_count, thread_count;
 	unsigned int num_cpus;
 
-	/* sort APIC ids in asending order to identify apicid ranges for 
-     each numa domain 
+	/* sort APIC ids in asending order to identify apicid ranges for
+     each numa domain
    */
   for (dev = all_devices; dev; dev = dev->next) {
     if ((dev->path.type != DEVICE_PATH_APIC) ||
@@ -724,7 +715,7 @@ void xeonsp_init_cpu_config(void)
 			apic_ids_by_thread[index++] = apic_id;
 		}
 	}
-	
+
 	/* update apic_id, node_id in sorted order */
 	num_apics = 0;
   get_core_thread_bits(&core_bits, &thread_bits);
@@ -766,7 +757,7 @@ unsigned int get_srat_memory_entries(acpi_srat_mem_t *srat_mem)
 		uint64_t addr = (uint64_t) ((uint64_t)mem_element->BaseAddress << MEM_ADDR_64MB_SHIFT_BITS);
 		uint64_t size = (uint64_t) ((uint64_t)mem_element->ElementSize << MEM_ADDR_64MB_SHIFT_BITS);
 
-		printk(BIOS_DEBUG, "memory_map %d addr: 0x%llx, BaseAddress: 0x%x, size: 0x%llx, ElementSize: 0x%x, reserved: %d\n", 
+		printk(BIOS_DEBUG, "memory_map %d addr: 0x%llx, BaseAddress: 0x%x, size: 0x%llx, ElementSize: 0x%x, reserved: %d\n",
 					 e, addr, mem_element->BaseAddress, size, mem_element->ElementSize, (mem_element->Type & MEM_TYPE_RESERVED));
 
 		assert(mmap_index < MAX_ACPI_MEMORY_AFFINITY_COUNT);
@@ -784,7 +775,7 @@ unsigned int get_srat_memory_entries(acpi_srat_mem_t *srat_mem)
 				break;
 			}
 		}
-		if (skip) 
+		if (skip)
 			continue;
 
 		srat_mem[mmap_index].type = 1; /* Memory affinity structure */

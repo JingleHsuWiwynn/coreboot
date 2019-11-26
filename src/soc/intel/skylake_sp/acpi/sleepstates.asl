@@ -29,4 +29,3 @@ Name (_S5, Package (0x04)  // _S5_: S5 System State
 		0x00,
 		0x00
 })
-

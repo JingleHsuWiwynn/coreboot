@@ -40,14 +40,10 @@
 #include <soc/msr.h>
 #include <soc/cpu.h>
 #include <soc/iomap.h>
-//#include <soc/smm.h>
 #include <soc/soc_util.h>
 #include <soc/skxsp_util.h>
 #include <assert.h>
 
-
-//static char processor_name[64];
-//static struct smm_relocation_attrs relo_attrs;
 
 static void skx_configure_mca(void)
 {
@@ -69,9 +65,6 @@ static void skx_configure_mca(void)
 		wrmsr(IA32_MCG_CTL, msr);
 	}
 
-	/* TODO(adurbin): This should only be done on a cold boot. Also, some
-	   of these banks are core vs package scope. For now every CPU clears
-	   every bank. */
 	mca_configure();
 }
 
@@ -116,59 +109,6 @@ static const struct cpu_driver driver __cpu_driver = {
 	.id_table = cpu_table,
 };
 
-/*
- * MP and SMM loading initialization.
- */
-
-#if 0
-static void relocation_handler(int cpu, uintptr_t curr_smbase,
-			       uintptr_t staggered_smbase)
-{
-	msr_t smrr;
-	em64t100_smm_state_save_area_t *smm_state;
-	(void)cpu;
-
-	FUNC_ENTER();
-	/* Set up SMRR. */
-	smrr.lo = relo_attrs.smrr_base;
-	smrr.hi = 0;
-	wrmsr(IA32_SMRR_PHYS_BASE, smrr);
-	smrr.lo = relo_attrs.smrr_mask;
-	smrr.hi = 0;
-	wrmsr(IA32_SMRR_PHYS_MASK, smrr);
-	smm_state = (void *)(SMM_EM64T100_SAVE_STATE_OFFSET + curr_smbase);
-	smm_state->smbase = staggered_smbase;
-	FUNC_EXIT();
-}
-
-static void get_smm_info(uintptr_t *perm_smbase, size_t *perm_smsize,
-			 size_t *smm_save_state_size)
-{
-	void *smm_base;
-	size_t smm_size;
-	void *handler_base;
-	size_t handler_size;
-
-	FUNC_ENTER();
-	/* All range registers are aligned to 4KiB */
-	const uint32_t rmask = ~((1 << 12) - 1);
-
-	/* Initialize global tracking state. */
-	smm_region(&smm_base, &smm_size);
-	smm_subregion(SMM_SUBREGION_HANDLER, &handler_base, &handler_size);
-
-	relo_attrs.smbase = (uint32_t)smm_base;
-	relo_attrs.smrr_base = relo_attrs.smbase | MTRR_TYPE_WRBACK;
-	relo_attrs.smrr_mask = ~(smm_size - 1) & rmask;
-	relo_attrs.smrr_mask |= MTRR_PHYS_MASK_VALID;
-
-	*perm_smbase = (uintptr_t)handler_base;
-	*perm_smsize = handler_size;
-	*smm_save_state_size = sizeof(em64t100_smm_state_save_area_t);
-	FUNC_EXIT();
-}
-#endif
-
 static void set_max_turbo_freq(void)
 {
 	msr_t msr, perf_ctl;
@@ -210,29 +150,7 @@ static void pre_mp_init(void)
 	FUNC_ENTER();
 	printk(BIOS_DEBUG, "pre_mp_init entry\n");
 
-	/* ./src/cpu/x86/mtrr/mtrr.c */
-	/*
-		x86_setup_mtrrs_with_detect();
-	*/
 	x86_setup_fixed_mtrrs();
-
-#if 0
-  struct memranges *addr_space;
-  addr_space = get_physical_address_space();
-	print_physical_address_space(addr_space, __func__);
-	x86_mtrr_check();
-
-	int fixed_msrs[] = {0x250, 0x258, 0x259, 0x268, 0x269, 0x26a, 0x26b, 0x26c, 0x26d, 0x26e, 0x26f};
-	for (int i=0; i < 11; ++i) {
-		msr_t msr = rdmsr(fixed_msrs[i]);
-		printk(BIOS_DEBUG, "fixed msr: 0x%x, value: 0x%08x%08x\n", fixed_msrs[i], msr.hi, msr.lo);
-	}
-
-	for (int i=0; i < 10; ++i) {
-		printk(BIOS_DEBUG, "IA32_MTRR_PHYSBASE%d (msr: 0x%x): 0x%08x%08x, IA32_MTRR_PHYSMASK0%d (msr: 0x%x): 0x%08x%08x\n",
-					 i, 512 + 2*i, rdmsr(512+2*i).hi, rdmsr(512+2*i).lo, i, 513 + 2*i, rdmsr(513+2*i).hi, rdmsr(513+2*i).lo);
-	}
-#endif
 
 	FUNC_EXIT();
 }
@@ -244,7 +162,7 @@ static void post_mp_init(void)
 	set_max_turbo_freq();
 
 	/*
-	 * Now that all APs have been relocated as well as the BSP let SMIs
+	 * TODO: Now that all APs have been relocated as well as the BSP let SMIs
 	 * start flowing.
 	 */
 	//southcluster_smm_enable_smi();

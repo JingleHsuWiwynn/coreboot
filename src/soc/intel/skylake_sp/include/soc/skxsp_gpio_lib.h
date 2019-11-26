@@ -17,7 +17,6 @@
 #ifndef _SKXSP_GPIO_LIB_H_
 #define _SKXSP_GPIO_LIB_H_
 
-
 #include <soc/skxsp_gpio_pins.h>
 
 #define RShiftU64(Operand, Count) (Operand >> Count)

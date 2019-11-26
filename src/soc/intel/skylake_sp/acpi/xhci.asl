@@ -23,46 +23,12 @@ Device (XHC1)
 
 	Name (_PRW, Package(){ 0x0D, 3 }) // Power Resources for Wake
 
-/*
-	OperationRegion (XHCP, SystemMemory, (GPCB () + 0x000A0000), 0x0100)
-	Field (XHCP, AnyAcc, Lock, Preserve)
-	{
-			Offset (0x04), 
-			PDBM,   16, 
-			Offset (0x10), 
-			MEMB,   64
-	}
-*/
-
-/*
-	Method (_PRW, 0, NotSerialized)  // _PRW: Power Resources for Wake
-	{
-			Return (GPRW (0x6D, 0x04))
-	}
-*/
-
-
 	// Leave USB ports on for to allow Wake from USB
 
 	Method(_S3D,0)	// Highest D State in S3 State
 	{
 		Return (2)
 	}
-
-/*
-	Device (HUB7)
-	{
-		Name (_ADR, 0x00000000)
-
-		// How many are there?
-		Device (PRT1) { Name (_ADR, 1) } // USB Port 0
-		Device (PRT2) { Name (_ADR, 2) } // USB Port 1
-		Device (PRT3) { Name (_ADR, 3) } // USB Port 2
-		Device (PRT4) { Name (_ADR, 4) } // USB Port 3
-		Device (PRT5) { Name (_ADR, 5) } // USB Port 4
-		Device (PRT6) { Name (_ADR, 6) } // USB Port 5
-	}
-*/
 
 		Device (RHUB)
 		{
@@ -118,71 +84,5 @@ Device (XHC1)
 						Name (_ADR, 0x0A)  // _ADR: Address
 				}
 
-
-/*
-				Device (USR1)
-				{
-						Method (_ADR, 0, NotSerialized)  // _ADR: Address
-						{
-								Return ((USRA () + 0x00))
-						}
-				}
-
-				Device (USR2)
-				{
-						Method (_ADR, 0, NotSerialized)  // _ADR: Address
-						{
-								Return ((USRA () + 0x01))
-						}
-				}
-
-				Device (SS01)
-				{
-						Method (_ADR, 0, NotSerialized)  // _ADR: Address
-						{
-								Return ((SSPA () + 0x00))
-						}
-				}
-
-				Device (SS02)
-				{
-						Method (_ADR, 0, NotSerialized)  // _ADR: Address
-						{
-								Return ((SSPA () + 0x01))
-						}
-				}
-
-				Device (SS03)
-				{
-						Method (_ADR, 0, NotSerialized)  // _ADR: Address
-						{
-								Return ((SSPA () + 0x02))
-						}
-				}
-
-				Device (SS04)
-				{
-						Method (_ADR, 0, NotSerialized)  // _ADR: Address
-						{
-								Return ((SSPA () + 0x03))
-						}
-				}
-
-				Device (SS05)
-				{
-						Method (_ADR, 0, NotSerialized)  // _ADR: Address
-						{
-								Return ((SSPA () + 0x04))
-						}
-				}
-
-				Device (SS06)
-				{
-						Method (_ADR, 0, NotSerialized)  // _ADR: Address
-						{
-								Return ((SSPA () + 0x05))
-						}
-				}
-*/
 		}
 }

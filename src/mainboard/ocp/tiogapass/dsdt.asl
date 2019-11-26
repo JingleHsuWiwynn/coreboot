@@ -42,7 +42,7 @@ DefinitionBlock(
 	#include <cpu/intel/common/acpi/cpu.asl>
 
 	Scope (\_SB) {
-		#include <soc/intel/skylake_sp/acpi/iiostack_2s.asl>
+		#include <soc/intel/skylake_sp/acpi/iiostack.asl>
 	}
 
 	/* Chipset specific sleep states */

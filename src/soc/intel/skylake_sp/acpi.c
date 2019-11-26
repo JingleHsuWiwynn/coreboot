@@ -77,20 +77,12 @@ static acpi_cstate_t cstate_map[] = {
 		.latency = 10,
 		.power = 10,
 	  .resource = MWAIT_RES(0, 1),
-#if 0
-		.resource = CSTATE_RES(ACPI_ADDRESS_SPACE_IO, 8, 0,
-				       ACPI_BASE_ADDRESS + 0x14),
-#endif
 	},
 	{
 		.ctype = 3,		/* ACPI C3 */
 		.latency = 50,
 		.power = 10,
 	  .resource = MWAIT_RES(1, 0),
-#if 0
-		.resource = CSTATE_RES(ACPI_ADDRESS_SPACE_IO, 8, 0,
-				       ACPI_BASE_ADDRESS + 0x15),
-#endif
 	}
 };
 
@@ -211,9 +203,7 @@ unsigned long acpi_fill_madt(unsigned long current)
   /* Local APICs */
   current = xeonsp_acpi_create_madt_lapics(current);
 
-  /* IOAPIC */
-   /*
-    IOAPIC
+  /* IOAPIC
     PCH I/O APIC is on LPC
     The IIO I/O APIC is fixed on PCI <bus bridge>:05.4
     fec00000-fec003ff : IOAPIC 0 [Stack 0]
@@ -226,7 +216,7 @@ unsigned long acpi_fill_madt(unsigned long current)
       64:05.4 PIC: Intel Corporation Device 2036 (rev 04) (prog-if 20 [IO(X)-APIC])
     fec18000-fec183ff : IOAPIC 4 [Stack 3]
       b2:05.4 PIC: Intel Corporation Device 2036 (rev 04) (prog-if 20 [IO(X)-APIC])
-   */
+  */
 
 	hob = fsp_find_extension_hob_by_guid( fsp_hob_iio_universal_data_guid, &hob_size);
 	assert(hob != NULL && hob_size != 0);
@@ -430,8 +420,7 @@ void generate_cpu_entries(struct device *device)
 			/* Generate C-state tables */
 			if (0) generate_c_state_entries();
 
-			/* Soc specific power states generation */
-			//soc_power_states_generation(core_id, cores_per_package);
+			/* TODO: Soc specific power states generation */
 
 			acpigen_pop_len();
 		}
@@ -568,19 +557,15 @@ void acpi_fill_fadt(acpi_fadt_t *fadt)
 	fadt->header.revision = get_acpi_table_revision(FADT);
 
 	fadt->sci_int = acpi_sci_irq();
-	fadt->smi_cmd = 0x00;
-	fadt->acpi_enable = 0x00;
-	fadt->acpi_disable = 0x00;
-/* Following are the values taken from production system
-	fadt->smi_cmd = 0xB2;
-	fadt->acpi_enable = 0xA0;
-	fadt->acpi_disable = 0xA1;
-*/
 /*
+	TODO: enabled SMM mode switch when SMM handlers are set up.
 	fadt->smi_cmd = APM_CNT;
 	fadt->acpi_enable = APM_CNT_ACPI_ENABLE;
 	fadt->acpi_disable = APM_CNT_ACPI_DISABLE;
 */
+	fadt->smi_cmd = 0x00;
+	fadt->acpi_enable = 0x00;
+	fadt->acpi_disable = 0x00;
 	fadt->s4bios_req = 0x0;
 	fadt->pstate_cnt = 0;
 
@@ -619,11 +604,6 @@ void acpi_fill_fadt(acpi_fadt_t *fadt)
 			ACPI_FADT_C2_MP_SUPPORTED | ACPI_FADT_SLEEP_BUTTON |
 			ACPI_FADT_RESET_REGISTER | ACPI_FADT_SEALED_CASE |
 			ACPI_FADT_S4_RTC_WAKE | ACPI_FADT_PLATFORM_CLOCK;
-
-	/*
-	if (config && config->s0ix_enable)
-		fadt->flags |= ACPI_FADT_LOW_PWR_IDLE_S0;
-	*/
 
 	fadt->reset_reg.space_id = 1;
 	fadt->reset_reg.bit_width = 8;
@@ -707,12 +687,6 @@ acpi_tstate_t *soc_get_tss_table(int *entries)
 {
 	*entries = ARRAY_SIZE(skylake_sp_tss_table);
 	return skylake_sp_tss_table;
-}
-
-void soc_power_states_generation(int core_id, int cores_per_package)
-{
-	//generate_p_state_entries(core_id, cores_per_package);
-	//generate_t_state_entries(core_id, cores_per_package);
 }
 
 int soc_madt_sci_irq_polarity(int sci)
@@ -830,7 +804,7 @@ unsigned long northbridge_write_acpi_tables(struct device *device,
 	current += srat->header.length;
 	acpi_add_table(rsdp, srat);
 
-	
+
 	/* SLIT */
 	current = ALIGN(current, 8);
 	printk(BIOS_DEBUG, "ACPI:   * SLIT at %lx\n", current);

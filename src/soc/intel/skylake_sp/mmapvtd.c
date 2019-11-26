@@ -197,11 +197,6 @@ static void mc_report_map_entries(struct device *dev, uint64_t *values)
  * |    Conventional Memory   |
  * |      (DOS Range)         | reserved =? nosave memory: [mem 0x00000000-0x00000fff]
  * +--------------------------+ 0
-0x6fbf dfff
-0x0010 0000
-0x0100 0000
-0x0162 722f
- *
  */
 
 static void mc_add_dram_resources(struct device *dev, int *res_count)
@@ -225,19 +220,6 @@ static void mc_add_dram_resources(struct device *dev, int *res_count)
 	printk(BIOS_SPEW, "cbmem_top: 0x%lx, fsp range: [0x%llx - 0x%llx], top_of_ram: 0x%llx\n", (uintptr_t) cbmem_top(),
 				 range_entry_base(&fsp_mem), range_entry_end(&fsp_mem), top_of_ram);
 
-#if 0
-	/* Reserved Memory (DOS region, 0x0 to 0xfff */
-	base_kb =  0;
-	size_kb = (0x1000 >> 10);
-	LOG_MEM_RESOURCE("mmio_legacy", dev, index, base_kb, size_kb);
-  mmio_resource(dev, index++, base_kb, size_kb);
-
-	/* Conventional Memory (DOS region, 0x0 to 0x9FFFF) */
-  base_kb = (0x1000 >> 10);
-  size_kb = (0xa0000 >> 10);
-	LOG_MEM_RESOURCE("legacy_ram", dev, index, base_kb, size_kb);
-  ram_resource(dev, index++, base_kb, size_kb);
-#endif
 	/* Conventional Memory (DOS region, 0x0 to 0x9FFFF) */
   base_kb = 0;
   size_kb = (0xa0000 >> 10);

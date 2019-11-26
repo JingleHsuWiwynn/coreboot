@@ -38,7 +38,7 @@ typedef struct global_nvs_t {
 	u8 tpmp;  /* 0x12 - TPM Present and Enabled */
 	u8 tlvl;  /* 0x13 - Throttle Level */
 	u8 ppcm;  /* 0x14 - Maximum P-state usable by OS */
-	u8	uior; /* 0x15 - UART debug controller init on S3 resume */
+	u8 uior; /* 0x15 - UART debug controller init on S3 resume */
 	u8 rsvd1[10];
 
 	/* Device Config */

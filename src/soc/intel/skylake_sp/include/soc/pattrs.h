@@ -25,7 +25,7 @@ enum { IACORE_MIN, IACORE_LFM, IACORE_MAX, IACORE_TURBO, IACORE_END };
 
 /* The pattrs structure is a common place to stash pertinent information
  * about the processor or platform. Instead of going to the source (msrs, cpuid)
- * every time an attribute is needed use the pattrs structure.
+ * every time an attribute is needed, use the pattrs structure.
  */
 struct pattrs {
 	msr_t platform_id;

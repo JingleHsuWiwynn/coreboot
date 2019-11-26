@@ -203,10 +203,6 @@ static void add_res_to_stack(struct stack_dev_resource **root, struct device *de
 			die("assign_resource_to_stack(): out of memory.\n");
 		memset(nr, 0, sizeof(struct stack_dev_resource));
 		nr->align = res->align;
-		/*
-		printk(BIOS_DEBUG, "Stack [0x%x - 0x%x] Adding new dev resource for align %d\n",
-			stack->sres.BusBase, stack->sres.BusLimit, nr->align);
-		*/
 		if (!cur) {
 			*root = nr; /* head node */
 		}
@@ -236,10 +232,6 @@ static void add_res_to_stack(struct stack_dev_resource **root, struct device *de
 	npr->res = res;
 	npr->dev = dev;
 	npr->next = NULL;
-	/*
-	printk(BIOS_DEBUG, "\tStack [0x%x - 0x%x] Adding pci resource for dev %s align %d base 0x%llx size 0x%llx align %d\n",
-		stack->sres.BusBase, stack->sres.BusLimit, dev_path(npr->dev), nr->align, npr->res->base, npr->res->size, npr->res->align);
-	*/
 
 	if (nr->children == NULL) {
 		nr->children = npr;
@@ -330,25 +322,11 @@ static void reserve_dev_resources(STACK_RES *stack, unsigned long res_type, stru
 				base = orig_base + (1ULL << bridge->gran);
 		}
 
-		/*
-		printk(BIOS_DEBUG, "\tBridge before change res %s base 0x%llx size 0x%llx limit 0x%llx align %d gran %d\n",
-					 resource_type(bridge), bridge->base, bridge->size, bridge->limit, bridge->align, bridge->gran);
-		*/
-
 		bridge->size = round(base, bridge->align) - bridge->base;
-
-		/*
-		printk(BIOS_DEBUG, "\tBridge size 0x%llx round 0x%llx base 0x%llx\n", bridge->size, round(base, bridge->align),
-					 bridge->base);
-		*/
 
 		bridge->limit = bridge->base + bridge->size - 1;
 		bridge->flags |= (IORESOURCE_ASSIGNED);
 		base = bridge->limit + 1;
-		/*
-		printk(BIOS_DEBUG, "\tBridge after change res %s base 0x%llx size 0x%llx limit 0x%llx align %d new_base 0x%llx\n",
-					 resource_type(bridge), bridge->base, bridge->size, bridge->limit, bridge->align, base);
-		*/
 	}
 
 	/* update new limits */
@@ -405,12 +383,11 @@ static void assign_stack_resources(struct iiostack_resource *stack_list, struct 
 						(!bridge ||
 						 ((bridge->flags & (IORESOURCE_IO | IORESOURCE_MEM | IORESOURCE_PREFETCH | IORESOURCE_PCI64)) ==
               (res->flags & (IORESOURCE_IO | IORESOURCE_MEM | IORESOURCE_PREFETCH | IORESOURCE_PCI64))))) {
-					//printk(BIOS_DEBUG, "%s: dev %s res %s is a bridge\n", __func__, dev_path(curdev), resource_type(res));
 					assign_stack_resources(stack_list, curdev, res);
 					printk(BIOS_DEBUG, "%s: dev %s res %s bridge window base 0x%llx limit 0x%llx (parent res: %s)\n",
 								 __func__, dev_path(curdev), resource_type(res), res->base, res->limit, (bridge ? resource_type(res) : ""));
 					if (bridge) {
-						if (!(bridge->flags & IORESOURCE_ASSIGNED)) { /* for 1st time update, overlading IORESOURCE_ASSIGNED */
+						if (!(bridge->flags & IORESOURCE_ASSIGNED)) { /* for 1st time update, overloading IORESOURCE_ASSIGNED */
 							bridge->base = res->base;
 							bridge->limit = res->limit;
 							bridge->flags |= (IORESOURCE_ASSIGNED);
@@ -431,16 +408,6 @@ static void assign_stack_resources(struct iiostack_resource *stack_list, struct 
 		}
 
 		/* Pick non-bridged resources for resouce allocation for each resource type */
-		#if 0
-		unsigned long flags[3] = {IORESOURCE_IO, IORESOURCE_MEM, (IORESOURCE_PCI64|IORESOURCE_MEM|IORESOURCE_PREFETCH)};
-		u8 no_res_types = 3;
-		if (bridge) {
-			flags[0] = bridge->flags & (IORESOURCE_IO | IORESOURCE_MEM | IORESOURCE_PREFETCH);
-			if (bridge->flags & IORESOURCE_PREFETCH)
-				flags[0] |= IORESOURCE_PCI64;
-			no_res_types = 1;
-		}
-		#endif
 		unsigned long flags[5] = {IORESOURCE_IO, IORESOURCE_MEM, (IORESOURCE_PCI64|IORESOURCE_MEM),
 					(IORESOURCE_MEM|IORESOURCE_PREFETCH), (IORESOURCE_PCI64|IORESOURCE_MEM|IORESOURCE_PREFETCH)};
 		u8 no_res_types = 5;
@@ -724,7 +691,6 @@ static void soc_init(void *data)
 static void soc_final(void *data)
 {
 	FUNC_ENTER();
-	//dump_iio_stack_basic();
 	FUNC_EXIT();
 }
 
@@ -784,7 +750,7 @@ struct pci_operations soc_pci_ops = {
  */
 static void spi_flash_init_cb(void *unused)
 {
-	//fast_spi_init();
+       //fast_spi_init();
 }
 
 BOOT_STATE_INIT_ENTRY(BS_PRE_DEVICE, BS_ON_ENTRY, spi_flash_init_cb, NULL);

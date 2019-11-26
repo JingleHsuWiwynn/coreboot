@@ -38,13 +38,6 @@ void soc_display_fspm_upd_params(
 	DISPLAY_UPD(PcdFspMrcDebugPrintErrorLevel);
 	DISPLAY_UPD(PcdFspKtiDebugPrintErrorLevel);
 	DISPLAY_UPD(PcdHsuartDevice);
-#if 0
-	DISPLAY_UPD(PcdCustomerRevision);
-	DISPLAY_UPD(GpioConfig);
-	DISPLAY_UPD(IioBifurcationConfig);
-	DISPLAY_UPD(IioSlotConfig);
-	DISPLAY_UPD(KtieParamConfig);
-#endif
 
 	#undef DISPLAY_UPD
 

@@ -25,7 +25,6 @@
 #include <soc/pmc.h>
 #include <soc/smbus.h>
 
-/* TODO: do we need below PSS_ used from denverton_ns */
 /* P-state configuration */
 #define PSS_MAX_ENTRIES   15
 #define PSS_RATIO_STEP    1
@@ -183,10 +182,6 @@ struct chipset_power_state {
 struct chipset_power_state *fill_power_state(void);
 #endif
 
-/* Return the selected ACPI SCI IRQ */
-/* TODO - delete this
-  int acpi_sci_irq(void); */
-
 /* Get base address PMC memory mapped registers. */
 uint8_t *pmc_mmio_regs(void);
 
@@ -212,7 +207,6 @@ static inline int deep_s5_enabled(void)
 	return !!(deep_s5_pol & (S5DC_GATE_SUS | S5AC_GATE_SUS));
 }
 
-// TODO - remove and reuse skylake/pmutil
 /* Power Management Utility Functions. */
 uint32_t clear_smi_status(void);
 uint16_t clear_pm1_status(void);
@@ -227,6 +221,5 @@ void disable_pm1_control(uint32_t mask);
 void enable_gpe(uint32_t mask);
 void disable_gpe(uint32_t mask);
 void disable_all_gpe(void);
-
 
 #endif

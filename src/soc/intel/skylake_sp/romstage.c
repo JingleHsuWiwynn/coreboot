@@ -24,72 +24,13 @@
 #include <soc/iomap.h>
 #include <soc/pci_devs.h>
 #include <soc/pcr.h>
+#include <soc/pm.h>
 #include <soc/pmc.h>
 #include <soc/romstage.h>
 #include <soc/smbus.h>
 #include <soc/smm.h>
 #include <soc/soc_util.h>
 #include <soc/skxsp_util.h>
-
-int rtc_failure(void);
-
-#if 0
-static void early_pmc_init(void)
-{
-	/* PMC (B0:D31:F2). */
-	pci_devfn_t dev = PCH_PMC_DEV;
-
-	/* Is PMC present */
-	if (pci_read_config16(dev, 0) == 0xffff) {
-		printk(BIOS_ERR, "PMC controller (B0:D31:F2) does not present!\n");
-		return;
-	}
-
-	uint32_t pwrm_base =
-		pci_read_config32(dev, PMC_PWRM_BASE) & MASK_PMC_PWRM_BASE;
-	if (!pwrm_base) {
-		printk(BIOS_ERR, "PWRM base address is not configured!\n");
-		return;
-	}
-}
-
-static void early_tco_init(void)
-{
-	/* SMBUS (B0:D31:F4). */
-	pci_devfn_t dev = PCI_DEV(0, SMBUS_DEV, SMBUS_FUNC);
-
-	/* Configure TCO base address */
-	if (pci_read_config16(dev, TCOBASE) == 0xffff) {
-		printk(BIOS_ERR, "SMBus controller (B0:D31:F4) does not present!\n");
-		return;
-	}
-	uint16_t tco_ctl = pci_read_config16(dev, TCOCTL);
-	if (tco_ctl & TCOBASE_LOCK) {
-		printk(BIOS_ERR, "TCO base register already has been locked!\n");
-	} else {
-		pci_write_config16(dev, TCOCTL, tco_ctl & (~TCOBASE_EN));
-		pci_write_config16(dev, TCOBASE, DEFAULT_TCO_BASE | 0x1);
-		pci_write_config16(dev, TCOCTL, tco_ctl | TCOBASE_EN);
-	}
-
-	uint16_t tco_base = pci_read_config16(dev, TCOBASE) & MASK_TCOBASE;
-	printk(BIOS_DEBUG, "TCO base address set to 0x%x!\n", tco_base);
-
-	/* Disable the TCO timer expiration from causing a system reset */
-	MMIO32_OR(PCH_PCR_ADDRESS(PID_SMB, PCR_SMBUS_GC),
-		(uint32_t)PCR_SMBUS_GC_NR);
-
-	/*  Halt the TCO timer */
-	uint16_t reg16 = inw(tco_base + TCO1_CNT);
-	reg16 |= TCO_TMR_HLT;
-	outw(reg16, tco_base + TCO1_CNT);
-
-	/* Clear the Second TCO status bit */
-	reg16 = inw(tco_base + TCO2_STS);
-	reg16 |= TCO2_STS_SECOND_TO;
-	outw(reg16, tco_base + TCO2_STS);
-}
-#endif
 
 int rtc_failure(void)
 {
@@ -116,10 +57,7 @@ asmlinkage void car_stage_entry(void)
 
   rtc_init();
 
-#if 0
-	early_tco_init();
-	early_pmc_init();
-#endif
+	/*TODO: tco/pmc init in early romstage */
 
 	fsp_memory_init(false);
 
@@ -173,11 +111,8 @@ void platform_fsp_memory_init_params_cb(FSPM_UPD *mupd, uint32_t version)
 	FSPM_CONFIG *m_cfg = &mupd->FspmConfig;
 
 	mupd->FspmUpdVersion = FSP_UPD_VERSION;
-	// NOTE - this setting doesn't work
-	// m_cfg->PcdHsuartDevice = 2;
 	m_cfg->SafetyConfig.disable_SNI_BIOS_flc = 1;
 	m_cfg->BoardId = AndersonLakeRvp48G;
-	//m_cfg->BoardId = UnknownBoardType;
   // ErrorLevel - 0 (disable) to 8 (verbose)
 	m_cfg->PcdFspMrcDebugPrintErrorLevel = 0;
 	m_cfg->PcdFspKtiDebugPrintErrorLevel = 0;
@@ -195,4 +130,3 @@ __weak void mainboard_memory_init_params(FSPM_UPD *mupd)
 {
 	/* Do nothing */
 }
-
