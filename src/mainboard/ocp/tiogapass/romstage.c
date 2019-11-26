@@ -25,7 +25,6 @@
 #include "skxsp_tp_gpio.h"
 #include "skxsp_tp_iio.h"
 
-
 void mainboard_config_gpios(FSPM_UPD *mupd);
 void mainboard_config_iio(FSPM_UPD *mupd);
 void mainboard_memory_init_params(FSPM_UPD *mupd);
