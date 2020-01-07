@@ -24,6 +24,8 @@
 #define LPC_DEFAULT_IO_RANGE_UPPER 0x1000
 
 /* PCI Configuration Space (D31:F0): LPC */
+#define LPC_DEV			31
+#define LPC_FUNC		0
 #define PCH_LPC_DEV PCI_DEV(0, LPC_DEV, LPC_FUNC)
 
 #define SERIRQ_CNTL 0x64

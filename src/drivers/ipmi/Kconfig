@@ -1,6 +1,6 @@
 config IPMI_KCS
 	bool
-	default n
+	default y
 
 config IPMI_KCS_REGISTER_SPACING
 	int
