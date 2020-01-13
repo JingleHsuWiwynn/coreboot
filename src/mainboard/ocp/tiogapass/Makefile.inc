@@ -21,7 +21,7 @@ ramstage-y += ramstage.c
 ramstage-y += boardid.c
 #ramstage-y += hsio.c
 ramstage-$(CONFIG_HAVE_ACPI_TABLES) += fadt.c
-
+ramstage-y += ipmi.c
 CPPFLAGS_common += -Isrc/mainboard/$(MAINBOARDDIR)/
 CPPFLAGS_common += -I$(src)/soc/intel/skylake_sp/include
 CPPFLAGS_common += -I$(CONFIG_FSP_HEADER_PATH)

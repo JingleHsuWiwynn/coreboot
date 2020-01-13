@@ -17,7 +17,10 @@
 #include <console/console.h>
 #include <fsp/api.h>
 #include <soc/ramstage.h>
+#include <pc80/mc146818rtc.h>
+#include <cf9_reset.h>
 #include "emmc.h"
+#include "ipmi.h"
 
 static int get_emmc_dll_info(uint16_t signature, size_t num_of_entry,
 			     BL_EMMC_INFORMATION **config)
@@ -54,3 +57,19 @@ void mainboard_silicon_init_params(FSPS_UPD *params)
 	params->FspsConfig.PcdEMMCDLLConfigPtr =
 		(uint32_t)&emmc_config->eMMCDLLConfig;
 }
+
+static void mainboard_enable(struct device *dev)
+{
+	ipmi_oem_rsp_t rsp;
+
+	if (is_ipmi_clear_cmos_set(&rsp)) {
+		cmos_init(1);
+		clear_ipmi_flags(&rsp);
+		system_reset();
+	}
+
+}
+
+struct chip_operations mainboard_ops = {
+	.enable_dev = mainboard_enable,
+};
