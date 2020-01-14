@@ -19,8 +19,19 @@
 #include <soc/ramstage.h>
 #include <pc80/mc146818rtc.h>
 #include <cf9_reset.h>
+#include <drivers/vpd/vpd.h>
+#include <console/console.h>
+#include <drivers/ipmi/ipmi_ops.h>
+#include <string.h>
 #include "emmc.h"
 #include "ipmi.h"
+/* VPD variable for enabling/disabling FRB2 timer. */
+#define FRB2_TIMER "FRB2_TIMER"
+/* VPD variable for setting FRB2 timer countdown value. */
+#define FRB2_COUNTDOWN "FRB2_COUNTDOWN"
+#define VPD_LEN 10
+/* Default countdown is 15 minutes. */
+#define DEFAULT_COUNTDOWN 9000
 
 static int get_emmc_dll_info(uint16_t signature, size_t num_of_entry,
 			     BL_EMMC_INFORMATION **config)
@@ -58,10 +69,40 @@ void mainboard_silicon_init_params(FSPS_UPD *params)
 		(uint32_t)&emmc_config->eMMCDLLConfig;
 }
 
+static void init_frb2_wdt(void)
+{
+
+	char val[VPD_LEN];
+	/* Enable FRB2 timer by default. */
+	u8 enable = 1;
+	uint16_t countdown;
+
+	if (vpd_get_bool(FRB2_TIMER, VPD_RW, &enable)) {
+		if (!enable) {
+			printk(BIOS_DEBUG, "Disable FRB2 timer\n");
+			ipmi_stop_bmc_wdt(BMC_KCS_BASE);
+		}
+	}
+	if (enable) {
+		if (vpd_gets(FRB2_COUNTDOWN, val, VPD_LEN, VPD_RW)) {
+			countdown = (uint16_t)atol(val);
+			printk(BIOS_DEBUG, "FRB2 timer countdown set to: %d\n",
+				countdown);
+		} else {
+			printk(BIOS_DEBUG, "FRB2 timer use default value: %d\n",
+				DEFAULT_COUNTDOWN);
+			countdown = DEFAULT_COUNTDOWN;
+		}
+		ipmi_init_and_start_bmc_wdt(BMC_KCS_BASE, countdown,
+			TIMEOUT_HARD_RESET);
+	}
+}
+
 static void mainboard_enable(struct device *dev)
 {
 	ipmi_oem_rsp_t rsp;
 
+	init_frb2_wdt();
 	if (is_ipmi_clear_cmos_set(&rsp)) {
 		cmos_init(1);
 		clear_ipmi_flags(&rsp);
