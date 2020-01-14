@@ -19,6 +19,7 @@
 #include <soc/ramstage.h>
 #include <pc80/mc146818rtc.h>
 #include <cf9_reset.h>
+#include <smbios.h>
 #include <drivers/vpd/vpd.h>
 #include <console/console.h>
 #include <drivers/ipmi/ipmi_ops.h>
@@ -114,3 +115,9 @@ static void mainboard_enable(struct device *dev)
 struct chip_operations mainboard_ops = {
 	.enable_dev = mainboard_enable,
 };
+
+/* Override SMBIOS uuid from the value from BMC. */
+void smbios_system_set_uuid(u8 *uuid)
+{
+	ipmi_get_system_guid(BMC_KCS_BASE, uuid);
+}
